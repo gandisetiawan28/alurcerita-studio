@@ -1374,13 +1374,6 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     return html;
   }
 
-    if (inParagraph) {
-      html += '</p>';
-    }
-
-    return html;
-  }
-
   function formatInlineMarkdown(text) {
     let safe = escapeHtml(text);
     // Bold
