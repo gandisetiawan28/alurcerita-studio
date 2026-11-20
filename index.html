@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>AlurCerita Studio — Studio Naskah Alur Cerita Film</title>
+  <meta name="description" content="Platform otomasi penulisan naskah alur cerita film berbasis multi-agent AI dengan format voiceover dan arahan editor siap pakai.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css?v=2.6">
+</head>
+<body>
+  <!-- Accessibility Skip Link -->
+  <a href="#studio-editor" class="skip-link">Langsung ke editor naskah</a>
+
+  <!-- Top Studio Header -->
+  <header class="studio-header" role="banner">
+    <div class="header-left">
+      <div class="brand">
+        <span class="brand-badge" aria-hidden="true">REC</span>
+        <div class="brand-text">
+          <span class="brand-title">AlurCerita Studio</span>
+          <span class="brand-subtitle">Editorial Script Engine</span>
+        </div>
+      </div>
+
+      <!-- Navigation Pill Switcher: Home vs Studio -->
+      <nav class="header-nav-pills" aria-label="Navigasi Utama">
+        <button type="button" class="nav-pill-btn" id="navBtnHome">
+          <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+          <span>Home</span>
+        </button>
+        <button type="button" class="nav-pill-btn active" id="navBtnStudio">
+          <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+          <span>Studio</span>
+        </button>
+      </nav>
+
+      <!-- Active Project Indicator -->
+      <div class="active-project-pill" id="activeProjectPill">
+        <span class="dot-online" aria-hidden="true"></span>
+        <span id="activeProjectTitleDisplay">The Karate Kid (2010)</span>
+      </div>
+
+      <!-- Preset Selector (Studio Only) -->
+      <div class="header-preset" id="headerPresetBox">
+        <label for="channelPresetSelect" class="preset-label">Channel:</label>
+        <div class="select-wrapper">
+          <select id="channelPresetSelect" aria-label="Pilih Profil Channel">
+            <option value="aaalur" selected>AAAlur Cerita (Halo Nakama)</option>
+            <option value="malas">Malas Movie (Halo Malas People)</option>
+            <option value="movie_rastis">Movie Rastis (Halo Cinefile)</option>
+            <option value="custom">+ Profil Baru...</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="header-center" id="headerCenterBox">
+      <div class="metric-pill" id="headerMetrics">
+        <span class="metric-item">
+          <strong id="metricWordCount">3.420</strong> kata
+        </span>
+        <span class="metric-divider" aria-hidden="true">•</span>
+        <span class="metric-item">
+          VO: <strong id="metricDuration">~24 mnt</strong>
+        </span>
+      </div>
+    </div>
+
+    <div class="header-right" id="headerRightBox">
+      <!-- API Key Manager Trigger (Smart Round-Robin) -->
+      <button type="button" class="btn-subtle header-key-btn" id="btnOpenKeyModal" title="Kelola Kunci API Gemini (Smart Round-Robin & Auto Failover)">
+        <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <circle cx="7.5" cy="15.5" r="5.5"></circle>
+          <path d="m21 2-9.6 9.6"></path>
+          <path d="m15.5 7.5 3 3L22 7l-3-3"></path>
+        </svg>
+        <span>API Keys</span>
+        <span class="key-count-chip" id="headerKeyCountBadge">0</span>
+      </button>
+
+      <!-- Studio Actions -->
+      <div class="studio-header-actions" id="studioHeaderActions">
+        <!-- Voiceover TTS Studio Trigger (Google Colab) -->
+        <button type="button" class="btn-subtle header-tts-btn" id="btnOpenTtsModal" title="Ubah Naskah Menjadi Suara Voiceover (Google Colab Kokoro / XTTS v2)">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+            <line x1="12" y1="19" x2="12" y2="23"></line>
+            <line x1="8" y1="23" x2="16" y2="23"></line>
+          </svg>
+          <span>Voiceover TTS</span>
+          <span class="tts-dot-status" id="ttsColabDotStatus" title="Status koneksi Colab"></span>
+        </button>
+
+        <button type="button" class="btn-subtle" id="btnTogglePrompter" title="Buka Mode Teleprompter Layar Penuh (Shortcut: Alt+P)">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+            <line x1="8" y1="21" x2="16" y2="21"></line>
+            <line x1="12" y1="17" x2="12" y2="21"></line>
+          </svg>
+          <span>Prompter</span>
+        </button>
+
+        <div class="dropdown-wrapper">
+          <button type="button" class="btn-subtle" id="btnExportMenu" aria-expanded="false" aria-haspopup="true">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            <span>Ekspor</span>
+            <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </button>
+          <div class="dropdown-menu" id="exportDropdown" role="menu" hidden>
+            <button type="button" class="dropdown-item" id="btnCopyCleanVO" role="menuitem">
+              <span class="item-title">Salin Voiceover Bersih</span>
+              <span class="item-desc">Semua tag arahan visual dibersihkan</span>
+            </button>
+            <button type="button" class="dropdown-item" id="btnCopyEditorCues" role="menuitem">
+              <span class="item-title">Salin Arahan Editor Saja</span>
+              <span class="item-desc">Daftar adegan visual untuk timeline editing</span>
+            </button>
+            <button type="button" class="dropdown-item" id="btnCopyFullMarkdown" role="menuitem">
+              <span class="item-title">Salin Naskah Lengkap</span>
+              <span class="item-desc">Format teks Markdown utuh</span>
+            </button>
+            <div class="dropdown-divider" role="separator"></div>
+            <button type="button" class="dropdown-item" id="btnPrintPdf" role="menuitem">
+              <span class="item-title">Cetak / Unduh PDF</span>
+              <span class="item-desc">Format dokumen standar cetak A4</span>
+            </button>
+          </div>
+        </div>
+
+        <button type="button" class="btn-primary" id="btnQuickSave" title="Simpan Proyek ke SQLite (Ctrl+S)">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+            <polyline points="17 21 17 13 7 13 7 21"></polyline>
+            <polyline points="7 3 7 8 15 8"></polyline>
+          </svg>
+          <span>Simpan SQL</span>
+        </button>
+      </div>
+
+      <!-- Home Actions (Home View Only) -->
+      <div class="home-header-actions" id="homeHeaderActions" hidden>
+        <button type="button" class="btn-primary" id="btnHeaderNewProject">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          <span>+ Proyek Baru</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Mobile View Switcher -->
+  <nav class="mobile-nav-bar" id="mobileNavBar" aria-label="Navigasi Tampilan Mobile">
+    <button type="button" class="mobile-tab-btn active" data-target="studio-sidebar">1. Input Sumber & Preset</button>
+    <button type="button" class="mobile-tab-btn" data-target="studio-editor">2. Naskah & Reader</button>
+  </nav>
+
+  <!-- =======================================================================
+       VIEW 1: HOME / PROJECTS MANAGEMENT (SQLite Driven)
+       ======================================================================= -->
+  <section class="home-workspace" id="homeWorkspace" hidden>
+    <div class="home-container">
+      
+      <!-- Home Hero Header -->
+      <header class="home-hero">
+        <div class="home-hero-content">
+          <h1 class="home-title">Daftar Proyek Alur Cerita Film</h1>
+          <p class="home-subtitle">Pilih proyek film yang ingin diedit atau buat naskah baru. Semua data tersimpan aman dan permanen di database SQL lokal (SQLite: <code>alurcerita.db</code>).</p>
+        </div>
+        <div class="home-hero-actions">
+          <div class="db-status-badge">
+            <span class="status-dot green"></span>
+            <span>SQLite: alurcerita.db</span>
+          </div>
+          <button type="button" class="btn-primary btn-lg" id="btnOpenNewProjectModal">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            <span>+ Buat Proyek Film Baru</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- Search & Filter Bar -->
+      <div class="home-filter-bar">
+        <div class="search-input-wrapper">
+          <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          <input type="text" id="projectSearchInput" placeholder="Cari judul film, sutradara, atau channel..." class="search-field">
+        </div>
+        <div class="filter-stats" id="projectCountStats">
+          Memuat proyek dari database...
+        </div>
+      </div>
+
+      <!-- Project Cards Grid -->
+      <div class="projects-grid" id="projectsGrid">
+        <!-- Rendered dynamically via app.js -->
+      </div>
+
+    </div>
+  </section>
+
+  <!-- =======================================================================
+       VIEW 2: STUDIO WORKSPACE (Dual-Pane Script Studio)
+       ======================================================================= -->
+  <main class="studio-workspace" id="studioWorkspace">
+    
+    <!-- LEFT PANE: Ingestion & Control Sidebar -->
+    <aside class="studio-sidebar" id="studio-sidebar" aria-label="Panel Input Sumber & Pengaturan">
+      
+      <!-- Section A: Metadata Film -->
+      <section class="sidebar-card">
+        <div class="card-header">
+          <div class="card-title-group">
+            <span class="card-icon" aria-hidden="true">🎬</span>
+            <h2 class="card-title">Informasi Film</h2>
+          </div>
+          <span class="badge-tag">Metadata</span>
+        </div>
+
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="movieTitle">Judul Film</label>
+            <input type="text" id="movieTitle" class="input-field" value="The Karate Kid (2010)" placeholder="Contoh: The Karate Kid">
+          </div>
+          <div class="form-group">
+            <label for="movieDirector">Sutradara & Tahun</label>
+            <input type="text" id="movieDirector" class="input-field" value="Harald Zwart (2010)" placeholder="Contoh: Harald Zwart (2010)">
+          </div>
+          <div class="form-group full-width">
+            <label for="movieDescription">Sinopsis Ringkas</label>
+            <textarea id="movieDescription" class="textarea-field auto-grow" rows="2" placeholder="Premis atau sinopsis film...">Dre Parker (12) pindah ke Beijing bersama ibunya. Sering dibully oleh Cheng, Dre ditolong dan dilatih kungfu sejati oleh Mr. Han untuk bertarung di Turnamen Terbuka Beijing.</textarea>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section B: Sumber Transkrip / Referensi (Multi-Source Ingestion) -->
+      <section class="sidebar-card">
+        <div class="card-header">
+          <div class="card-title-group">
+            <span class="card-icon" aria-hidden="true">📑</span>
+            <h2 class="card-title">Sumber Narasi</h2>
+          </div>
+          <span class="source-count-badge" id="sourceCountBadge">3 Sumber Aktif</span>
+        </div>
+
+        <!-- Segmented Tab Bar -->
+        <div class="source-tab-bar" role="tablist" aria-label="Pilih Sumber Referensi">
+          <button type="button" class="source-tab active" role="tab" id="tabBtnSource1" aria-selected="true" data-source="source1">
+            <span>Sumber A</span>
+            <span class="tab-badge" id="badgeWordSource1">420 k</span>
+          </button>
+          <button type="button" class="source-tab" role="tab" id="tabBtnSource2" aria-selected="false" data-source="source2">
+            <span>Sumber B</span>
+            <span class="tab-badge" id="badgeWordSource2">380 k</span>
+          </button>
+          <button type="button" class="source-tab" role="tab" id="tabBtnSource3" aria-selected="false" data-source="source3">
+            <span>Sumber C</span>
+            <span class="tab-badge" id="badgeWordSource3">450 k</span>
+          </button>
+        </div>
+
+        <!-- Textarea Container Sumber -->
+        <div class="source-editor-card">
+          <div class="source-meta-row">
+            <span class="source-label" id="sourceCurrentLabel">Transkrip A — Insomnia Film</span>
+            <div class="source-actions">
+              <button type="button" class="btn-xs" id="btnPasteClipboard" title="Tempel dari Clipboard">Tempel</button>
+              <button type="button" class="btn-xs" id="btnClearSource" title="Kosongkan Teks Sumber">Kosongkan</button>
+              <button type="button" class="btn-xs" id="btnResetKarateSources" title="Muat Ulang Transkrip Karate Kid">Reset</button>
+            </div>
+          </div>
+          <textarea id="sourceTextArea" class="textarea-field source-editor" rows="6" placeholder="Tempelkan transkrip YouTube, subtitle, atau rangkuman cerita di sini..."></textarea>
+          <div class="source-footer-info">
+            <span id="sourceCharCount">0 karakter • 0 kata</span>
+            <span class="hint-text">Detail terbaik digabung linear</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section C: Persona Channel & Format -->
+      <section class="sidebar-card">
+        <div class="card-header">
+          <div class="card-title-group">
+            <span class="card-icon" aria-hidden="true">🎙️</span>
+            <h2 class="card-title">Gaya & Format Naskah</h2>
+          </div>
+          <span class="badge-tag">Tone & Rules</span>
+        </div>
+
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="channelNameInput">Nama Channel</label>
+            <input type="text" id="channelNameInput" class="input-field" value="AAAlur Cerita">
+          </div>
+          <div class="form-group">
+            <label for="openingHookInput">Sapaan Opening</label>
+            <input type="text" id="openingHookInput" class="input-field" value="Halo Nakama">
+          </div>
+          <div class="form-group full-width">
+            <label for="outroBridgeInput">Kalimat Penutup Opening</label>
+            <input type="text" id="outroBridgeInput" class="input-field" value="Jadi, gak perlu cacicu lagi. langsung aja masuk ke alur ceritanya">
+          </div>
+          <div class="form-group full-width">
+            <label for="personaStyleSelect">Gaya Tutur / Persona</label>
+            <select id="personaStyleSelect" class="input-field">
+              <option value="teman_ngopi" selected>Lo-Gue Santai (Teman ngopi, natural, tanpa lelucon garing)</option>
+              <option value="kritis_serius">Kritis & Analitis (Fokus pada tensi cerita & motif karakter)</option>
+              <option value="semi_formal">Semi-Formal Hangat (Cocok untuk ulasan drama & film klasik)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="checkbox-group">
+          <label class="custom-checkbox">
+            <input type="checkbox" id="checkIncludeAnalysis" checked>
+            <span class="checkbox-box" aria-hidden="true"></span>
+            <span class="checkbox-label">
+              <strong>Sertakan Bedah Analisis Film</strong>
+              <small>Kenapa Seru, Bedah Rencana & Pesan, Analisis Sifat Karakter</small>
+            </span>
+          </label>
+          <label class="custom-checkbox">
+            <input type="checkbox" id="checkEnforceVisualCues" checked>
+            <span class="checkbox-box" aria-hidden="true"></span>
+            <span class="checkbox-label">
+              <strong>Sisipkan Tag Arahan Visual di Setiap Adegan</strong>
+              <small>Memudahkan video editor menentukan potongan footage</small>
+            </span>
+          </label>
+        </div>
+      </section>
+
+      <!-- Action Panel: Generate Button & Pipeline Progress -->
+      <div class="sidebar-action-box">
+        <button type="button" class="btn-generate" id="btnGenerate">
+          <svg class="icon-sparkle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"></path>
+          </svg>
+          <span id="btnGenerateText">Sintesis Naskah (Multi-Agent)</span>
+        </button>
+
+        <!-- Pipeline Progress Status Card -->
+        <div class="generation-pipeline-card" id="generationPipelineCard" hidden>
+          <div class="pipeline-header">
+            <span class="pipeline-title">Memproses Pipeline Multi-Agent...</span>
+            <span class="pipeline-step-badge" id="pipelineCurrentStep">Tahap 1 / 3</span>
+          </div>
+          <div class="pipeline-progress-bar">
+            <div class="pipeline-fill" id="pipelineProgressBar"></div>
+          </div>
+          <ul class="pipeline-steps-list">
+            <li class="step-item active" id="stepItem1">
+              <span class="step-dot"></span>
+              <span class="step-text">Agent 1: Menyelaraskan kronologi 3 sumber & detail terkaya</span>
+            </li>
+            <li class="step-item" id="stepItem2">
+              <span class="step-dot"></span>
+              <span class="step-text">Agent 2: Menyusun bedah film, pesan moral & analisis karakter</span>
+            </li>
+            <li class="step-item" id="stepItem3">
+              <span class="step-dot"></span>
+              <span class="step-text">Agent 3: Memadukan narasi, jembatan emosi & tagging visual</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+    </aside>
+
+    <!-- RIGHT PANE: Editorial Script Workspace & iOS Reader -->
+    <section class="studio-editor" id="studio-editor" aria-label="Meja Kerja Naskah dan Reader">
+      
+      <!-- Editorial Toolbar -->
+      <div class="editor-toolbar">
+        <div class="toolbar-left">
+          <div class="view-mode-toggle" role="tablist" aria-label="Mode Tampilan">
+            <button type="button" class="view-btn active" id="viewBtnReader" role="tab" aria-selected="true">
+              <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
+                <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
+              </svg>
+              <span>Editorial Reader (iOS)</span>
+            </button>
+            <button type="button" class="view-btn" id="viewBtnRaw" role="tab" aria-selected="false">
+              <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <polyline points="16 18 22 12 16 6"></polyline>
+                <polyline points="8 6 2 12 8 18"></polyline>
+              </svg>
+              <span>Raw Editor (Markdown)</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="toolbar-right">
+          <!-- Filter Tag Visual Toggle -->
+          <button type="button" class="tool-btn" id="btnToggleVisualCues" title="Tampilkan / Sembunyikan Arahan Visual" aria-pressed="true">
+            <span class="cue-indicator active" aria-hidden="true"></span>
+            <span>Tag Visual</span>
+          </button>
+
+          <!-- Text Size Adjuster -->
+          <div class="font-size-controls">
+            <button type="button" class="tool-btn-icon" id="btnFontDecr" title="Kecilkan Font" aria-label="Kecilkan Huruf">A-</button>
+            <span class="font-size-label" id="fontSizeLabel">17px</span>
+            <button type="button" class="tool-btn-icon" id="btnFontIncr" title="Besarkan Font" aria-label="Besarkan Huruf">A+</button>
+          </div>
+
+          <!-- Quick Copy Clean VO -->
+          <button type="button" class="tool-btn btn-highlight" id="btnQuickCopyClean" title="Salin naskah bersih tanpa tag visual (siap baca di mic)">
+            <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+            </svg>
+            <span>Salin Voiceover</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Main Script Canvas (Elevated Editorial Paper) -->
+      <div class="editor-canvas-container" id="editorCanvasContainer">
+        
+        <!-- View 1: iOS Formatted Editorial Reader (Contenteditable) -->
+        <article class="script-paper" id="scriptPaperReader" contenteditable="true" spellcheck="false" aria-label="Naskah Alur Cerita (Dapat diedit langsung)">
+          <!-- Dynamic Script Content Injected via app.js -->
+        </article>
+
+        <!-- View 2: Raw Markdown Editor (Hidden by default) -->
+        <textarea class="script-raw-editor" id="scriptRawEditor" spellcheck="false" hidden aria-label="Editor Teks Markdown"></textarea>
+
+      </div>
+
+      <!-- Bottom Status Bar -->
+      <footer class="canvas-footer-bar">
+        <div class="status-left">
+          <span class="status-dot green"></span>
+          <span id="canvasSyncStatus">Tersimpan di SQLite (alurcerita.db)</span>
+        </div>
+        <div class="status-right">
+          <span>Tempo: <strong>140 kata/menit</strong></span>
+          <span class="stat-separator">•</span>
+          <span id="footerParagraphCount">7 Babak • 12 Scene Visual</span>
+        </div>
+      </footer>
+
+    </section>
+
+  </main>
+
+  <!-- =======================================================================
+       MODAL: BUAT PROYEK FILM BARU (SQL)
+       ======================================================================= -->
+  <div class="modal-overlay" id="newProjectModal" hidden role="dialog" aria-modal="true" aria-labelledby="modalNewProjectTitle">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <span class="modal-icon">🎬</span>
+          <h2 class="modal-title" id="modalNewProjectTitle">Buat Proyek Film Baru</h2>
+        </div>
+        <button type="button" class="modal-close-btn" id="btnCloseNewProjectModal" title="Tutup">✕</button>
+      </div>
+      <form id="newProjectForm" class="modal-form">
+        <div class="form-group full-width">
+          <label for="newModalTitle">Judul Film *</label>
+          <input type="text" id="newModalTitle" class="input-field" required placeholder="Contoh: Hacksaw Ridge (2016) atau Interstellar">
+        </div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="newModalDirector">Sutradara & Tahun</label>
+            <input type="text" id="newModalDirector" class="input-field" placeholder="Contoh: Mel Gibson (2016)">
+          </div>
+          <div class="form-group">
+            <label for="newModalChannel">Profil Channel</label>
+            <select id="newModalChannel" class="input-field">
+              <option value="AAAlur Cerita" selected>AAAlur Cerita (Halo Nakama)</option>
+              <option value="Malas Movie">Malas Movie (Halo Malas People)</option>
+              <option value="Movie Rastis">Movie Rastis (Halo Cinefile)</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group full-width">
+          <label for="newModalSynopsis">Sinopsis / Ringkasan Cerita</label>
+          <textarea id="newModalSynopsis" class="textarea-field" rows="3" placeholder="Masukkan ringkasan sinopsis atau premis utama film..."></textarea>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-subtle" id="btnCancelNewProject">Batal</button>
+          <button type="submit" class="btn-primary" id="btnSubmitNewProject">Buat & Buka di Studio</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- =======================================================================
+       MODAL: PENGATURAN API KEY GEMINI (SMART ROUND-ROBIN)
+       ======================================================================= -->
+  <div class="modal-overlay" id="apiKeyModal" hidden role="dialog" aria-modal="true" aria-labelledby="modalKeyTitle">
+    <div class="modal-card modal-card-lg">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <span class="modal-icon">🔑</span>
+          <div>
+            <h2 class="modal-title" id="modalKeyTitle">Pengaturan Kunci API Gemini</h2>
+            <p class="modal-subtitle">Smart Round-Robin • Load Balancing • Auto-Failover (429)</p>
+          </div>
+        </div>
+        <button type="button" class="modal-close-btn" id="btnCloseKeyModal" title="Tutup">✕</button>
+      </div>
+
+      <div class="modal-body-scrollable">
+        <!-- Alert Info -->
+        <div class="key-info-banner">
+          <span class="banner-icon">💡</span>
+          <div class="banner-text">
+            <strong>Tersimpan Aman di Database SQLite (alurcerita.db)</strong>
+            <p>Anda tidak perlu mengedit file <code>.env</code> lagi. Masukkan 1 atau beberapa API Key Gemini di bawah. Sistem akan otomatis membagi beban request dan otomatis beralih ke kunci cadangan jika ada yang terkena limit kuota harian atau rate-limit (429).</p>
+          </div>
+        </div>
+
+        <!-- Add Key Form -->
+        <form id="addKeyForm" class="add-key-card">
+          <div class="form-group">
+            <label for="inputNewApiKeys">Tambah Kunci API Gemini Baru (Bisa Banyak Sekaligus)</label>
+            <textarea id="inputNewApiKeys" class="textarea-field font-mono" rows="2" placeholder="Tempel satu atau beberapa kunci API di sini (pisahkan dengan baris baru atau koma)...&#10;Contoh: AIzaSy..."></textarea>
+            <small class="field-hint">Dapatkan gratis di <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer">Google AI Studio ↗</a></small>
+          </div>
+          <div class="add-key-footer">
+            <input type="text" id="inputKeyLabel" class="input-field key-label-input" placeholder="Label opsional (misal: Akun 1, Tim, dll)">
+            <button type="submit" class="btn-primary" id="btnSubmitAddKeys">
+              <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+              <span>+ Simpan ke Database</span>
+            </button>
+          </div>
+        </form>
+
+        <!-- Registered Keys Section -->
+        <div class="keys-list-section">
+          <div class="keys-list-header">
+            <h3 class="section-title">Kunci Terdaftar (<span id="keyTotalCountDisplay">0</span>)</h3>
+            <span class="keys-status-summary" id="keysStatusSummary">0 Aktif</span>
+          </div>
+
+          <div class="keys-table-container">
+            <div id="keysListContainer" class="keys-list-container">
+              <!-- Rendered dynamically by app.js -->
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-subtle" id="btnCloseKeyModalFooter">Selesai</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =======================================================================
+       MODAL: VOICEOVER TTS STUDIO (GOOGLE COLAB BRIDGE)
+       ======================================================================= -->
+  <div class="modal-overlay" id="ttsModal" hidden role="dialog" aria-modal="true" aria-labelledby="modalTtsTitle">
+    <div class="modal-card modal-card-lg">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <span class="modal-icon">🎙️</span>
+          <div>
+            <h2 class="modal-title" id="modalTtsTitle">Studio Voiceover TTS (Google Colab)</h2>
+            <p class="modal-subtitle">Generate Suara Narator Alur Cerita dengan GPU Gratis (Kokoro-82M • Coqui XTTS v2)</p>
+          </div>
+        </div>
+        <button type="button" class="modal-close-btn" id="btnCloseTtsModal" title="Tutup">✕</button>
+      </div>
+
+      <!-- TTS Sub-navigation Tabs -->
+      <div class="tts-nav-bar">
+        <button type="button" class="tts-tab-btn active" id="tabBtnTtsGenerate" data-tab="ttsTabGenerate">1. Generate Suara Voiceover</button>
+        <button type="button" class="tts-tab-btn" id="tabBtnTtsColab" data-tab="ttsTabColab">2. Koneksi Google Colab & Setup</button>
+      </div>
+
+      <div class="modal-body-scrollable">
+        <!-- Tab 1: Generate Voiceover -->
+        <div id="ttsTabGenerate" class="tts-tab-pane">
+          <!-- Colab Status Banner -->
+          <div class="colab-status-banner" id="ttsColabStatusBanner">
+            <span class="status-indicator-dot" id="ttsBannerDot"></span>
+            <span class="status-banner-text" id="ttsBannerText">Memeriksa status koneksi Google Colab...</span>
+            <button type="button" class="btn-xs" id="btnQuickConnectColab">Atur Koneksi</button>
+          </div>
+
+          <!-- Spoken Text Source & Preview -->
+          <div class="form-group">
+            <div class="label-with-meta">
+              <label for="ttsSourceText">Teks Narasi yang Akan Disuarakan (Otomatis Bersih dari Visual Cue)</label>
+              <span class="tts-text-metrics" id="ttsTextMetrics">0 kata • ~0 detik</span>
+            </div>
+            <textarea id="ttsSourceText" class="textarea-field font-mono" rows="4" placeholder="Teks voiceover narasi akan otomatis diambil dari naskah aktif..."></textarea>
+            <div class="tts-text-actions">
+              <button type="button" class="btn-xs" id="btnRefreshTtsFromScript">Muat Ulang dari Naskah</button>
+              <button type="button" class="btn-xs" id="btnClearTtsText">Kosongkan</button>
+            </div>
+          </div>
+
+          <!-- Parameters: Model, Voice, Speed -->
+          <div class="tts-params-grid">
+            <div class="form-group">
+              <label for="ttsModelSelect">Model TTS</label>
+              <select id="ttsModelSelect" class="input-field">
+                <option value="kokoro" selected>⚡ Kokoro-82M (Super Cepat, Ringan & Natural)</option>
+                <option value="xtts">🎭 Coqui XTTS v2 (Ekspresif & Multi-bahasa Indonesia)</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="ttsVoiceSelect">Karakter / Suara</label>
+              <select id="ttsVoiceSelect" class="input-field">
+                <option value="am_michael" selected>Pria: am_michael (Dewasa, Tenang & Berwibawa)</option>
+                <option value="am_adam">Pria: am_adam (Muda, Santai Teman Ngopi)</option>
+                <option value="af_bella">Wanita: af_bella (Lembut, Hangat & Jelas)</option>
+                <option value="af_nicole">Wanita: af_nicole (Tegas & Berbobot)</option>
+                <option value="bm_george">Pria: bm_george (Dokumenter British)</option>
+                <option value="bf_emma">Wanita: bf_emma (Narator Elegan British)</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <div class="label-with-meta">
+                <label for="ttsSpeedRange">Kecepatan Bicara</label>
+                <span class="speed-val-label" id="ttsSpeedVal">1.0x</span>
+              </div>
+              <input type="range" id="ttsSpeedRange" class="speed-slider" min="0.75" max="1.35" step="0.05" value="1.0">
+            </div>
+          </div>
+
+          <!-- Generate Action Button -->
+          <div class="tts-generate-action-box">
+            <button type="button" class="btn-generate" id="btnTriggerTtsGenerate">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+              <span id="btnTriggerTtsText">🎙️ Generate Voiceover via GPU Colab</span>
+            </button>
+            <div class="tts-progress-box" id="ttsProgressBox" hidden>
+              <div class="progress-spinner"></div>
+              <span id="ttsProgressStatus">Mengirim naskah ke GPU Colab... (Estimasi 2-5 detik)</span>
+            </div>
+
+            <!-- Real-time Sentence Progress Tracker -->
+            <div class="tts-sentence-card" id="ttsSentenceProgressCard" hidden>
+              <div class="tts-sentence-card-header">
+                <span id="ttsSentenceStepLabel">Memproses Kalimat...</span>
+                <strong id="ttsSentencePercentLabel">0%</strong>
+              </div>
+              <div class="tts-sentence-bar-track">
+                <div class="tts-sentence-bar-fill" id="ttsSentenceBarFill"></div>
+              </div>
+              <div class="tts-sentence-quote" id="ttsSentenceLiveQuote">"Menyiapkan naskah kalimat per kalimat..."</div>
+            </div>
+          </div>
+
+          <!-- Generated Audio Player Result -->
+          <div class="tts-result-card" id="ttsResultCard" hidden>
+            <div class="result-header">
+              <span class="result-title">🎧 Hasil Audio Voiceover</span>
+              <span class="result-meta" id="ttsResultMeta">Kokoro-82M • 0s</span>
+            </div>
+            <audio id="ttsAudioPlayer" controls class="tts-html5-player"></audio>
+            <div class="result-footer">
+              <a id="btnDownloadTtsWav" class="btn-primary btn-sm" download="voiceover.wav" href="#">
+                <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                <span>Unduh File WAV</span>
+              </a>
+              <span class="result-filename" id="ttsResultFilename">voiceover.wav</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 2: Colab Connection Setup -->
+        <div id="ttsTabColab" class="tts-tab-pane" hidden>
+          <div class="colab-guide-card">
+            <h3 class="guide-title">🚀 3 Langkah Menghubungkan Google Colab (Gratis GPU T4)</h3>
+            <ol class="guide-steps">
+              <li>
+                <strong>Buka Notebook Colab</strong>:
+                <p>Jalankan notebook yang sudah kami siapkan di Google Colab.</p>
+                <div class="guide-btn-row">
+                  <a href="https://colab.research.google.com" target="_blank" rel="noreferrer" class="btn-subtle btn-xs btn-open-colab">
+                    <span>Buka Google Colab ↗</span>
+                  </a>
+                  <span class="guide-file-hint">(Unggah file <code>AlurCerita_TTS_Colab.ipynb</code> dari folder proyek)</span>
+                </div>
+              </li>
+              <li>
+                <strong>Pilih Runtime GPU & Jalankan</strong>:
+                <p>Pilih menu <em>Runtime -> Change runtime type</em> lalu pilih <strong>T4 GPU</strong>. Kemudian klik <strong>Runtime -> Run all</strong> (atau tekan <code>Ctrl + F9</code>).</p>
+              </li>
+              <li>
+                <strong>Salin URL Gradio Live</strong>:
+                <p>Tunggu hingga cell terakhir menampilkan link publik seperti <code>https://xxxx.gradio.live</code>. Salin link tersebut dan tempelkan pada kolom di bawah ini.</p>
+              </li>
+            </ol>
+          </div>
+
+          <form id="colabConfigForm" class="colab-config-form">
+            <div class="form-group">
+              <label for="inputColabUrl">URL Publik Google Colab (Gradio Live / ngrok / Cloudflare)</label>
+              <input type="url" id="inputColabUrl" class="input-field font-mono" placeholder="Contoh: https://12a34b56c78d.gradio.live">
+              <small class="field-hint">URL aktif selama sesi Colab berjalan (biasanya hingga 12 jam pada free tier Colab).</small>
+            </div>
+            <div class="colab-form-actions">
+              <button type="button" class="btn-subtle" id="btnTestColabConnection">
+                <span>⚡ Uji Koneksi</span>
+              </button>
+              <button type="submit" class="btn-primary" id="btnSaveColabConfig">
+                <span>Simpan Pengaturan</span>
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-subtle" id="btnCloseTtsModalFooter">Tutup</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =======================================================================
+       TELEPROMPTER OVERLAY (Fullscreen recording mode)
+       ======================================================================= -->
+  <div class="teleprompter-overlay" id="teleprompterModal" hidden role="dialog" aria-modal="true" aria-label="Mode Teleprompter">
+    
+    <!-- Floating Teleprompter Controls -->
+    <header class="prompter-controls-bar">
+      <div class="prompter-ctrl-left">
+        <button type="button" class="btn-prompter-action" id="btnPrompterPlayPause">
+          <span class="icon-play-state" id="prompterPlayIcon">▶</span>
+          <span id="prompterPlayText">Mulai Scroll (Spasi)</span>
+        </button>
+
+        <div class="prompter-speed-box">
+          <label for="prompterSpeedRange">Kecepatan:</label>
+          <input type="range" id="prompterSpeedRange" min="1" max="10" value="3" step="1">
+          <span id="prompterSpeedVal">3x</span>
+        </div>
+      </div>
+
+      <div class="prompter-ctrl-center">
+        <span class="prompter-reading-indicator">Fokus Pandang Mikrofon</span>
+      </div>
+
+      <div class="prompter-ctrl-right">
+        <div class="prompter-speed-box">
+          <label for="prompterFontSize">Ukuran:</label>
+          <input type="range" id="prompterFontSize" min="24" max="52" value="34" step="2">
+          <span id="prompterFontVal">34px</span>
+        </div>
+
+        <button type="button" class="btn-prompter-subtle" id="btnPrompterToggleCues" title="Tampilkan atau sembunyikan arahan visual saat take vokal">
+          <span id="prompterCuesStatus">Visual: Sembunyi</span>
+        </button>
+
+        <button type="button" class="btn-prompter-subtle" id="btnPrompterMirror" title="Cermin Teks (Untuk rig teleprompter kaca)">
+          <span>Mirror</span>
+        </button>
+
+        <button type="button" class="btn-prompter-close" id="btnPrompterClose" title="Tutup Teleprompter (Esc)">
+          ✕ Tutup
+        </button>
+      </div>
+    </header>
+
+    <!-- Reading Focus Guide Line -->
+    <div class="prompter-focus-guide" aria-hidden="true"></div>
+
+    <!-- Teleprompter Scrolling Container -->
+    <div class="prompter-scroll-viewport" id="prompterScrollViewport">
+      <div class="prompter-text-body" id="prompterTextBody">
+        <!-- Content mirrored from the script -->
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATION (Centered Bottom) -->
+  <div class="toast-container" id="toastContainer" aria-live="polite">
+    <div class="toast" id="toastMessage" hidden>
+      <span class="toast-icon">✓</span>
+      <span class="toast-text" id="toastText">Berhasil disalin!</span>
+    </div>
+  </div>
+
+  <script src="app.js?v=2.6"></script>
+</body>
+</html>

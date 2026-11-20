@@ -1,0 +1,21 @@
+# Dependencies
+node_modules/
+
+# Environment Variables & Secrets
+.env
+.env.local
+
+# SQLite Database
+*.db
+*.db-shm
+*.db-wal
+
+# Generated Audio Files
+public/audio/*
+!public/audio/.gitkeep
+
+# Temporary & Scratch Files
+scratch/
+test_gpu.py
+.aider-desk/
+.agents/
