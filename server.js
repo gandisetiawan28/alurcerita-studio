@@ -427,7 +427,9 @@ app.post('/api/tts/generate-stream', async (req, res) => {
         try {
           const controller = new AbortController();
           currentFetchController = controller;
-          const timer = setTimeout(() => controller.abort(), 25000);
+          // Timeout adaptif: Kokoro (35s), Dia-1.6B & Coqui XTTS (120s karena model 1.6B membutuhkan waktu komputasi)
+          const timeoutMs = (model === 'dia' || model === 'xtts') ? 120000 : 35000;
+          const timer = setTimeout(() => controller.abort(), timeoutMs);
 
           const response = await fetch(`${colabUrl}/api/tts`, {
             method: 'POST',
