@@ -912,7 +912,9 @@ button:active {
 }
 
 .script-paper[hidden],
-.script-raw-editor[hidden] {
+.script-paper.hidden,
+.script-raw-editor[hidden],
+.script-raw-editor.hidden {
   display: none !important;
 }
 

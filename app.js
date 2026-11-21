@@ -1731,17 +1731,59 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     return safe;
   }
 
-  // --- Extract Clean Voiceover (Strips Visual Notes) ---
+  // --- Extract Clean Voiceover (Strips Metadata & Visual Notes for Clean Audio) ---
   function extractCleanVoiceover(markdown) {
+    if (!markdown || typeof markdown !== 'string') return '';
     const normalized = markdown.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-    return normalized
-      .replace(/\(Visual:.*?\)/gi, '')
-      .replace(/^#{1,3}\s+(.*)$/gim, '$1')
-      .replace(/^---$/gim, '')
-      .replace(/\*\*(.*?)\*\*/g, '$1')
-      .replace(/\*(.*?)\*/g, '$1')
-      .replace(/\n{3,}/g, '\n\n')
-      .trim();
+    const lines = normalized.split('\n');
+    const cleanLines = [];
+    let skipNextLine = false;
+
+    for (let i = 0; i < lines.length; i++) {
+      let line = lines[i].trim();
+      if (!line) continue;
+
+      if (skipNextLine) {
+        skipNextLine = false;
+        continue;
+      }
+
+      // Skip document title headers (# Title or lines that look like main title)
+      if (line.startsWith('# ') || (i === 0 && line.startsWith('#'))) continue;
+
+      // Skip document metadata lines (Genre, Channel, Pacing Narasi, Sutradara, Tahun)
+      if (/^(\*{0,2})(Genre|Channel|Pacing Narasi|Sutradara|Tahun|Sinopsis)\1\s*:/i.test(line)) continue;
+
+      // Skip horizontal rules
+      if (/^[-*_]{3,}$/.test(line)) continue;
+
+      // Skip section markers like ## [OPENING], [BODY STORY], ## [BEDAH ANALISIS], [KESIMPULAN & CLOSING]
+      if (/^#{1,3}\s*\[?.*\]?$/i.test(line) && /(OPENING|BODY STORY|BEDAH ANALISIS|KESIMPULAN|CLOSING|OUTRO|PENUTUP|PART|BABAK)/i.test(line)) continue;
+      if (/^\[(?:OPENING|BODY STORY|CLIMAX|ENDING|OUTRO|PENUTUP|BEDAH ANALISIS.*|KESIMPULAN.*)\]/i.test(line)) continue;
+
+      // Skip part headings like ### PART 1: ... or PART 1: ...
+      if (/^(?:#{1,3}\s*)?(?:PART|BABAK|ADEGAN)\s+\d+:/i.test(line)) continue;
+      if (/^(?:#{1,3}\s*)?\d+\.\s+[A-Z\s]{4,}/.test(line)) continue; // e.g. ### 1. KENAPA FILM INI SERU BANGET?
+
+      // Skip visual cue lines
+      if (line.match(/^\((?:Visual:\s*).*?\)$/i)) continue;
+      if (line === 'ARAHAN VISUAL (B-ROLL)') {
+        skipNextLine = true; // skip following description line too
+        continue;
+      }
+
+      // Clean any inline visual notes like (Visual: ...) embedded inside paragraphs
+      let cleaned = line.replace(/\((?:Visual:\s*).*?\)/gi, '');
+
+      // Clean markdown formatting (**bold**, *italic*, `code`, etc.)
+      cleaned = cleaned.replace(/[*_~`]/g, '').trim();
+
+      if (cleaned.length > 0) {
+        cleanLines.push(cleaned);
+      }
+    }
+
+    return cleanLines.join('\n\n').trim();
   }
 
   // --- Extract Visual Cues Only for Video Editors ---
@@ -1812,6 +1854,24 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
   function renderScript(scrollToTop = false) {
     elements.scriptPaperReader.innerHTML = parseMarkdownToHtml(state.currentScriptMarkdown);
     elements.scriptRawEditor.value = state.currentScriptMarkdown;
+
+    // Strict exclusive visibility: either Editorial Reader or Raw Editor, never both
+    if (!state.isRawMode) {
+      elements.scriptPaperReader.hidden = false;
+      elements.scriptPaperReader.classList.remove('hidden');
+      elements.scriptPaperReader.style.display = 'block';
+      elements.scriptRawEditor.hidden = true;
+      elements.scriptRawEditor.classList.add('hidden');
+      elements.scriptRawEditor.style.display = 'none';
+    } else {
+      elements.scriptPaperReader.hidden = true;
+      elements.scriptPaperReader.classList.add('hidden');
+      elements.scriptPaperReader.style.display = 'none';
+      elements.scriptRawEditor.hidden = false;
+      elements.scriptRawEditor.classList.remove('hidden');
+      elements.scriptRawEditor.style.display = 'block';
+    }
+
     updateScriptMetrics();
     if (scrollToTop && elements.editorCanvasContainer) {
       elements.editorCanvasContainer.scrollTop = 0;
