@@ -13,7 +13,7 @@ const path = require('node:path');
 const fs = require('node:fs');
 const { spawn, execSync } = require('node:child_process');
 const { ProjectRepo, ApiKeyRepo, TtsRepo } = require('./db');
-const { GEMINI_MODELS, runGeminiGeneration, testGeminiApiKey } = require('./geminiService');
+const { GEMINI_MODELS, runGeminiGeneration, runGeminiTranscreation, testGeminiApiKey } = require('./geminiService');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -695,6 +695,99 @@ app.post('/api/projects/:id/generate', async (req, res) => {
     });
   } catch (error) {
     console.error('Error in project generation:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// AI Transcreation & Anti-Duplicate Localization (YouTube Global Content)
+// ---------------------------------------------------------------------------
+app.post('/api/projects/:id/transcreate', async (req, res) => {
+  try {
+    const project = ProjectRepo.getById(req.params.id);
+    if (!project) {
+      return res.status(404).json({ success: false, error: 'Proyek tidak ditemukan.' });
+    }
+
+    const {
+      targetLanguage = 'en-US',
+      customLanguage = '',
+      channelName = 'Movie Recap Hub',
+      openingHook = 'Hey movie fans, welcome back!',
+      personaStyle = 'engaging_storyteller',
+      antiDuplicateLevel = 'ultra',
+      saveMode = 'new_project',
+      preferredModel = 'auto'
+    } = req.body;
+
+    const sourceScript = req.body.source_script || project.script_markdown;
+    if (!sourceScript || sourceScript.trim().length === 0) {
+      return res.status(400).json({ success: false, error: 'Naskah proyek ini masih kosong. Silakan buat naskah terlebih dahulu.' });
+    }
+
+    const transResult = await runGeminiTranscreation({
+      sourceScript,
+      movieTitle: project.title,
+      targetLanguage,
+      customLanguage,
+      channelName,
+      openingHook,
+      personaStyle,
+      antiDuplicateLevel,
+      preferredModel
+    });
+
+    let newProjectRecord = null;
+    if (saveMode === 'new_project') {
+      const langLabels = {
+        'en-US': 'English US',
+        'en-GB': 'English UK',
+        'es': 'Español',
+        'pt-BR': 'Português',
+        'ja': '日本語',
+        'de': 'Deutsch',
+        'fr': 'Français',
+        'ko': '한국어',
+        'ar': 'العربية'
+      };
+      const langSuffix = langLabels[targetLanguage] || customLanguage || 'Global';
+
+      newProjectRecord = ProjectRepo.create({
+        title: `${project.title} [${langSuffix}]`,
+        director_year: project.director_year,
+        synopsis: project.synopsis,
+        channel_name: channelName,
+        opening_hook: openingHook,
+        outro_bridge: 'Thanks for watching, and see you in the next recap!',
+        persona_style: personaStyle,
+        include_analysis: project.include_analysis,
+        enforce_visual_cues: project.enforce_visual_cues,
+        script_markdown: transResult.transcreated_markdown,
+        word_count: transResult.word_count,
+        sources: project.sources || {}
+      });
+    } else {
+      ProjectRepo.update(req.params.id, {
+        script_markdown: transResult.transcreated_markdown,
+        word_count: transResult.word_count,
+        channel_name: channelName,
+        opening_hook: openingHook
+      });
+    }
+
+    res.json({
+      success: true,
+      transcreatedScript: transResult.transcreated_markdown,
+      word_count: transResult.word_count,
+      active_model: transResult.active_model,
+      saveMode,
+      newProject: newProjectRecord,
+      message: saveMode === 'new_project'
+        ? `Naskah versi ${transResult.target_language} berhasil dibuat sebagai proyek baru!`
+        : `Naskah berhasil diperbarui ke versi ${transResult.target_language}!`
+    });
+  } catch (error) {
+    console.error('Error in transcreation:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });

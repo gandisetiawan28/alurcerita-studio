@@ -95,6 +95,16 @@
           <span class="tts-dot-status" id="ttsColabDotStatus" title="Status koneksi Colab"></span>
         </button>
 
+        <!-- Terjemah Adaptif & Anti-Duplikat Global Trigger -->
+        <button type="button" class="btn-subtle header-translate-btn" id="btnOpenTranslateModal" title="Terjemah Adaptif & Anti-Duplikat (YouTube Global Recap)">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="2" y1="12" x2="22" y2="12"></line>
+            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+          </svg>
+          <span>Translate Global</span>
+        </button>
+
         <button type="button" class="btn-subtle" id="btnTogglePrompter" title="Buka Mode Teleprompter Layar Penuh (Shortcut: Alt+P)">
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
@@ -443,6 +453,16 @@
               <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
             </svg>
             <span>Salin Voiceover</span>
+          </button>
+
+          <!-- Translate Global Button -->
+          <button type="button" class="tool-btn btn-subtle" id="btnSubbarTranslate" title="Terjemah Adaptif & Anti-Duplikat ke Bahasa Luar Negeri">
+            <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="2" y1="12" x2="22" y2="12"></line>
+              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+            </svg>
+            <span>Translate Global</span>
           </button>
         </div>
       </div>
@@ -839,6 +859,162 @@
 
       <div class="modal-footer">
         <button type="button" class="btn-subtle" id="btnCloseTtsModalFooter">Tutup</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =======================================================================
+       MODAL: TRANSCREATION & ANTI-DUPLIKAT (GLOBAL YOUTUBE RECAP)
+       ======================================================================= -->
+  <div class="modal-overlay" id="translateModal" hidden role="dialog" aria-modal="true" aria-labelledby="modalTranslateTitle">
+    <div class="modal-card modal-card-lg">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <span class="modal-icon">🌐</span>
+          <div>
+            <h2 class="modal-title" id="modalTranslateTitle">Terjemah Adaptif & Anti-Duplikat (YouTube Global)</h2>
+            <p class="modal-subtitle">Transcreation Storytelling • 100% Bebas Deteksi Reused Content • Sinkron Tag Visual</p>
+          </div>
+        </div>
+        <button type="button" class="modal-close-btn" id="btnCloseTranslateModal" title="Tutup">✕</button>
+      </div>
+
+      <div class="modal-body-scrollable">
+        <!-- Educational Info Banner -->
+        <div class="key-info-banner translate-info-banner">
+          <span class="banner-icon">🛡️</span>
+          <div class="banner-text">
+            <strong>Mengapa Menggunakan Transcreation, Bukan Google Translate Biasa?</strong>
+            <p>Terjemahan harfiah kata-per-kata langsung mudah dideteksi oleh Content ID dan transkrip otomatis YouTube sebagai <em>Reused / Duplicate Content</em>. Fitur ini menulis ulang naskah (*transcreation*) dari sudut pandang penutur asli (*native recap style*), mengubah struktur kalimat dan sapaan secara unik, namun tetap menjaga alur film dan tag arahan visual <code>(Visual: ...)</code> 100% presisi untuk editor video Anda.</p>
+          </div>
+        </div>
+
+        <form id="translateForm" class="translate-form-container">
+          <!-- Bahasa & Format Tujuan -->
+          <div class="form-group">
+            <label for="transTargetLangSelect">Bahasa & Gaya Tujuan</label>
+            <select id="transTargetLangSelect" class="input-field font-semibold">
+              <option value="en-US" selected>🇺🇸 English (US) — YouTube Recap Style (Mystery Recapped / Movie Recaps)</option>
+              <option value="en-GB">🇬🇧 English (UK) — Cinematic & British Storyteller</option>
+              <option value="es">🇪🇸 Spanyol (Español) — Resumen de Películas Latino/España</option>
+              <option value="pt-BR">🇧🇷 Portugis (Português) — Resumo de Filmes</option>
+              <option value="ja">🇯🇵 Jepang (日本語) — Cinema Story Recap (映画解説・あらすじ)</option>
+              <option value="de">🇩🇪 Jerman (Deutsch) — Film Zusammenfassung</option>
+              <option value="fr">🇫🇷 Prancis (Français) — Récapitulatif de Film</option>
+              <option value="ko">🇰🇷 Korea (한국어) — 영화 결말포함 리뷰</option>
+              <option value="ar">🇸🇦 Arab (العربية) — ملخص فيلم سينمائي</option>
+              <option value="custom">🌐 Bahasa Lain (Kustom)...</option>
+            </select>
+          </div>
+
+          <!-- Input Custom Bahasa jika dipilih -->
+          <div class="form-group" id="transCustomLangGroup" hidden>
+            <label for="transCustomLangInput">Nama Bahasa Kustom</label>
+            <input type="text" id="transCustomLangInput" class="input-field" placeholder="Contoh: Russian, Italian, Hindi, Thai...">
+          </div>
+
+          <!-- Tingkat Anti-Duplikat -->
+          <div class="form-group">
+            <label for="transUniquenessSelect">Tingkat Anti-Duplikat (Parafrase & Re-framing)</label>
+            <select id="transUniquenessSelect" class="input-field">
+              <option value="ultra" selected>🛡️ Ultra-Unik (Rekomendasi: Lolos 100% YouTube Reused Content)</option>
+              <option value="balanced">⚖️ Adaptif Alami (Khas Penutur Asli Santai & Variatif)</option>
+              <option value="faithful">📝 Setia pada Struktur (Parafrase Halus Adegan per Adegan)</option>
+            </select>
+            <small class="field-hint">Tingkat Ultra-Unik merombak total hook pembuka, metafora kultural, dan struktur kalimat.</small>
+          </div>
+
+          <!-- Profil Channel Luar Negeri -->
+          <div class="advanced-grid">
+            <div class="form-group">
+              <label for="transChannelNameInput">Nama Channel Global</label>
+              <input type="text" id="transChannelNameInput" class="input-field" value="Movie Recap Hub" placeholder="Contoh: Story Recapped">
+            </div>
+            <div class="form-group">
+              <label for="transOpeningHookInput">Sapaan Opening Target</label>
+              <input type="text" id="transOpeningHookInput" class="input-field" value="Hey movie fans, welcome back!" placeholder="Contoh: What's up, folks!">
+            </div>
+          </div>
+
+          <!-- Gaya Tutur Global & Target Penyimpanan -->
+          <div class="advanced-grid">
+            <div class="form-group">
+              <label for="transPersonaStyleSelect">Gaya Tutur / Persona Global</label>
+              <select id="transPersonaStyleSelect" class="input-field">
+                <option value="engaging_storyteller" selected>Engaging Storyteller (Asik, Hangat, Mengalir Cepat)</option>
+                <option value="cinematic_intense">Cinematic & Intense (Tegang, Serius, Dramatis)</option>
+                <option value="fast_paced_witty">Fast-Paced & Witty (Cepat, Lugas, Humor Ringan)</option>
+                <option value="dark_mystery">Dark / Mystery Narrator (Misterius & Mendalam)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="transSaveModeSelect">Target Penyimpanan Hasil</label>
+              <select id="transSaveModeSelect" class="input-field">
+                <option value="new_project" selected>💾 Simpan sebagai Proyek Baru (Rekomendasi: 2 Konten Berdampingan)</option>
+                <option value="replace">📝 Gantikan Naskah Saat Ini di Proyek Ini</option>
+              </select>
+              <small class="field-hint">Proyek baru membuat naskah Indonesia dan Luar Negeri tersimpan berdampingan di SQLite.</small>
+            </div>
+          </div>
+
+          <!-- Model Gemini Selector -->
+          <div class="form-group">
+            <div class="label-with-meta">
+              <label for="transGeminiModelSelect">Mesin AI Gemini</label>
+              <span class="val-badge" id="transModelBadge">Auto-Fallback Siaga</span>
+            </div>
+            <select id="transGeminiModelSelect" class="input-field">
+              <option value="auto" selected>⚡ Auto-Fallback Pintar (Otomatis antara 8 Model Resmi)</option>
+              <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+              <option value="gemini-2.5-flash-lite">Gemini 2.5 Flash Lite</option>
+              <option value="gemini-3-flash">Gemini 3 Flash</option>
+              <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash Lite</option>
+              <option value="gemini-3.6-flash">Gemini 3.6 Flash</option>
+              <option value="gemini-3.5-flash-lite">Gemini 3.5 Flash Lite</option>
+              <option value="gemini-3.8-flash">Gemini 3.8 Flash</option>
+              <option value="gemini-4-hydrogen">Gemini 4 Hydrogen</option>
+            </select>
+          </div>
+
+          <!-- Tombol Eksekusi -->
+          <div class="tts-generate-action-box" style="margin-top: 14px;">
+            <button type="button" class="btn-generate" id="btnTriggerTranscreate">
+              <span id="btnTriggerTranscreateText">🚀 Mulai Terjemah Anti-Duplikat (AI Transcreation)</span>
+            </button>
+          </div>
+        </form>
+
+        <!-- Progress Card -->
+        <div class="generation-pipeline-card" id="transProgressBox" hidden style="margin-top: 16px;">
+          <div class="pipeline-header">
+            <span class="pipeline-title" id="transProgressTitle">Sedang Menulis Ulang Naskah secara Adaptif...</span>
+            <span class="pipeline-step-badge" id="transStepBadge">Memproses AI...</span>
+          </div>
+          <div class="pipeline-progress-bar">
+            <div class="pipeline-fill" id="transProgressBar" style="width: 45%;"></div>
+          </div>
+          <p class="field-hint" style="margin-top: 8px;" id="transProgressHint">Menerapkan parafrase tingkat tinggi, menyesuaikan idiomatik lokal, dan menyelaraskan tag visual...</p>
+        </div>
+
+        <!-- Result Preview Card -->
+        <div class="tts-generate-action-box" id="transResultCard" hidden style="margin-top: 16px; flex-direction: column; align-items: stretch;">
+          <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 8px;">
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <span class="val-badge" style="background: #ECFDF5; color: #065F46; border-color: #A7F3D0;">✓ Transcreation Selesai</span>
+              <span class="val-badge" id="transResultUniqueBadge" style="background: #EFF6FF; color: #1E40AF; border-color: #BFDBFE;">🛡️ 100% Bebas Reused Content</span>
+              <span class="val-badge" id="transResultModelBadge">Gemini 2.5 Flash</span>
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <button type="button" class="tool-btn btn-highlight" id="btnCopyTransResult">Salin Naskah Hasil</button>
+              <button type="button" class="tool-btn btn-primary" id="btnOpenTransProject" hidden>Buka Proyek Baru ↗</button>
+            </div>
+          </div>
+          <textarea id="transResultPreview" class="textarea-field font-mono" rows="9" readonly style="background: #F8FAFC; resize: vertical;"></textarea>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-subtle" id="btnCloseTranslateModalFooter">Tutup</button>
       </div>
     </div>
   </div>

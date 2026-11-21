@@ -286,6 +286,33 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     ttsModal: document.getElementById('ttsModal'),
     btnCloseTtsModal: document.getElementById('btnCloseTtsModal'),
     btnCloseTtsModalFooter: document.getElementById('btnCloseTtsModalFooter'),
+
+    // Transcreation & Translation Elements
+    btnOpenTranslateModal: document.getElementById('btnOpenTranslateModal'),
+    btnSubbarTranslate: document.getElementById('btnSubbarTranslate'),
+    translateModal: document.getElementById('translateModal'),
+    btnCloseTranslateModal: document.getElementById('btnCloseTranslateModal'),
+    btnCloseTranslateModalFooter: document.getElementById('btnCloseTranslateModalFooter'),
+    transTargetLangSelect: document.getElementById('transTargetLangSelect'),
+    transCustomLangGroup: document.getElementById('transCustomLangGroup'),
+    transCustomLangInput: document.getElementById('transCustomLangInput'),
+    transUniquenessSelect: document.getElementById('transUniquenessSelect'),
+    transChannelNameInput: document.getElementById('transChannelNameInput'),
+    transOpeningHookInput: document.getElementById('transOpeningHookInput'),
+    transPersonaStyleSelect: document.getElementById('transPersonaStyleSelect'),
+    transSaveModeSelect: document.getElementById('transSaveModeSelect'),
+    transGeminiModelSelect: document.getElementById('transGeminiModelSelect'),
+    transModelBadge: document.getElementById('transModelBadge'),
+    btnTriggerTranscreate: document.getElementById('btnTriggerTranscreate'),
+    btnTriggerTranscreateText: document.getElementById('btnTriggerTranscreateText'),
+    transProgressBox: document.getElementById('transProgressBox'),
+    transProgressTitle: document.getElementById('transProgressTitle'),
+    transStepBadge: document.getElementById('transStepBadge'),
+    transProgressBar: document.getElementById('transProgressBar'),
+    transResultCard: document.getElementById('transResultCard'),
+    transResultPreview: document.getElementById('transResultPreview'),
+    btnCopyTransResult: document.getElementById('btnCopyTransResult'),
+    btnOpenTransProject: document.getElementById('btnOpenTransProject'),
     tabBtnTtsGenerate: document.getElementById('tabBtnTtsGenerate'),
     tabBtnTtsColab: document.getElementById('tabBtnTtsColab'),
     ttsTabGenerate: document.getElementById('ttsTabGenerate'),
@@ -1166,6 +1193,123 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
       }
     } catch (err) {
       console.warn('Error fetching TTS config:', err);
+    }
+  }
+
+  // --- Modal: Transcreation & Anti-Duplicate Localization ---
+  let newlyCreatedTransProjectId = null;
+
+  function openTranslateModal() {
+    if (!elements.translateModal) return;
+    elements.translateModal.hidden = false;
+    if (elements.transResultCard) elements.transResultCard.hidden = true;
+    if (elements.transProgressBox) elements.transProgressBox.hidden = true;
+    if (elements.btnOpenTransProject) elements.btnOpenTransProject.hidden = true;
+    newlyCreatedTransProjectId = null;
+  }
+
+  function closeTranslateModal() {
+    if (!elements.translateModal) return;
+    elements.translateModal.hidden = true;
+  }
+
+  async function handleTranscreateScript() {
+    const rawScript = state.currentScriptMarkdown || (elements.scriptRawEditor ? elements.scriptRawEditor.value : '');
+    if (!rawScript || rawScript.trim().length === 0) {
+      showToast('Naskah masih kosong. Silakan tulis atau sintesis naskah terlebih dahulu.');
+      return;
+    }
+
+    const targetLang = elements.transTargetLangSelect ? elements.transTargetLangSelect.value : 'en-US';
+    const customLang = elements.transCustomLangInput ? elements.transCustomLangInput.value.trim() : '';
+    const uniqueness = elements.transUniquenessSelect ? elements.transUniquenessSelect.value : 'ultra';
+    const channelName = elements.transChannelNameInput ? elements.transChannelNameInput.value.trim() : 'Movie Recap Hub';
+    const openingHook = elements.transOpeningHookInput ? elements.transOpeningHookInput.value.trim() : 'Hey movie fans, welcome back!';
+    const personaStyle = elements.transPersonaStyleSelect ? elements.transPersonaStyleSelect.value : 'engaging_storyteller';
+    const saveMode = elements.transSaveModeSelect ? elements.transSaveModeSelect.value : 'new_project';
+    const preferredModel = elements.transGeminiModelSelect ? elements.transGeminiModelSelect.value : 'auto';
+
+    if (elements.btnTriggerTranscreate) elements.btnTriggerTranscreate.disabled = true;
+    if (elements.btnTriggerTranscreateText) elements.btnTriggerTranscreateText.textContent = '⏳ AI Sedang Menulis Ulang Naskah (Transcreation)...';
+    if (elements.transProgressBox) elements.transProgressBox.hidden = false;
+    if (elements.transResultCard) elements.transResultCard.hidden = true;
+    if (elements.transProgressBar) elements.transProgressBar.style.width = '35%';
+    if (elements.transStepBadge) elements.transStepBadge.textContent = 'Tahap 1: Ekstraksi Plot';
+
+    const pTimer1 = setTimeout(() => {
+      if (elements.transProgressBar) elements.transProgressBar.style.width = '65%';
+      if (elements.transStepBadge) elements.transStepBadge.textContent = 'Tahap 2: Re-framing Native Flow';
+    }, 1200);
+
+    const pTimer2 = setTimeout(() => {
+      if (elements.transProgressBar) elements.transProgressBar.style.width = '88%';
+      if (elements.transStepBadge) elements.transStepBadge.textContent = 'Tahap 3: Penyelarasan Tag Visual';
+    }, 2800);
+
+    try {
+      const projectId = state.currentProjectId || 1;
+      const res = await fetch(`/api/projects/${projectId}/transcreate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          source_script: rawScript,
+          targetLanguage: targetLang,
+          customLanguage: customLang,
+          channelName,
+          openingHook,
+          personaStyle,
+          antiDuplicateLevel: uniqueness,
+          saveMode,
+          preferredModel
+        })
+      });
+
+      clearTimeout(pTimer1);
+      clearTimeout(pTimer2);
+
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || 'Gagal memproses terjemahan AI.');
+      }
+
+      if (elements.transProgressBar) elements.transProgressBar.style.width = '100%';
+      if (elements.transStepBadge) elements.transStepBadge.textContent = 'Selesai!';
+
+      // Show result
+      if (elements.transResultCard && elements.transResultPreview) {
+        elements.transResultCard.hidden = false;
+        elements.transResultPreview.value = json.transcreatedScript;
+      }
+      if (elements.transResultModelBadge && json.active_model) {
+        elements.transResultModelBadge.textContent = json.active_model;
+      }
+
+      if (json.saveMode === 'new_project' && json.newProject) {
+        newlyCreatedTransProjectId = json.newProject.id;
+        if (elements.btnOpenTransProject) {
+          elements.btnOpenTransProject.hidden = false;
+          elements.btnOpenTransProject.textContent = `Buka Proyek: ${json.newProject.title} ↗`;
+        }
+        fetchProjectsList();
+        showToast(`✓ Berhasil! Dibuat sebagai proyek baru: "${json.newProject.title}"`);
+      } else {
+        state.currentScriptMarkdown = json.transcreatedScript;
+        renderScript(true);
+        if (elements.canvasSyncStatus) {
+          elements.canvasSyncStatus.textContent = '✓ Naskah Terjemahan Tersimpan di SQLite';
+        }
+        showToast('✓ Naskah berhasil diterjemahkan dan diperbarui!');
+      }
+
+    } catch (err) {
+      clearTimeout(pTimer1);
+      clearTimeout(pTimer2);
+      console.error('Transcreation error:', err);
+      showToast(`✕ Gagal: ${err.message}`);
+    } finally {
+      if (elements.btnTriggerTranscreate) elements.btnTriggerTranscreate.disabled = false;
+      if (elements.btnTriggerTranscreateText) elements.btnTriggerTranscreateText.textContent = '🚀 Mulai Terjemah Anti-Duplikat (AI Transcreation)';
+      if (elements.transProgressBox) elements.transProgressBox.hidden = true;
     }
   }
 
@@ -2149,6 +2293,65 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     if (elements.btnCloseKeyModalFooter) elements.btnCloseKeyModalFooter.addEventListener('click', closeApiKeyModal);
     if (elements.addKeyForm) elements.addKeyForm.addEventListener('submit', handleAddKeysSubmit);
 
+    // Transcreation & Translation Modal
+    if (elements.btnOpenTranslateModal) elements.btnOpenTranslateModal.addEventListener('click', openTranslateModal);
+    if (elements.btnSubbarTranslate) elements.btnSubbarTranslate.addEventListener('click', openTranslateModal);
+    if (elements.btnCloseTranslateModal) elements.btnCloseTranslateModal.addEventListener('click', closeTranslateModal);
+    if (elements.btnCloseTranslateModalFooter) elements.btnCloseTranslateModalFooter.addEventListener('click', closeTranslateModal);
+    if (elements.btnTriggerTranscreate) elements.btnTriggerTranscreate.addEventListener('click', handleTranscreateScript);
+
+    if (elements.transTargetLangSelect) {
+      elements.transTargetLangSelect.addEventListener('change', (e) => {
+        const val = e.target.value;
+        if (elements.transCustomLangGroup) {
+          elements.transCustomLangGroup.hidden = val !== 'custom';
+        }
+        const greetings = {
+          'en-US': 'Hey movie fans, welcome back!',
+          'en-GB': 'Hello everyone, and welcome back to the channel.',
+          'es': '¡Hola amantes del cine, bienvenidos de nuevo!',
+          'pt-BR': 'E aí cinéfilos, sejam muito bem-vindos de volta!',
+          'ja': '皆さんこんにちは！映画解説チャンネルへようこそ。',
+          'de': 'Hallo Filmfans, willkommen zurück auf unserem Kanal!',
+          'fr': 'Bonjour à tous les passionnés de cinéma et bienvenue sur la chaîne!',
+          'ko': '안녕하세요, 영화 리뷰 채널에 오신 것을 환영합니다!',
+          'ar': 'مرحباً بكم يا عشاق السينما في ملخص جديد ومثير اليوم!'
+        };
+        if (greetings[val] && elements.transOpeningHookInput) {
+          elements.transOpeningHookInput.value = greetings[val];
+        }
+      });
+    }
+
+    if (elements.transGeminiModelSelect && elements.transModelBadge) {
+      elements.transGeminiModelSelect.addEventListener('change', (e) => {
+        elements.transModelBadge.textContent = e.target.value === 'auto' ? 'Auto-Fallback Siaga' : e.target.options[e.target.selectedIndex].text;
+      });
+    }
+
+    if (elements.btnCopyTransResult && elements.transResultPreview) {
+      elements.btnCopyTransResult.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(elements.transResultPreview.value);
+          showToast('✓ Naskah hasil terjemahan berhasil disalin ke clipboard!');
+        } catch {
+          elements.transResultPreview.select();
+          document.execCommand('copy');
+          showToast('✓ Naskah berhasil disalin!');
+        }
+      });
+    }
+
+    if (elements.btnOpenTransProject) {
+      elements.btnOpenTransProject.addEventListener('click', () => {
+        if (newlyCreatedTransProjectId) {
+          loadProjectIntoStudio(newlyCreatedTransProjectId);
+          closeTranslateModal();
+          showToast('Beralih ke proyek naskah global!');
+        }
+      });
+    }
+
     // Voiceover TTS Modal (Google Colab)
     if (elements.btnOpenTtsModal) elements.btnOpenTtsModal.addEventListener('click', openTtsModal);
     if (elements.btnCloseTtsModal) elements.btnCloseTtsModal.addEventListener('click', closeTtsModal);
@@ -2489,6 +2692,7 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
         if (elements.newProjectModal && !elements.newProjectModal.hidden) closeNewProjectModal();
         if (elements.apiKeyModal && !elements.apiKeyModal.hidden) closeApiKeyModal();
         if (elements.ttsModal && !elements.ttsModal.hidden) closeTtsModal();
+        if (elements.translateModal && !elements.translateModal.hidden) closeTranslateModal();
       }
       if (e.code === 'Space' && state.prompter.active) {
         e.preventDefault();

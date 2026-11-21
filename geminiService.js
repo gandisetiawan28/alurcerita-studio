@@ -402,9 +402,126 @@ Makasih banyak buat ${openingHook.replace(/^Halo\s+/i, '')} yang udah nonton sam
   };
 }
 
+/**
+ * Transcreation & Anti-Duplicate Localization Engine
+ * Mengubah naskah alur cerita bahasa Indonesia menjadi versi bahasa asing
+ * dengan gaya penceritaan penutur asli (native recap) agar 100% bebas dari
+ * deteksi Duplicate / Reused Content algoritma YouTube, serta menyinkronkan
+ * seluruh tag arahan visual (Visual: ...) untuk mempermudah editor video.
+ */
+async function runGeminiTranscreation(data) {
+  const {
+    sourceScript,
+    movieTitle = 'Film Pilihan',
+    targetLanguage = 'en-US',
+    customLanguage = '',
+    channelName = 'Movie Recap Hub',
+    openingHook = 'Hey movie fans, welcome back!',
+    personaStyle = 'engaging_storyteller',
+    antiDuplicateLevel = 'ultra',
+    preferredModel = 'auto'
+  } = data;
+
+  if (!sourceScript || sourceScript.trim().length === 0) {
+    throw new Error('Naskah sumber kosong. Tulis atau buat naskah terlebih dahulu.');
+  }
+
+  const langMap = {
+    'en-US': 'American English (US) in the fast-paced, high-retention storytelling style of top YouTube movie recap channels (like Movie Recaps / Mystery Recapped)',
+    'en-GB': 'British English (UK) in an articulate, cinematic, and engaging storytelling style',
+    'es': 'Neutral Spanish (Español) in the engaging style of Latin American and Spanish movie recap channels (Resumen de Películas)',
+    'pt-BR': 'Brazilian Portuguese (Português do Brasil) tailored for YouTube movie recaps (Resumo de Filmes)',
+    'ja': 'Japanese (日本語) in natural, immersive cinema recap storytelling style (映画解説・あらすじ)',
+    'de': 'German (Deutsch) in natural and captivating movie recap narrative style (Filmzusammenfassung)',
+    'fr': 'French (Français) in engaging movie recap narrative style (Récapitulatif de film)',
+    'ko': 'Korean (한국어) in captivating cinema recap style (영화 결말포함 리뷰)',
+    'ar': 'Modern Standard Arabic (العربية) in cinematic storytelling recap style'
+  };
+
+  const resolvedLang = langMap[targetLanguage] || (customLanguage ? customLanguage.trim() : 'American English (US)');
+
+  let uniquenessInstruction = '';
+  if (antiDuplicateLevel === 'ultra') {
+    uniquenessInstruction = `
+- ULTRA-MAXIMUM RE-FRAMING (CRITICAL FOR YOUTUBE REUSED CONTENT EVASION):
+  * Completely dismantle and rebuild the phrasing from scratch using native colloquial idioms.
+  * DO NOT mirror Indonesian syntax, word order, or direct sentence boundaries.
+  * Craft a fresh opening hook question and thematic angle tailored to "${channelName}".
+  * Rephrase emotional reflections, character reactions, and plot transitions so that automated subtitle/transcript matchers calculate ZERO duplicate similarity with literal translations.
+  * Plot facts, character names, and the chronological sequence of movie events MUST remain 100% accurate.`;
+  } else if (antiDuplicateLevel === 'balanced') {
+    uniquenessInstruction = `
+- BALANCED NATIVE LOCALIZATION:
+  * Paraphrase thoroughly using natural conversational flow of target language speakers.
+  * Avoid direct word-for-word translation. Keep sentence lengths varied and engaging.`;
+  } else {
+    uniquenessInstruction = `
+- FAITHFUL ADAPTIVE TRANSLATION:
+  * Follow the scene-by-scene narrative closely, but ensure smooth, natural grammatical flow in ${resolvedLang}.`;
+  }
+
+  const prompt = `
+You are a world-class YouTube Movie Recap Scriptwriter, Localization Expert, and Transcreation Specialist.
+Your task: TRANSCREATE the following Indonesian film recap script into:
+**TARGET LANGUAGE**: ${resolvedLang}
+
+CHANNEL BRANDING & PERSONA:
+- Target Channel Name: "${channelName}"
+- Opening Greeting / Hook: "${openingHook}"
+- Persona / Tone: ${personaStyle.replace(/_/g, ' ')} (Engaging, conversational, crisp, immersive)
+
+STRICT ANTI-DUPLICATE & YOUTUBE POLICY RULES:
+1. ZERO LITERAL TRANSLATION:
+   Literal translation triggers YouTube's duplicate/reused content detection. You must RE-WRITE (transcreate) the storytelling so that it sounds like it was originally written by a native creator in ${resolvedLang}.
+2. PRESERVE ALL (Visual: ...) TAGS EXACTLY:
+   Every single visual cue tag in the script, like:
+   \`(Visual: [Deskripsi adegan])\`
+   MUST be retained in its exact narrative position, but translated and adapted clearly into the target language, for example:
+   \`(Visual: Close-up of Dre looking out the plane window at Beijing skyline)\`
+   This is MANDATORY so the video editor can synchronize the visual footage with the new voiceover.
+3. PRESERVE STRUCTURAL HEADERS:
+   Keep standard Markdown chapter structure:
+   - # [TITLE OF MOVIE IN TARGET LANGUAGE/ORIGINAL]
+   - **Genre**: Drama / Action / Mystery
+   - **Channel**: ${channelName}
+   - ## [OPENING]
+   - ## [BODY STORY]
+     - ### PART 1: [Localized Part Title]
+     - ### PART 2: [Localized Part Title]
+     - (continue all parts)
+   - ## [BEDAH ANALISIS & PESAN FILM] -> Localize header to: ## [FILM ANALYSIS & DEEP DIVE] (or target language equivalent)
+     - ### 1. WHY THIS FILM IS SO COMPELLING
+     - ### 2. THE CORE MESSAGE & PHILOSOPHY
+     - ### 3. CHARACTER GROWTH & INNER MOTIVATION
+   - ## [CONCLUSION & OUTRO]
+${uniquenessInstruction}
+
+INPUT SCRIPT TO TRANSCREATE (INDONESIAN):
+${sourceScript}
+
+Produce the full, complete transcreated script in clean Markdown without conversational preamble or apology:
+`;
+
+  console.log(`🌐 [Transcreation Engine] Memulai terjemah anti-duplikat ke ${resolvedLang} [Model: ${preferredModel}]...`);
+  const result = await callGeminiSmartStage(prompt, `Transcreation (${targetLanguage})`, preferredModel);
+
+  if (!result) {
+    throw new Error('Gagal memproses terjemahan AI: Tidak ada Kunci API aktif yang tersedia.');
+  }
+
+  return {
+    transcreated_markdown: result.text,
+    word_count: countWords(result.text),
+    target_language: resolvedLang,
+    active_model: result.modelName,
+    used_key: result.keyInfo
+  };
+}
+
 module.exports = {
   GEMINI_MODELS,
   runGeminiGeneration,
+  runGeminiTranscreation,
   testGeminiApiKey,
   countWords,
   getModelSequence
