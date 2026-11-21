@@ -13,7 +13,7 @@ const path = require('node:path');
 const fs = require('node:fs');
 const { spawn, execSync } = require('node:child_process');
 const { ProjectRepo, ApiKeyRepo, TtsRepo } = require('./db');
-const { runGeminiGeneration, testGeminiApiKey } = require('./geminiService');
+const { GEMINI_MODELS, runGeminiGeneration, testGeminiApiKey } = require('./geminiService');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -130,12 +130,21 @@ app.post('/api/keys/:id/test', async (req, res) => {
     res.json({
       success: testResult.success,
       message: testResult.message || testResult.error,
+      modelUsed: testResult.modelUsed,
       key: ApiKeyRepo.getById(req.params.id)
     });
   } catch (error) {
-    console.error('Error testing API key:', error);
+    console.error('Error testing key:', error);
     res.status(500).json({ success: false, error: error.message });
   }
+});
+
+// 6. Get official Gemini API models catalog (8 models strictly allowed)
+app.get('/api/gemini/models', (req, res) => {
+  res.json({
+    success: true,
+    models: GEMINI_MODELS
+  });
 });
 
 // 6. Test a raw key before saving
@@ -663,7 +672,8 @@ app.post('/api/projects/:id/generate', async (req, res) => {
       personaStyle: req.body.persona_style || project.persona_style,
       includeAnalysis: req.body.include_analysis !== undefined ? req.body.include_analysis : Boolean(project.include_analysis),
       enforceVisualCues: req.body.enforce_visual_cues !== undefined ? req.body.enforce_visual_cues : Boolean(project.enforce_visual_cues),
-      sources: req.body.sources || project.sources || {}
+      sources: req.body.sources || project.sources || {},
+      preferredModel: req.body.gemini_model || 'auto'
     };
 
     const aiResult = await runGeminiGeneration(generationPayload);
@@ -679,7 +689,9 @@ app.post('/api/projects/:id/generate', async (req, res) => {
       success: true,
       data: updated,
       mode: aiResult.mode,
-      used_keys: aiResult.used_keys
+      used_keys: aiResult.used_keys,
+      used_models: aiResult.used_models,
+      active_model: aiResult.active_model
     });
   } catch (error) {
     console.error('Error in project generation:', error);

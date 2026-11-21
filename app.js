@@ -386,6 +386,8 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     personaStyleSelect: document.getElementById('personaStyleSelect'),
     checkIncludeAnalysis: document.getElementById('checkIncludeAnalysis'),
     checkEnforceVisualCues: document.getElementById('checkEnforceVisualCues'),
+    geminiModelSelect: document.getElementById('geminiModelSelect'),
+    geminiModelBadge: document.getElementById('geminiModelBadge'),
     
     // Sources Tab Elements
     tabButtons: document.querySelectorAll('.source-tab'),
@@ -1971,7 +1973,8 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
       persona_style: elements.personaStyleSelect.value || 'teman_ngopi',
       include_analysis: elements.checkIncludeAnalysis.checked,
       enforce_visual_cues: elements.checkEnforceVisualCues.checked,
-      sources: state.sources
+      sources: state.sources,
+      gemini_model: elements.geminiModelSelect ? elements.geminiModelSelect.value : 'auto'
     };
 
     try {
@@ -2014,7 +2017,12 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
           state.currentScriptMarkdown = generatedMarkdown;
           renderScript(true);
           elements.canvasSyncStatus.textContent = "✓ Tersimpan di SQLite (alurcerita.db)";
-          showToast("Naskah berhasil disintesis dan disimpan ke database SQL!");
+
+          const activeModelName = resData.active_model || (resData.used_models ? resData.used_models.join(', ') : 'Gemini AI');
+          if (elements.geminiModelBadge) {
+            elements.geminiModelBadge.textContent = activeModelName;
+          }
+          showToast(`✓ Naskah berhasil disintesis menggunakan ${activeModelName}!`);
         }
 
         const t3 = setTimeout(() => {
@@ -2200,6 +2208,26 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
         }
 
         handleSaveColabConfig();
+      });
+    }
+
+    // Gemini Model Selection & LocalStorage Persistence
+    if (elements.geminiModelSelect) {
+      const savedModel = localStorage.getItem('alurcerita_gemini_model');
+      if (savedModel && elements.geminiModelSelect.querySelector(`option[value="${savedModel}"]`)) {
+        elements.geminiModelSelect.value = savedModel;
+        if (elements.geminiModelBadge) {
+          elements.geminiModelBadge.textContent = savedModel === 'auto' ? '8 Model Siaga' : elements.geminiModelSelect.options[elements.geminiModelSelect.selectedIndex].text;
+        }
+      }
+
+      elements.geminiModelSelect.addEventListener('change', (e) => {
+        const val = e.target.value;
+        localStorage.setItem('alurcerita_gemini_model', val);
+        if (elements.geminiModelBadge) {
+          elements.geminiModelBadge.textContent = val === 'auto' ? '8 Model Siaga' : e.target.options[e.target.selectedIndex].text;
+        }
+        showToast(val === 'auto' ? '⚡ Mode Auto-Fallback Pintar aktif.' : `Model Gemini diset ke: ${e.target.options[e.target.selectedIndex].text}`);
       });
     }
     if (elements.ttsVoiceSelect) {

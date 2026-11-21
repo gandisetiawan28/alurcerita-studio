@@ -335,6 +335,26 @@
             </span>
           </label>
         </div>
+
+        <!-- Model Gemini AI (Wajib 8 Model Resmi + Auto-Fallback Pintar) -->
+        <div class="form-group" style="margin-top: 14px;">
+          <div class="label-with-meta">
+            <label for="geminiModelSelect">Model Gemini AI</label>
+            <span class="val-badge" id="geminiModelBadge" title="Status auto-failover aktif">8 Model Siaga</span>
+          </div>
+          <select id="geminiModelSelect" class="input-field font-semibold">
+            <option value="auto" selected>⚡ Auto-Fallback Pintar (Otomatis jika Busy/Limit)</option>
+            <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+            <option value="gemini-2.5-flash-lite">Gemini 2.5 Flash Lite</option>
+            <option value="gemini-3-flash">Gemini 3 Flash</option>
+            <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash Lite</option>
+            <option value="gemini-3.6-flash">Gemini 3.6 Flash</option>
+            <option value="gemini-3.5-flash-lite">Gemini 3.5 Flash Lite</option>
+            <option value="gemini-3.8-flash">Gemini 3.8 Flash</option>
+            <option value="gemini-4-hydrogen">Gemini 4 Hydrogen</option>
+          </select>
+          <small class="field-hint">Auto-fallback aktif antar 8 model jika server busy (503) atau kuota habis (429).</small>
+        </div>
       </section>
 
       <!-- Action Panel: Generate Button & Pipeline Progress -->
@@ -523,6 +543,27 @@
           <div class="banner-text">
             <strong>Tersimpan Aman di Database SQLite (alurcerita.db)</strong>
             <p>Anda tidak perlu mengedit file <code>.env</code> lagi. Masukkan 1 atau beberapa API Key Gemini di bawah. Sistem akan otomatis membagi beban request dan otomatis beralih ke kunci cadangan jika ada yang terkena limit kuota harian atau rate-limit (429).</p>
+          </div>
+        </div>
+
+        <!-- 8 Gemini Models & Smart Fallback Status Banner -->
+        <div class="gemini-models-card">
+          <div class="models-badge-header">
+            <span class="badge-icon">⚡</span>
+            <div>
+              <strong>8 Model Gemini Resmi (Auto-Failover Pintar)</strong>
+              <p class="models-badge-desc">Sistem eksklusif menggunakan 8 model resmi berikut. Jika salah satu model atau kunci terkena limit kuota harian, rate limit (429), atau server sibuk (503), sistem otomatis beralih ke model cadangan:</p>
+            </div>
+          </div>
+          <div class="models-chip-grid">
+            <span class="model-chip"><span class="chip-dot"></span>Gemini 2.5 Flash</span>
+            <span class="model-chip"><span class="chip-dot"></span>Gemini 2.5 Flash Lite</span>
+            <span class="model-chip"><span class="chip-dot"></span>Gemini 3 Flash</span>
+            <span class="model-chip"><span class="chip-dot"></span>Gemini 3.1 Flash Lite</span>
+            <span class="model-chip"><span class="chip-dot"></span>Gemini 3.6 Flash</span>
+            <span class="model-chip"><span class="chip-dot"></span>Gemini 3.5 Flash Lite</span>
+            <span class="model-chip"><span class="chip-dot"></span>Gemini 3.8 Flash</span>
+            <span class="model-chip"><span class="chip-dot"></span>Gemini 4 Hydrogen</span>
           </div>
         </div>
 

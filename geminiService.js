@@ -1,84 +1,168 @@
 /**
  * AlurCerita Studio — Multi-Agent AI Script Generation Service
- * Powered by Google Gemini API (@google/generative-ai)
- * Implements Smart Round-Robin with Health Tracking & Failover:
- * 1. Lead Scriptwriter (Multi-source linear merger + Visual Cues)
- * 2. Film Analyst (Genre, Plot/Moral, Character growth)
- * 3. Synthesizer (Emotional bridge + Seamless single script)
+ * Powered exclusively by Google Gemini API (@google/generative-ai)
+ * 
+ * STRICT MODEL SPECIFICATION (Wajib 8 Model Resmi):
+ * 1. Gemini 2.5 Flash
+ * 2. Gemini 2.5 Flash Lite
+ * 3. Gemini 3 Flash
+ * 4. Gemini 3.1 Flash Lite
+ * 5. Gemini 3.6 Flash
+ * 6. Gemini 3.5 Flash Lite
+ * 7. Gemini 3.8 Flash
+ * 8. Gemini 4 Hydrogen
+ * 
+ * Implements Smart Auto-Fallback:
+ * - Automatic failover if model fails, server busy (503), quota limit (429), or overloaded
+ * - Combined with SQLite Smart Round-Robin API Key rotation & health tracking
  */
 
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { ApiKeyRepo } = require('./db');
 
+// Katalog Resmi 8 Model Gemini (Wajib Tidak Ada Yang Lain)
+const GEMINI_MODELS = [
+  { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', tier: 'flash', desc: 'Cepat, seimbang & cerdas (Prioritas Utama)' },
+  { id: 'gemini-2.5-flash-lite', name: 'Gemini 2.5 Flash Lite', tier: 'lite', desc: 'Ultra-ringan & efisien' },
+  { id: 'gemini-3-flash', name: 'Gemini 3 Flash', tier: 'flash', desc: 'Generasi 3.0 penalaran tinggi' },
+  { id: 'gemini-3.1-flash-lite', name: 'Gemini 3.1 Flash Lite', tier: 'lite', desc: 'Generasi 3.1 respons kilat & hemat token' },
+  { id: 'gemini-3.6-flash', name: 'Gemini 3.6 Flash', tier: 'flash', desc: 'Generasi 3.6 presisi struktur naskah' },
+  { id: 'gemini-3.5-flash-lite', name: 'Gemini 3.5 Flash Lite', tier: 'lite', desc: 'Generasi 3.5 hemat kuota harian' },
+  { id: 'gemini-3.8-flash', name: 'Gemini 3.8 Flash', tier: 'flash', desc: 'Generasi 3.8 multitasking performa tinggi' },
+  { id: 'gemini-4-hydrogen', name: 'Gemini 4 Hydrogen', tier: 'flagship', desc: 'Generasi 4 Hydrogen ultra flagship' }
+];
+
 /**
- * Live test an API key against Google Gemini API
+ * Menyusun urutan model fallback secara pintar:
+ * Model pilihan ditaruh di awal, disusul model resmi lainnya sebagai jaring pengaman failover.
+ */
+function getModelSequence(preferredModel = 'auto') {
+  const allowed = [...GEMINI_MODELS];
+  if (!preferredModel || preferredModel === 'auto') {
+    return allowed;
+  }
+  const matchIdx = allowed.findIndex(m => m.id === preferredModel || m.name.toLowerCase() === preferredModel.toLowerCase());
+  if (matchIdx !== -1) {
+    const chosen = allowed[matchIdx];
+    const rest = allowed.filter((_, idx) => idx !== matchIdx);
+    return [chosen, ...rest];
+  }
+  return allowed;
+}
+
+/**
+ * Live test kunci API terhadap 8 Model Gemini Resmi dengan smart auto-fallback
  */
 async function testGeminiApiKey(apiKey) {
   if (!apiKey || typeof apiKey !== 'string' || apiKey.trim().length < 15) {
     return { success: false, error: 'Format kunci API tidak valid (minimal 15 karakter).' };
   }
-  try {
-    const genAI = new GoogleGenerativeAI(apiKey.trim());
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-    const result = await model.generateContent({
-      contents: [{ role: 'user', parts: [{ text: 'Ping. Balas satu kata: SIAP.' }] }],
-      generationConfig: { maxOutputTokens: 10 }
-    });
-    const text = result.response.text();
-    return { success: true, message: `Berhasil terhubung ke Google Gemini! Respons: "${text.trim()}"` };
-  } catch (error) {
-    return { success: false, error: error.message };
+
+  const genAI = new GoogleGenerativeAI(apiKey.trim());
+  const models = getModelSequence('auto');
+  const errors = [];
+
+  for (const modelDef of models) {
+    try {
+      console.log(`🧪 Menguji koneksi Gemini API dengan model ${modelDef.name} (${modelDef.id})...`);
+      const model = genAI.getGenerativeModel({ model: modelDef.id });
+      const result = await model.generateContent({
+        contents: [{ role: 'user', parts: [{ text: 'Ping. Balas satu kata: SIAP.' }] }],
+        generationConfig: { maxOutputTokens: 10 }
+      });
+      const text = result.response.text();
+      return {
+        success: true,
+        modelUsed: modelDef.name,
+        message: `Berhasil terhubung ke Google Gemini via ${modelDef.name}! Respons: "${text.trim()}"`
+      };
+    } catch (error) {
+      console.warn(`⚠️ [Test Key] Model ${modelDef.name} gagal (${error.message}). Mencoba model cadangan...`);
+      errors.push(`${modelDef.name}: ${error.message}`);
+    }
   }
+
+  return {
+    success: false,
+    error: `Semua 8 model Gemini gagal diuji pada kunci ini: ${errors[0] || 'Koneksi gagal atau kuota limit'}`
+  };
 }
 
 /**
- * Helper to call Gemini with Smart Round-Robin and automatic failover
+ * Pemanggil Gemini AI Pintar dengan Auto-Fallback Model & Rotasi Kunci API:
+ * 1. Mencoba model pilihan pertama kali.
+ * 2. Jika gagal karena server busy (503), kuota penuh/limit habis (429), atau error, otomatis beralih ke model berikutnya dari 8 model resmi.
+ * 3. Jika seluruh 8 model gagal pada satu kunci, beralih ke kunci cadangan di database SQLite.
  */
-async function callGeminiSmartStage(prompt, stageName) {
+async function callGeminiSmartStage(prompt, stageName, preferredModel = 'auto') {
   const triedKeyIds = [];
   let lastError = null;
+  const modelChain = getModelSequence(preferredModel);
 
   while (true) {
     const keyRecord = ApiKeyRepo.getNextSmartKey(triedKeyIds);
     if (!keyRecord) {
-      // Check if .env has a fallback key if none configured in SQLite
+      // Coba fallback ke process.env.GEMINI_API_KEY jika tidak ada key di database
       if (triedKeyIds.length === 0 && process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim() !== '' && !process.env.GEMINI_API_KEY.includes('YOUR_GEMINI')) {
-        try {
-          console.log(`🔑 Menggunakan GEMINI_API_KEY dari .env untuk ${stageName}...`);
-          const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY.trim());
-          const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-          const result = await model.generateContent(prompt);
-          return { text: result.response.text(), keyInfo: 'Environment Key (.env)' };
-        } catch (envErr) {
-          console.warn('⚠️ Gagal pada GEMINI_API_KEY (.env):', envErr.message);
-          lastError = envErr;
+        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY.trim());
+        for (const modelDef of modelChain) {
+          try {
+            console.log(`🔑 Menggunakan GEMINI_API_KEY (.env) dengan model ${modelDef.name} untuk ${stageName}...`);
+            const model = genAI.getGenerativeModel({ model: modelDef.id });
+            const result = await model.generateContent(prompt);
+            return {
+              text: result.response.text(),
+              keyInfo: 'Environment Key (.env)',
+              modelId: modelDef.id,
+              modelName: modelDef.name
+            };
+          } catch (envErr) {
+            console.warn(`⚠️ [.env] Model ${modelDef.name} gagal (${envErr.message}). Fallback ke model berikutnya...`);
+            lastError = envErr;
+          }
         }
       }
 
       if (triedKeyIds.length > 0) {
-        throw new Error(`Semua API Key Gemini (${triedKeyIds.length} key) sedang limit (429) atau error: ${lastError?.message || 'Gagal'}`);
+        throw new Error(`Semua Kunci API & 8 Model Gemini (${triedKeyIds.length} key diuji) sedang sibuk/limit (429/503): ${lastError?.message || 'Gagal'}`);
       }
-      return null; // No keys available at all -> will trigger local fallback
+      return null; // Tidak ada kunci sama sekali -> trigger local fallback
     }
 
     triedKeyIds.push(keyRecord.id);
     console.log(`🤖 [Smart Round-Robin] Memakai Key #${keyRecord.id} [${keyRecord.label || 'Gemini'}] (${keyRecord.masked_key}) untuk ${stageName}...`);
 
-    try {
-      const genAI = new GoogleGenerativeAI(keyRecord.key_value);
-      const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-      const result = await model.generateContent(prompt);
-      const text = result.response.text();
+    const genAI = new GoogleGenerativeAI(keyRecord.key_value);
 
-      // Record successful usage
-      ApiKeyRepo.recordUsage(keyRecord.id, true);
-      return { text, keyInfo: `${keyRecord.label || 'Key'} (${keyRecord.masked_key})` };
-    } catch (error) {
-      lastError = error;
-      console.warn(`⚠️ Key #${keyRecord.id} (${keyRecord.masked_key}) gagal:`, error.message);
-      ApiKeyRepo.recordUsage(keyRecord.id, false, error.message);
-      // Loop continues, picking the NEXT available smart key
+    // Coba setiap model dalam 8 Model Gemini Resmi dengan urutan prioritas pintar
+    for (const modelDef of modelChain) {
+      try {
+        console.log(`🚀 [Smart Model Routing] Mencoba ${modelDef.name} (${modelDef.id}) untuk ${stageName}...`);
+        const model = genAI.getGenerativeModel({ model: modelDef.id });
+        const result = await model.generateContent(prompt);
+        const text = result.response.text();
+
+        // Rekam penggunaan sukses di SQLite
+        ApiKeyRepo.recordUsage(keyRecord.id, true);
+        console.log(`✅ [Sukses] ${stageName} berhasil diselesaikan dengan ${modelDef.name} via Key #${keyRecord.id}`);
+
+        return {
+          text,
+          keyInfo: `${keyRecord.label || 'Key'} (${keyRecord.masked_key})`,
+          modelId: modelDef.id,
+          modelName: modelDef.name
+        };
+      } catch (error) {
+        lastError = error;
+        const errStr = error.message || '';
+        const isQuotaOrBusy = errStr.includes('429') || errStr.includes('503') || errStr.includes('ResourceExhausted') || errStr.includes('quota') || errStr.includes('overloaded');
+        console.warn(`⚠️ [Auto-Fallback] Model ${modelDef.name} gagal (${isQuotaOrBusy ? 'Server Busy/Limit Habis' : errStr.slice(0, 90)}). Beralih pintar ke model berikutnya...`);
+      }
     }
+
+    // Jika seluruh 8 model gagal pada kunci ini, catat error pada kunci dan failover ke kunci berikutnya
+    ApiKeyRepo.recordUsage(keyRecord.id, false, lastError?.message);
+    console.warn(`🔄 Key #${keyRecord.id} gagal di semua 8 model. Failover otomatis ke Kunci API berikutnya di database...`);
   }
 }
 
@@ -93,7 +177,8 @@ async function runGeminiGeneration(data) {
     personaStyle = 'teman_ngopi',
     includeAnalysis = true,
     enforceVisualCues = true,
-    sources = {}
+    sources = {},
+    preferredModel = 'auto'
   } = data;
 
   const sourceTexts = Object.entries(sources)
@@ -136,9 +221,9 @@ Tugas Utama:
    - ## [KESIMPULAN & CLOSING]
 `;
 
-  console.log('🤖 Menjalankan Stage 1 (Lead Scriptwriter Agent)...');
-  const stage1Result = await callGeminiSmartStage(stage1Prompt, 'Stage 1 (Lead Scriptwriter)');
-  
+  console.log(`🤖 Menjalankan Stage 1 (Lead Scriptwriter Agent) [Target Model: ${preferredModel}]...`);
+  const stage1Result = await callGeminiSmartStage(stage1Prompt, 'Stage 1 (Lead Scriptwriter)', preferredModel);
+
   if (!stage1Result) {
     console.log('ℹ️ Belum ada API Key aktif di database, beralih ke engine fallback lokal.');
     return generateLocalFallback(data, sourceTexts);
@@ -146,13 +231,16 @@ Tugas Utama:
 
   const narrativeScript = stage1Result.text;
   const usedKeys = [stage1Result.keyInfo];
+  const usedModels = [stage1Result.modelName];
 
   if (!includeAnalysis) {
     return {
       script_markdown: narrativeScript,
       word_count: countWords(narrativeScript),
       mode: 'ai_gemini_direct',
-      used_keys: usedKeys
+      used_keys: usedKeys,
+      used_models: usedModels,
+      active_model: stage1Result.modelName
     };
   }
 
@@ -183,9 +271,10 @@ ${narrativeScript.slice(0, 15000)}
 `;
 
   console.log('🧠 Menjalankan Stage 2 (Film Analyst Agent)...');
-  const stage2Result = await callGeminiSmartStage(stage2Prompt, 'Stage 2 (Film Analyst)');
+  const stage2Result = await callGeminiSmartStage(stage2Prompt, 'Stage 2 (Film Analyst)', preferredModel);
   const analysisOutput = stage2Result.text;
   usedKeys.push(stage2Result.keyInfo);
+  usedModels.push(stage2Result.modelName);
 
   // -------------------------------------------------------------------------
   // STAGE 3: Synthesizer Agent (Seamless Merge with Emotional Bridge)
@@ -213,15 +302,18 @@ Hasilkan naskah final utuh dalam format Markdown yang rapi:
 `;
 
   console.log('✨ Menjalankan Stage 3 (Synthesizer Agent)...');
-  const stage3Result = await callGeminiSmartStage(stage3Prompt, 'Stage 3 (Synthesizer)');
+  const stage3Result = await callGeminiSmartStage(stage3Prompt, 'Stage 3 (Synthesizer)', preferredModel);
   const finalScript = stage3Result.text;
   usedKeys.push(stage3Result.keyInfo);
+  usedModels.push(stage3Result.modelName);
 
   return {
     script_markdown: finalScript,
     word_count: countWords(finalScript),
     mode: 'ai_gemini_multi_agent',
-    used_keys: [...new Set(usedKeys)]
+    used_keys: [...new Set(usedKeys)],
+    used_models: [...new Set(usedModels)],
+    active_model: stage3Result.modelName || stage1Result.modelName
   };
 }
 
@@ -235,8 +327,6 @@ function countWords(str) {
 function generateLocalFallback(data, sourceTexts) {
   const {
     movieTitle = 'Film Pilihan',
-    movieDirector = 'Harald Zwart (2010)',
-    movieDescription = '',
     channelName = 'AAAlur Cerita',
     openingHook = 'Halo Nakama',
     outroBridge = 'Jadi, gak perlu cacicu lagi. langsung aja masuk ke alur ceritanya'
@@ -307,12 +397,15 @@ Makasih banyak buat ${openingHook.replace(/^Halo\s+/i, '')} yang udah nonton sam
   return {
     script_markdown: fallbackScript,
     word_count: countWords(fallbackScript),
-    mode: 'local_synthesizer'
+    mode: 'local_synthesizer',
+    used_models: ['Local Fallback Engine']
   };
 }
 
 module.exports = {
+  GEMINI_MODELS,
   runGeminiGeneration,
   testGeminiApiKey,
-  countWords
+  countWords,
+  getModelSequence
 };
