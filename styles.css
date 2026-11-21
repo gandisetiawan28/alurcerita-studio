@@ -2260,6 +2260,76 @@ button:active {
   }
 }
 
+/* Advanced Voice Settings Accordion */
+.tts-advanced-accordion {
+  margin-top: 14px;
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  transition: all 0.2s ease;
+}
+
+.btn-toggle-advanced-tts {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  color: #334155;
+  transition: background 0.15s ease;
+}
+.btn-toggle-advanced-tts:hover {
+  background: #F1F5F9;
+  color: #0F172A;
+}
+
+.adv-toggle-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.adv-toggle-arrow {
+  font-size: 10px;
+  color: #94A3B8;
+  transition: transform 0.2s ease;
+}
+.btn-toggle-advanced-tts[aria-expanded="true"] .adv-toggle-arrow {
+  transform: rotate(180deg);
+}
+
+.tts-advanced-body {
+  padding: 14px;
+  border-top: 1px solid #E2E8F0;
+  background: #FFFFFF;
+}
+.tts-advanced-body[hidden] {
+  display: none !important;
+}
+
+.advanced-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.val-badge {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  color: #2563EB;
+  background: #EFF6FF;
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid #DBEAFE;
+}
+
 /* Tombol Hentikan TTS Modal */
 .btn-stop-tts {
   display: inline-flex;

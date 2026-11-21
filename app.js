@@ -302,6 +302,15 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     ttsVoiceSelect: document.getElementById('ttsVoiceSelect'),
     ttsSpeedRange: document.getElementById('ttsSpeedRange'),
     ttsSpeedVal: document.getElementById('ttsSpeedVal'),
+    ttsAdvancedAccordion: document.getElementById('ttsAdvancedAccordion'),
+    btnToggleAdvancedTts: document.getElementById('btnToggleAdvancedTts'),
+    ttsAdvancedBody: document.getElementById('ttsAdvancedBody'),
+    ttsTempRange: document.getElementById('ttsTempRange'),
+    ttsTempVal: document.getElementById('ttsTempVal'),
+    ttsCfgRange: document.getElementById('ttsCfgRange'),
+    ttsCfgVal: document.getElementById('ttsCfgVal'),
+    ttsDialogueModeSelect: document.getElementById('ttsDialogueModeSelect'),
+    ttsToneStyleSelect: document.getElementById('ttsToneStyleSelect'),
     btnTriggerTtsGenerate: document.getElementById('btnTriggerTtsGenerate'),
     btnTriggerTtsText: document.getElementById('btnTriggerTtsText'),
     btnStopTtsGenerate: document.getElementById('btnStopTtsGenerate'),
@@ -1170,10 +1179,12 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
       { id: 'bm_lewis', name: 'Pria: bm_lewis (Narator Serius & Dalam)' }
     ],
     dia: [
-      { id: 'dia_s1_narrator', name: '🎙️ [S1] Narator Utama (Penuh Emosi & Bernyawa)', default: true },
-      { id: 'dia_s2_character', name: '🗣️ [S2] Karakter Pendukung (Santai & Dinamis)' },
-      { id: 'dia_dialogue', name: '👥 Multi-Speaker [S1] + [S2] (Dialog Percakapan)' },
-      { id: 'dia_cinematic', name: '🎬 Sinematik (Mendukung Tawa, Desah, Bisikan)' }
+      { id: 'dia_male_lead', name: '🎙️ Pria: Narator Utama (Berwibawa & Dalam)', default: true },
+      { id: 'dia_female_lead', name: '👩 Wanita: Narator Hangat & Jelas' },
+      { id: 'dia_male_casual', name: '🗣️ Pria: Karakter Santai (Teman Ngopi, Kasual)' },
+      { id: 'dia_female_expressive', name: '👧 Wanita: Karakter Dinamis & Ceria' },
+      { id: 'dia_dialogue', name: '👥 Mode Multi-Dialog Percakapan ([S1] Pria + [S2] Wanita)' },
+      { id: 'dia_cinematic', name: '🎬 Mode Sinematik (Efek Tawa, Helaan Napas, Bisikan)' }
     ],
     xtts: [
       { id: 'Damian Black', name: 'Pria: Damian Black (Berat, Sinematik Trailer)', default: true },
@@ -1449,6 +1460,10 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
           model,
           voice,
           speed,
+          temperature: parseFloat(elements.ttsTempRange ? elements.ttsTempRange.value : 0.75) || 0.75,
+          cfg_scale: parseFloat(elements.ttsCfgRange ? elements.ttsCfgRange.value : 2.5) || 2.5,
+          dialogue_mode: elements.ttsDialogueModeSelect ? elements.ttsDialogueModeSelect.value : 'auto',
+          tone_style: elements.ttsToneStyleSelect ? elements.ttsToneStyleSelect.value : 'natural',
           colab_url: (state.ttsConfig && state.ttsConfig.colab_url) || (elements.inputColabUrl && elements.inputColabUrl.value.trim()) || ''
         }),
         signal: ttsAbortController.signal
@@ -2147,10 +2162,43 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     if (elements.colabConfigForm) elements.colabConfigForm.addEventListener('submit', handleSaveColabConfig);
     if (elements.btnTestColabConnection) elements.btnTestColabConnection.addEventListener('click', handleTestColabConnection);
 
+    // Advanced TTS Settings Toggle & Sliders
+    if (elements.btnToggleAdvancedTts && elements.ttsAdvancedBody) {
+      elements.btnToggleAdvancedTts.addEventListener('click', () => {
+        const isHidden = elements.ttsAdvancedBody.hidden;
+        elements.ttsAdvancedBody.hidden = !isHidden;
+        elements.btnToggleAdvancedTts.setAttribute('aria-expanded', String(isHidden));
+      });
+    }
+    if (elements.ttsTempRange && elements.ttsTempVal) {
+      elements.ttsTempRange.addEventListener('input', (e) => {
+        elements.ttsTempVal.textContent = e.target.value;
+      });
+    }
+    if (elements.ttsCfgRange && elements.ttsCfgVal) {
+      elements.ttsCfgRange.addEventListener('input', (e) => {
+        elements.ttsCfgVal.textContent = e.target.value;
+      });
+    }
+
     // Dynamic Character/Voice selection per TTS Model
     if (elements.ttsModelSelect) {
       elements.ttsModelSelect.addEventListener('change', (e) => {
-        populateTtsVoiceOptions(e.target.value);
+        const selectedModel = e.target.value;
+        populateTtsVoiceOptions(selectedModel);
+
+        // Atur parameter default optimal untuk masing-masing model
+        if (selectedModel === 'dia') {
+          if (elements.ttsTempRange) { elements.ttsTempRange.value = 0.75; if (elements.ttsTempVal) elements.ttsTempVal.textContent = '0.75'; }
+          if (elements.ttsCfgRange) { elements.ttsCfgRange.value = 2.5; if (elements.ttsCfgVal) elements.ttsCfgVal.textContent = '2.5'; }
+        } else if (selectedModel === 'kokoro') {
+          if (elements.ttsTempRange) { elements.ttsTempRange.value = 0.8; if (elements.ttsTempVal) elements.ttsTempVal.textContent = '0.8'; }
+          if (elements.ttsCfgRange) { elements.ttsCfgRange.value = 2.0; if (elements.ttsCfgVal) elements.ttsCfgVal.textContent = '2.0'; }
+        } else if (selectedModel === 'xtts') {
+          if (elements.ttsTempRange) { elements.ttsTempRange.value = 0.7; if (elements.ttsTempVal) elements.ttsTempVal.textContent = '0.7'; }
+          if (elements.ttsCfgRange) { elements.ttsCfgRange.value = 2.0; if (elements.ttsCfgVal) elements.ttsCfgVal.textContent = '2.0'; }
+        }
+
         handleSaveColabConfig();
       });
     }

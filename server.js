@@ -222,7 +222,7 @@ app.post('/api/tts/test-colab', async (req, res) => {
 // 4. Generate TTS via Google Colab
 app.post('/api/tts/generate', async (req, res) => {
   try {
-    const { projectId, text, model = 'kokoro', voice = 'am_michael', speed = 1.0 } = req.body;
+    const { projectId, text, model = 'kokoro', voice = 'am_michael', speed = 1.0, temperature = 0.75, cfg_scale = 2.5, dialogue_mode = 'auto', tone_style = 'natural' } = req.body;
     if (!text || text.trim().length === 0) {
       return res.status(400).json({ success: false, error: 'Teks voiceover kosong.' });
     }
@@ -264,7 +264,11 @@ app.post('/api/tts/generate', async (req, res) => {
         model,
         voice,
         speed: Number(speed),
-        format: 'mp3'
+        format: 'mp3',
+        temperature: Number(temperature) || 0.75,
+        cfg_scale: Number(cfg_scale) || 2.5,
+        dialogue_mode: dialogue_mode || 'auto',
+        tone_style: tone_style || 'natural'
       })
     });
 
@@ -356,7 +360,7 @@ app.post('/api/tts/generate-stream', async (req, res) => {
   };
 
   try {
-    let { projectId, sentences, text, voice = 'am_adam', speed = 1.1, model = 'kokoro' } = req.body;
+    let { projectId, sentences, text, voice = 'am_adam', speed = 1.1, model = 'kokoro', temperature = 0.75, cfg_scale = 2.5, dialogue_mode = 'auto', tone_style = 'natural' } = req.body;
     if ((!Array.isArray(sentences) || sentences.length === 0) && text) {
       sentences = splitIntoSentences(text);
     }
@@ -439,7 +443,11 @@ app.post('/api/tts/generate-stream', async (req, res) => {
               model,
               voice,
               speed: Number(speed),
-              format: 'mp3'
+              format: 'mp3',
+              temperature: Number(temperature) || 0.75,
+              cfg_scale: Number(cfg_scale) || 2.5,
+              dialogue_mode: dialogue_mode || 'auto',
+              tone_style: tone_style || 'natural'
             }),
             signal: controller.signal
           });

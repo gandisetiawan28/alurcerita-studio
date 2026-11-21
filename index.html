@@ -635,6 +635,63 @@
             </div>
           </div>
 
+          <!-- Advanced Audio Engine Settings Accordion -->
+          <div class="tts-advanced-accordion" id="ttsAdvancedAccordion">
+            <button type="button" class="btn-toggle-advanced-tts" id="btnToggleAdvancedTts" aria-expanded="false">
+              <span class="adv-toggle-left">
+                <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                <span>⚙️ Pengaturan Suara Lengkap (Temperature, CFG, Dialog & Kualitas)</span>
+              </span>
+              <span class="adv-toggle-arrow" id="advToggleArrow">▼</span>
+            </button>
+
+            <div class="tts-advanced-body" id="ttsAdvancedBody" hidden>
+              <div class="advanced-grid">
+                <!-- Temperature -->
+                <div class="form-group">
+                  <div class="label-with-meta">
+                    <label for="ttsTempRange">Kestabilan Suara (Temperature)</label>
+                    <span class="val-badge" id="ttsTempVal">0.75</span>
+                  </div>
+                  <input type="range" id="ttsTempRange" class="speed-slider" min="0.2" max="1.6" step="0.05" value="0.75">
+                  <small class="field-hint">Nilai rendah (0.5–0.8) mencegah suara pecah/robot; nilai tinggi lebih variatif.</small>
+                </div>
+
+                <!-- CFG Guidance Scale -->
+                <div class="form-group">
+                  <div class="label-with-meta">
+                    <label for="ttsCfgRange">Kekuatan Panduan Teks (CFG Scale)</label>
+                    <span class="val-badge" id="ttsCfgVal">2.5</span>
+                  </div>
+                  <input type="range" id="ttsCfgRange" class="speed-slider" min="1.0" max="5.0" step="0.2" value="2.5">
+                  <small class="field-hint">Kekuatan model mengikuti nada teks (2.0–3.0 optimal untuk vokal bersih).</small>
+                </div>
+
+                <!-- Mode Percakapan / Multi-Dialog -->
+                <div class="form-group">
+                  <label for="ttsDialogueModeSelect">Mode Percakapan & Tag Dialog</label>
+                  <select id="ttsDialogueModeSelect" class="input-field">
+                    <option value="auto" selected>Auto: Dialog jika ada [S1]/[S2], Tunggal jika polos</option>
+                    <option value="single">Paksa Narator Tunggal (1 Karakter Utuh)</option>
+                    <option value="multi">Paksa Multi-Dialog (Bagi Percakapan Otomatis)</option>
+                  </select>
+                  <small class="field-hint">Bisa sisipkan tag <code>[S1]</code> dan <code>[S2]</code> langsung di teks naskah.</small>
+                </div>
+
+                <!-- Tone / Nada Narasi -->
+                <div class="form-group">
+                  <label for="ttsToneStyleSelect">Gaya / Nada Emosi</label>
+                  <select id="ttsToneStyleSelect" class="input-field">
+                    <option value="natural" selected>Natural & Mengalir (Standar Narasi Alur Cerita)</option>
+                    <option value="dramatic">Sinematik & Dramatis (Tegang, Serius)</option>
+                    <option value="casual">Lo-Gue Santai (Teman Ngopi, Santai)</option>
+                    <option value="whisper">Bisikan / Emosi Mendalam (Misteri, Pelan)</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- Generate Action Button -->
           <div class="tts-generate-action-box">
             <button type="button" class="btn-generate" id="btnTriggerTtsGenerate">
