@@ -205,11 +205,18 @@ Data Sumber Narasi:
 ${sourceTexts}
 
 Tugas Utama:
-1. Gabungkan semua sumber di atas menjadi 1 naskah alur cerita utuh, runut, dan tanpa plot hole (linear storytelling).
-2. Gunakan sumber dengan detail paling kaya untuk setiap adegan. Jika ada bagian terputus di satu sumber, sambungkan dengan sumber lain.
-3. Jelaskan motivasi karakter (Why), bukan cuma aksinya saja.
-4. ${enforceVisualCues ? 'WAJIB menyisipkan tag (Visual: [Deskripsi adegan detail untuk editor]) di setiap perpindahan adegan atau perubahan tensi suasana.' : ''}
-5. Bagi cerita ke dalam pembagian babak yang teratur:
+1. ATURAN WAJIB HOOK / INTRO (MAKSIMAL 30 DETIK):
+   Bagian "## [OPENING]" HARUS ringkas, memikat, dan berdurasi baca MAKSIMAL 30 DETIK (antara 45 sampai 65 kata).
+   DILARANG bertele-tele agar retensi penonton YouTube tetap tinggi di detik-detik awal.
+   Format Opening:
+   - (Visual: [Adegan pembuka yang dramatis/memikat])
+   - Sapaan "${openingHook}!" langsung dilanjutkan 1-2 kalimat pertanyaan retoris atau paradoks premis film yang memancing rasa penasaran audiens.
+   - Ditutup langsung dengan kalimat outro bridge: "${outroBridge}!"
+2. Gabungkan semua sumber di atas menjadi 1 naskah alur cerita utuh, runut, dan tanpa plot hole (linear storytelling).
+3. Gunakan sumber dengan detail paling kaya untuk setiap adegan. Jika ada bagian terputus di satu sumber, sambungkan dengan sumber lain.
+4. Jelaskan motivasi karakter (Why), bukan cuma aksinya saja.
+5. ${enforceVisualCues ? 'WAJIB menyisipkan tag (Visual: [Deskripsi adegan detail untuk editor]) di setiap perpindahan adegan atau perubahan tensi suasana.' : ''}
+6. Bagi cerita ke dalam pembagian babak yang teratur:
    - # ${movieTitle.toUpperCase()}
    - **Genre**: Drama / Action / Misteri
    - **Channel**: ${channelName}
@@ -494,6 +501,9 @@ STRICT ANTI-DUPLICATE & YOUTUBE POLICY RULES:
      - ### 2. THE CORE MESSAGE & PHILOSOPHY
      - ### 3. CHARACTER GROWTH & INNER MOTIVATION
    - ## [CONCLUSION & OUTRO]
+4. STRICT 30-SECOND LIMIT FOR HOOK / OPENING (MAX 45–65 WORDS):
+   The "## [OPENING]" section MUST be strictly under 30 SECONDS of spoken voiceover (between 45 to 65 words total).
+   Start with greeting "${openingHook}", deliver 1-2 punchy, curiosity-inducing hook sentences setting up the high-stakes dilemma, and jump straight into the story without filler so YouTube retention remains at peak.
 ${uniquenessInstruction}
 
 INPUT SCRIPT TO TRANSCREATE (INDONESIAN):
