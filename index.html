@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=2.6">
+  <link rel="stylesheet" href="styles.css?v=3.0">
 </head>
 <body>
   <!-- Accessibility Skip Link -->
@@ -369,6 +369,10 @@
               <span class="step-text">Agent 3: Memadukan narasi, jembatan emosi & tagging visual</span>
             </li>
           </ul>
+          <button type="button" class="btn-cancel-pipeline" id="btnCancelPipeline">
+            <svg class="icon-xs" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"></rect></svg>
+            <span>Hentikan Sintesis</span>
+          </button>
         </div>
       </div>
 
@@ -426,13 +430,13 @@
       <!-- Main Script Canvas (Elevated Editorial Paper) -->
       <div class="editor-canvas-container" id="editorCanvasContainer">
         
-        <!-- View 1: iOS Formatted Editorial Reader (Contenteditable) -->
-        <article class="script-paper" id="scriptPaperReader" contenteditable="true" spellcheck="false" aria-label="Naskah Alur Cerita (Dapat diedit langsung)">
+        <!-- View 1: iOS Formatted Editorial Reader -->
+        <article class="script-paper" id="scriptPaperReader" contenteditable="false" spellcheck="false" aria-label="Naskah Alur Cerita">
           <!-- Dynamic Script Content Injected via app.js -->
         </article>
 
         <!-- View 2: Raw Markdown Editor (Hidden by default) -->
-        <textarea class="script-raw-editor" id="scriptRawEditor" spellcheck="false" hidden aria-label="Editor Teks Markdown"></textarea>
+        <textarea class="script-raw-editor" id="scriptRawEditor" spellcheck="false" hidden style="display: none;" aria-label="Editor Teks Markdown"></textarea>
 
       </div>
 
@@ -610,6 +614,7 @@
               <label for="ttsModelSelect">Model TTS</label>
               <select id="ttsModelSelect" class="input-field">
                 <option value="kokoro" selected>⚡ Kokoro-82M (Super Cepat, Ringan & Natural)</option>
+                <option value="dia">🎙️ Nari Dia-1.6B (Emosional, Dialog Multi-Speaker & Sound Effects)</option>
                 <option value="xtts">🎭 Coqui XTTS v2 (Ekspresif & Multi-bahasa Indonesia)</option>
               </select>
             </div>
@@ -617,12 +622,7 @@
             <div class="form-group">
               <label for="ttsVoiceSelect">Karakter / Suara</label>
               <select id="ttsVoiceSelect" class="input-field">
-                <option value="am_michael" selected>Pria: am_michael (Dewasa, Tenang & Berwibawa)</option>
-                <option value="am_adam">Pria: am_adam (Muda, Santai Teman Ngopi)</option>
-                <option value="af_bella">Wanita: af_bella (Lembut, Hangat & Jelas)</option>
-                <option value="af_nicole">Wanita: af_nicole (Tegas & Berbobot)</option>
-                <option value="bm_george">Pria: bm_george (Dokumenter British)</option>
-                <option value="bf_emma">Wanita: bf_emma (Narator Elegan British)</option>
+                <!-- Diisi otomatis secara dinamis sesuai Model TTS yang dipilih -->
               </select>
             </div>
 
@@ -641,6 +641,10 @@
               <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
               <span id="btnTriggerTtsText">🎙️ Generate Voiceover via GPU Colab</span>
             </button>
+            <button type="button" class="btn-stop-tts" id="btnStopTtsGenerate" hidden>
+              <svg class="icon-sm" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"></rect></svg>
+              <span>⏹️ Hentikan Proses Voiceover</span>
+            </button>
             <div class="tts-progress-box" id="ttsProgressBox" hidden>
               <div class="progress-spinner"></div>
               <span id="ttsProgressStatus">Mengirim naskah ke GPU Colab... (Estimasi 2-5 detik)</span>
@@ -656,6 +660,21 @@
                 <div class="tts-sentence-bar-fill" id="ttsSentenceBarFill"></div>
               </div>
               <div class="tts-sentence-quote" id="ttsSentenceLiveQuote">"Menyiapkan naskah kalimat per kalimat..."</div>
+            </div>
+
+            <!-- Real-time Sentence Audio List & Preview (Sebelum & Setelah Disatukan) -->
+            <div class="tts-sentence-preview-card" id="ttsSentencePreviewCard" hidden>
+              <div class="tts-sentence-preview-header">
+                <div class="preview-header-left">
+                  <span class="preview-badge-dot"></span>
+                  <span class="preview-title">Preview Audio Per-Kalimat</span>
+                  <span class="preview-badge-count" id="ttsPreviewCountBadge">0 kalimat</span>
+                </div>
+                <span class="preview-hint">Klik tombol play untuk mendengarkan tiap kalimat</span>
+              </div>
+              <div class="tts-sentence-scroll-list" id="ttsSentenceScrollList">
+                <!-- Diisi otomatis saat kalimat sedang & selesai disintesis -->
+              </div>
             </div>
           </div>
 
@@ -785,11 +804,12 @@
   <!-- TOAST NOTIFICATION (Centered Bottom) -->
   <div class="toast-container" id="toastContainer" aria-live="polite">
     <div class="toast" id="toastMessage" hidden>
-      <span class="toast-icon">✓</span>
+      <span class="toast-icon" id="toastIcon">✓</span>
       <span class="toast-text" id="toastText">Berhasil disalin!</span>
+      <button type="button" class="toast-close" id="toastClose" title="Tutup notifikasi" aria-label="Tutup notifikasi">✕</button>
     </div>
   </div>
 
-  <script src="app.js?v=2.6"></script>
+  <script src="app.js?v=3.0"></script>
 </body>
 </html>

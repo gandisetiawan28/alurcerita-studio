@@ -5,7 +5,7 @@
 ![Node: >=20](https://img.shields.io/badge/Node->=20.0.0-green.svg)
 ![SQLite](https://img.shields.io/badge/Database-SQLite-003B57.svg)
 
-Platform terintegrasi untuk penulisan naskah alur cerita film YouTube berbasis Multi-Agent AI (Google Gemini) yang terhubung langsung dengan mesin Text-to-Speech (TTS) berkecepatan tinggi di Google Colab GPU (Kokoro-82M & Coqui XTTS v2).
+Platform terintegrasi untuk penulisan naskah alur cerita film YouTube berbasis Multi-Agent AI (Google Gemini) yang terhubung langsung dengan mesin Text-to-Speech (TTS) berkecepatan tinggi di Google Colab GPU (Kokoro-82M, Nari Dia-1.6B & Coqui XTTS v2).
 
 ---
 
@@ -78,7 +78,7 @@ Buka browser Anda dan akses:
 ## 📁 Struktur Proyek
 
 ```text
-├── AlurCerita_TTS_Colab.ipynb   # Notebook Google Colab GPU (Kokoro & XTTS v2)
+├── AlurCerita_TTS_Colab.ipynb   # Notebook Google Colab GPU (Kokoro, Nari Dia & XTTS v2)
 ├── index.html                   # Antarmuka studio naskah & reader
 ├── styles.css                   # Sistem token desain & responsivitas
 ├── app.js                       # Logika frontend, SSE stream, & audio player

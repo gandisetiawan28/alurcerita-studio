@@ -11,7 +11,7 @@ const express = require('express');
 const cors = require('cors');
 const path = require('node:path');
 const fs = require('node:fs');
-const { spawn } = require('node:child_process');
+const { spawn, execSync } = require('node:child_process');
 const { ProjectRepo, ApiKeyRepo, TtsRepo } = require('./db');
 const { runGeminiGeneration, testGeminiApiKey } = require('./geminiService');
 
@@ -313,7 +313,38 @@ app.post('/api/tts/generate', async (req, res) => {
   }
 });
 
-// 4b. Generate Sentence-by-Sentence TTS with Live SSE Progress Stream (Colab CLI / GPU)
+// Smart Sentence Segmentation for Indonesian & English Storytelling
+// Prevents truncating titles (Mr., Mrs., Dr.), abbreviations (dll., dsb.), numbers (2.5, 10.000), initials, etc.
+function splitIntoSentences(text) {
+  if (!text || typeof text !== 'string') return [];
+  const P = '\uE000';
+
+  const titles = [
+    'mr', 'mrs', 'ms', 'miss', 'dr', 'prof', 'rev', 'capt', 'sgt', 'col', 'gen', 'lt', 'maj', 'cpl', 'pvt', 'adm',
+    'jr', 'sr', 'st', 'master', 'bpk', 'ibu', 'sdr', 'sdri', 'ust', 'habib', 'kyai',
+    'ir', 'drs', 'dra', 'sh', 'se', 'mm', 'mh', 'pt', 'cv', 'tbk', 'alm'
+  ];
+  const titlesRegex = new RegExp('\\b(' + titles.join('|') + ')\\.', 'gi');
+  let processed = text.replace(titlesRegex, (m, t) => t + P);
+
+  processed = processed.replace(/(\d+)\.(\d+)/g, '$1' + P + '$2');
+  processed = processed.replace(/\b(no|nomor|hal|hlm|vol|art|bab)\.\s*(\d+)/gi, (m, w, n) => w + P + ' ' + n);
+  processed = processed.replace(/\b([A-Z])\./g, '$1' + P);
+
+  const midAbbr = ['dll', 'dsb', 'dst', 'dlsb', 'tsb', 'ttg', 'yg', 'dgn', 'spt', 'etc', 'eg', 'ie', 'vs', 'al'];
+  const midAbbrRegex = new RegExp('\\b(' + midAbbr.join('|') + ')\\.(?=\\s+[a-z0-9]|[,;:]|\\s*$)', 'gi');
+  processed = processed.replace(midAbbrRegex, (m, a) => a + P);
+  processed = processed.replace(new RegExp('\\b(' + midAbbr.join('|') + ')\\.(?=[)"]\\s+[a-z0-9])', 'gi'), (m, a) => a + P);
+
+  processed = processed.replace(/\.{2,}/g, m => P.repeat(m.length));
+  const rawSentences = processed.match(/[^.!?]+(?:[.!?]+["'”’)]*|\s*$)/g) || [processed];
+
+  return rawSentences
+    .map(s => s.replace(new RegExp(P, 'g'), '.').trim())
+    .filter(s => s.length > 0);
+}
+
+// 4b. Generate Sentence-by-Sentence TTS with Live SSE Progress Stream
 app.post('/api/tts/generate-stream', async (req, res) => {
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
@@ -325,102 +356,197 @@ app.post('/api/tts/generate-stream', async (req, res) => {
   };
 
   try {
-    const { projectId, sentences, voice = 'am_adam', speed = 1.1, model = 'kokoro' } = req.body;
+    let { projectId, sentences, text, voice = 'am_adam', speed = 1.1, model = 'kokoro' } = req.body;
+    if ((!Array.isArray(sentences) || sentences.length === 0) && text) {
+      sentences = splitIntoSentences(text);
+    }
     if (!Array.isArray(sentences) || sentences.length === 0) {
       sendEvent({ type: 'error', message: 'Daftar kalimat kosong.' });
       return res.end();
     }
 
+    const cfg = TtsRepo.getSettings();
+    const colabUrl = (req.body.colab_url || cfg?.colab_url || '').trim().replace(/\/+$/, '');
+
+    if (!colabUrl || !colabUrl.startsWith('http')) {
+      sendEvent({
+        type: 'error',
+        message: 'URL Google Colab belum diset. Pastikan Google Colab sudah dijalankan dan URL Cloudflare Tunnel sudah terhubung di menu Voiceover TTS.'
+      });
+      return res.end();
+    }
+
+    const scratchDir = path.join(__dirname, 'scratch');
+    if (!fs.existsSync(scratchDir)) {
+      fs.mkdirSync(scratchDir, { recursive: true });
+    }
+
     const outputId = `s_${projectId || 'draft'}_${Date.now()}`;
-    const payload = {
-      sentences,
-      voice,
-      speed: Number(speed),
-      output_id: outputId
-    };
+    const chunkDir = path.join(publicAudioDir, 'chunks', outputId);
+    if (!fs.existsSync(chunkDir)) {
+      fs.mkdirSync(chunkDir, { recursive: true });
+    }
 
-    const tempJsonPath = path.join(__dirname, 'scratch', `input_${outputId}.json`);
-    fs.writeFileSync(tempJsonPath, JSON.stringify(payload, null, 2), 'utf8');
-
-    // Windows path to WSL /mnt/...
-    const driveLetter = tempJsonPath.charAt(0).toLowerCase();
-    const restOfPath = tempJsonPath.slice(2).replace(/\\/g, '/');
-    const wslJsonPath = `/mnt/${driveLetter}${restOfPath}`;
-    const wslScriptPath = `/mnt/d/1. MY CODE/ALUR CERITA NASKAH/scripts/colab_sentence_tts.py`;
-
-    console.log(`🚀 [SSE] Uploading sentences JSON to Colab session 'test-gpu'... (${sentences.length} kalimat)`);
     sendEvent({ type: 'init', total: sentences.length });
+    console.log(`🚀 [SSE] Memulai sintesis ${sentences.length} kalimat via Colab: ${colabUrl}...`);
 
-    // Step 1: Upload input json
-    await new Promise((resolve, reject) => {
-      const up = spawn('wsl.exe', ['-d', 'Ubuntu', '-e', 'colab', 'upload', '-s', 'test-gpu', wslJsonPath, '/tmp/tts_input.json']);
-      up.on('close', (code) => (code === 0 ? resolve() : reject(new Error('Gagal mengunggah naskah ke sesi Colab'))));
-      up.on('error', reject);
+    let aborted = false;
+    let currentFetchController = null;
+    res.on('close', () => {
+      if (!res.writableEnded) {
+        aborted = true;
+        if (currentFetchController) {
+          try { currentFetchController.abort(); } catch (_) {}
+        }
+      }
     });
 
-    // Step 2: Execute python engine on remote Colab GPU
-    console.log(`⚡ [SSE] Running sentence synthesis on remote Colab GPU...`);
-    const execProc = spawn('wsl.exe', ['-d', 'Ubuntu', '-e', 'colab', 'exec', '-s', 'test-gpu', '-f', wslScriptPath]);
+    const chunkFiles = [];
 
-    let stdoutBuf = '';
-    let isFinished = false;
+    // Synthesize each sentence sequentially
+    for (let i = 0; i < sentences.length; i++) {
+      if (aborted) {
+        console.log(`⚠️ [SSE] Client disconnected, menghentikan sintesis.`);
+        break;
+      }
 
-    execProc.stdout.on('data', async (chunk) => {
-      stdoutBuf += chunk.toString();
-      const lines = stdoutBuf.split('\n');
-      stdoutBuf = lines.pop();
+      const sentence = sentences[i].trim();
+      if (!sentence) continue;
 
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (!trimmed.startsWith('{') || !trimmed.endsWith('}')) continue;
+      sendEvent({ type: 'sentence_start', index: i, text: sentence });
+
+      const chunkFileName = `chunk_${String(i).padStart(4, '0')}.mp3`;
+      const chunkFilePath = path.join(chunkDir, chunkFileName);
+
+      let success = false;
+      let lastErr = null;
+
+      // Retry up to 2 times on transient network hiccup
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        if (aborted) break;
         try {
-          const evt = JSON.parse(trimmed);
-          if (evt.type === 'complete') {
-            isFinished = true;
-            // Step 3: Download merged file from Colab
-            const localFileName = `voice_${outputId}.${evt.format || 'mp3'}`;
-            const localFilePath = path.join(publicAudioDir, localFileName);
-            const wslLocalDest = `/mnt/${localFilePath.charAt(0).toLowerCase()}${localFilePath.slice(2).replace(/\\/g, '/')}`;
+          const controller = new AbortController();
+          currentFetchController = controller;
+          const timer = setTimeout(() => controller.abort(), 25000);
 
-            console.log(`📥 [SSE] Downloading merged audio: ${evt.final_file} -> ${localFileName}...`);
-            await new Promise((resDl) => {
-              const dl = spawn('wsl.exe', ['-d', 'Ubuntu', '-e', 'colab', 'download', '-s', 'test-gpu', evt.final_file, wslLocalDest]);
-              dl.on('close', resDl);
-            });
+          const response = await fetch(`${colabUrl}/api/tts`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              text: sentence,
+              model,
+              voice,
+              speed: Number(speed),
+              format: 'mp3'
+            }),
+            signal: controller.signal
+          });
+          clearTimeout(timer);
+          currentFetchController = null;
 
-            // Save to SQLite
-            if (projectId) {
-              TtsRepo.addAudio(projectId, localFileName, model, voice, speed, evt.total_duration || 0);
-            }
-
-            sendEvent({
-              type: 'complete',
-              audio_url: `/audio/${localFileName}`,
-              filename: localFileName,
-              total_duration: evt.total_duration,
-              total_sentences: evt.total_sentences
-            });
-            res.end();
-            return;
-          } else {
-            sendEvent(evt);
+          if (!response.ok) {
+            const errBody = await response.text();
+            throw new Error(`HTTP ${response.status}: ${errBody}`);
           }
-        } catch (_) {}
+
+          const arrayBuf = await response.arrayBuffer();
+          fs.writeFileSync(chunkFilePath, Buffer.from(arrayBuf));
+          chunkFiles.push(chunkFilePath);
+          success = true;
+          break;
+        } catch (err) {
+          lastErr = err;
+          if (attempt === 1 && !aborted) {
+            await new Promise(r => setTimeout(r, 600));
+          }
+        }
       }
+
+      if (!success) {
+        if (aborted) break;
+        throw new Error(`Gagal pada kalimat #${i + 1} ("${sentence.slice(0, 30)}..."): ${lastErr?.message || 'Timeout'}`);
+      }
+
+      // Read chunk duration via ffprobe
+      let chunkDuration = 0;
+      try {
+        const durStr = execSync(`ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${chunkFilePath}"`).toString().trim();
+        chunkDuration = parseFloat(durStr) || 0;
+      } catch (_) {}
+
+      const chunkAudioUrl = `/audio/chunks/${outputId}/${chunkFileName}`;
+      sendEvent({
+        type: 'sentence_done',
+        index: i,
+        audio_url: chunkAudioUrl,
+        duration: chunkDuration,
+        text: sentence
+      });
+    }
+
+    if (aborted || chunkFiles.length === 0) {
+      return res.end();
+    }
+
+    // Step 2: Ensure 250ms silence mp3 exists for natural narrative pacing
+    const silenceFilePath = path.join(scratchDir, 'silence_250ms.mp3');
+    if (!fs.existsSync(silenceFilePath)) {
+      try {
+        execSync(`ffmpeg -y -f lavfi -i anullsrc=r=24000:cl=mono -t 0.25 -c:a libmp3lame -b:a 192k "${silenceFilePath}"`, { stdio: 'ignore' });
+      } catch (e) {
+        console.warn('Could not generate silence mp3, continuing without silence:', e.message);
+      }
+    }
+
+    // Step 3: Concat chunks into master file using ffmpeg
+    const masterFileName = `voice_${outputId}.mp3`;
+    const masterFilePath = path.join(publicAudioDir, masterFileName);
+    const listFilePath = path.join(chunkDir, 'list.txt');
+
+    const hasSilence = fs.existsSync(silenceFilePath);
+    const normalizedSilencePath = silenceFilePath.replace(/\\/g, '/');
+
+    let listContent = '';
+    for (let i = 0; i < chunkFiles.length; i++) {
+      const normChunk = chunkFiles[i].replace(/\\/g, '/');
+      listContent += `file '${normChunk}'\n`;
+      if (hasSilence && i < chunkFiles.length - 1) {
+        listContent += `file '${normalizedSilencePath}'\n`;
+      }
+    }
+    fs.writeFileSync(listFilePath, listContent, 'utf8');
+
+    console.log(`🔗 [SSE] Menggabungkan ${chunkFiles.length} kalimat menjadi ${masterFileName}...`);
+    execSync(`ffmpeg -y -f concat -safe 0 -i "${listFilePath}" -c:a libmp3lame -b:a 192k "${masterFilePath}"`, { stdio: 'ignore' });
+
+    // Read total duration via ffprobe
+    let totalDuration = 0;
+    try {
+      const durStr = execSync(`ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${masterFilePath}"`).toString().trim();
+      totalDuration = Math.round(parseFloat(durStr) || 0);
+    } catch (_) {}
+
+    // Save to SQLite
+    if (projectId) {
+      TtsRepo.addAudio(projectId, masterFileName, model, voice, speed, totalDuration);
+    }
+
+    console.log(`🎉 [SSE] Selesai! File: ${masterFileName}, Durasi: ${totalDuration}s`);
+    sendEvent({
+      type: 'complete',
+      audio_url: `/audio/${masterFileName}`,
+      filename: masterFileName,
+      total_duration: totalDuration,
+      total_sentences: chunkFiles.length,
+      output_id: outputId,
+      chunks: chunkFiles.map((f, idx) => ({
+        index: idx,
+        filename: path.basename(f),
+        audio_url: `/audio/chunks/${outputId}/${path.basename(f)}`
+      }))
     });
 
-    execProc.on('close', () => {
-      try { fs.unlinkSync(tempJsonPath); } catch (_) {}
-      if (!isFinished && !res.writableEnded) {
-        res.end();
-      }
-    });
-
-    execProc.on('error', (err) => {
-      console.error('Colab exec error:', err);
-      sendEvent({ type: 'error', message: err.message });
-      res.end();
-    });
+    res.end();
 
   } catch (err) {
     console.error('Generate-stream error:', err);

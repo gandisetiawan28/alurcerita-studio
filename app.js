@@ -304,6 +304,7 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     ttsSpeedVal: document.getElementById('ttsSpeedVal'),
     btnTriggerTtsGenerate: document.getElementById('btnTriggerTtsGenerate'),
     btnTriggerTtsText: document.getElementById('btnTriggerTtsText'),
+    btnStopTtsGenerate: document.getElementById('btnStopTtsGenerate'),
     ttsProgressBox: document.getElementById('ttsProgressBox'),
     ttsProgressStatus: document.getElementById('ttsProgressStatus'),
     ttsSentenceProgressCard: document.getElementById('ttsSentenceProgressCard'),
@@ -311,6 +312,9 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     ttsSentencePercentLabel: document.getElementById('ttsSentencePercentLabel'),
     ttsSentenceBarFill: document.getElementById('ttsSentenceBarFill'),
     ttsSentenceLiveQuote: document.getElementById('ttsSentenceLiveQuote'),
+    ttsSentencePreviewCard: document.getElementById('ttsSentencePreviewCard'),
+    ttsPreviewCountBadge: document.getElementById('ttsPreviewCountBadge'),
+    ttsSentenceScrollList: document.getElementById('ttsSentenceScrollList'),
     ttsResultCard: document.getElementById('ttsResultCard'),
     ttsResultMeta: document.getElementById('ttsResultMeta'),
     ttsAudioPlayer: document.getElementById('ttsAudioPlayer'),
@@ -395,6 +399,7 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     stepItem1: document.getElementById('stepItem1'),
     stepItem2: document.getElementById('stepItem2'),
     stepItem3: document.getElementById('stepItem3'),
+    btnCancelPipeline: document.getElementById('btnCancelPipeline'),
     
     // Editor Workspace
     viewBtnReader: document.getElementById('viewBtnReader'),
@@ -428,7 +433,9 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     
     // Toast Notification
     toastMessage: document.getElementById('toastMessage'),
+    toastIcon: document.getElementById('toastIcon'),
     toastText: document.getElementById('toastText'),
+    toastClose: document.getElementById('toastClose'),
 
     // Mobile Tabs
     mobileNavBar: document.getElementById('mobileNavBar'),
@@ -444,13 +451,48 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     return matches ? matches.length : 0;
   }
 
-  function showToast(message) {
-    elements.toastText.textContent = message;
+  function showToast(message, type = 'info') {
+    if (!elements.toastMessage) return;
+
+    let icon = '✓';
+    let iconColor = '#22C55E';
+    let cleanMessage = String(message || '').trim();
+
+    if (cleanMessage.startsWith('✓')) {
+      icon = '✓';
+      iconColor = '#22C55E';
+      cleanMessage = cleanMessage.replace(/^✓\s*/, '');
+    } else if (cleanMessage.startsWith('✕')) {
+      icon = '✕';
+      iconColor = '#EF4444';
+      cleanMessage = cleanMessage.replace(/^✕\s*/, '');
+    } else if (cleanMessage.startsWith('⏹️') || cleanMessage.startsWith('⏹')) {
+      icon = '⏹';
+      iconColor = '#F59E0B';
+      cleanMessage = cleanMessage.replace(/^⏹️?\s*/, '');
+    } else if (cleanMessage.startsWith('⚠️')) {
+      icon = '⚠️';
+      iconColor = '#F59E0B';
+      cleanMessage = cleanMessage.replace(/^⚠️\s*/, '');
+    } else if (type === 'error' || cleanMessage.toLowerCase().startsWith('gagal') || cleanMessage.toLowerCase().startsWith('error')) {
+      icon = '✕';
+      iconColor = '#EF4444';
+    }
+
+    if (elements.toastIcon) {
+      elements.toastIcon.textContent = icon;
+      elements.toastIcon.style.color = iconColor;
+    }
+
+    if (elements.toastText) {
+      elements.toastText.textContent = cleanMessage;
+    }
+
     elements.toastMessage.hidden = false;
     clearTimeout(elements.toastMessage._timer);
     elements.toastMessage._timer = setTimeout(() => {
       elements.toastMessage.hidden = true;
-    }, 2800);
+    }, 3200);
   }
 
   function escapeHtml(text) {
@@ -989,11 +1031,90 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     fetchTtsSettings();
   }
 
+  let currentSentenceAudio = null;
+  let currentPlayingIdx = null;
+
+  function playSentenceAudio(index, audioUrl) {
+    if (!audioUrl) return;
+
+    // If already playing this sentence, toggle pause
+    if (currentSentenceAudio && currentPlayingIdx === index) {
+      currentSentenceAudio.pause();
+      currentSentenceAudio = null;
+      currentPlayingIdx = null;
+      updateSentencePlayState(index, false);
+      return;
+    }
+
+    // If another sentence is playing, stop it
+    if (currentSentenceAudio) {
+      currentSentenceAudio.pause();
+      updateSentencePlayState(currentPlayingIdx, false);
+      currentSentenceAudio = null;
+      currentPlayingIdx = null;
+    }
+
+    // Also pause master audio player if currently playing
+    if (elements.ttsAudioPlayer && !elements.ttsAudioPlayer.paused) {
+      elements.ttsAudioPlayer.pause();
+    }
+
+    const audio = new Audio(audioUrl);
+    currentSentenceAudio = audio;
+    currentPlayingIdx = index;
+    updateSentencePlayState(index, true);
+
+    audio.onended = () => {
+      updateSentencePlayState(index, false);
+      currentSentenceAudio = null;
+      currentPlayingIdx = null;
+    };
+
+    audio.onerror = () => {
+      showToast(`Gagal memutar audio kalimat #${index + 1}`);
+      updateSentencePlayState(index, false);
+      currentSentenceAudio = null;
+      currentPlayingIdx = null;
+    };
+
+    audio.play().catch(e => console.warn('Audio play error:', e));
+  }
+
+  function updateSentencePlayState(index, isPlaying) {
+    // Update play button in modal list
+    const btn = document.querySelector(`.btn-sentence-play[data-idx="${index}"]`);
+    if (btn) {
+      btn.classList.toggle('playing', isPlaying);
+      btn.innerHTML = isPlaying
+        ? `<svg class="icon-xs" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>`
+        : `<svg class="icon-xs" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>`;
+      btn.setAttribute('aria-label', isPlaying ? `Jeda kalimat #${index + 1}` : `Putar kalimat #${index + 1}`);
+    }
+
+    // Update row in modal list
+    const row = document.getElementById(`ttsPreviewRow-${index}`);
+    if (row) {
+      row.classList.toggle('is-playing', isPlaying);
+    }
+
+    // Update script reader span
+    const readerSpan = document.getElementById(`ttsSentence-${index}`);
+    if (readerSpan) {
+      readerSpan.classList.toggle('tts-playing', isPlaying);
+    }
+  }
+
   function closeTtsModal() {
     if (elements.ttsModal) {
       elements.ttsModal.hidden = true;
       if (elements.ttsAudioPlayer) {
         elements.ttsAudioPlayer.pause();
+      }
+      if (currentSentenceAudio) {
+        currentSentenceAudio.pause();
+        updateSentencePlayState(currentPlayingIdx, false);
+        currentSentenceAudio = null;
+        currentPlayingIdx = null;
       }
     }
   }
@@ -1037,6 +1158,58 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     }
   }
 
+  // --- TTS Model & Character Voice Catalog ---
+  const TTS_VOICE_CATALOG = {
+    kokoro: [
+      { id: 'am_michael', name: 'Pria: am_michael (Dewasa, Tenang & Berwibawa)', default: true },
+      { id: 'am_adam', name: 'Pria: am_adam (Muda, Santai Teman Ngopi)' },
+      { id: 'af_bella', name: 'Wanita: af_bella (Lembut, Hangat & Jelas)' },
+      { id: 'af_nicole', name: 'Wanita: af_nicole (Tegas & Berbobot)' },
+      { id: 'af_sarah', name: 'Wanita: af_sarah (Ekspresif & Ceria)' },
+      { id: 'bm_george', name: 'Pria: bm_george (Dokumenter British Formal)' },
+      { id: 'bm_lewis', name: 'Pria: bm_lewis (Narator Serius & Dalam)' }
+    ],
+    dia: [
+      { id: 'dia_s1_narrator', name: '🎙️ [S1] Narator Utama (Penuh Emosi & Bernyawa)', default: true },
+      { id: 'dia_s2_character', name: '🗣️ [S2] Karakter Pendukung (Santai & Dinamis)' },
+      { id: 'dia_dialogue', name: '👥 Multi-Speaker [S1] + [S2] (Dialog Percakapan)' },
+      { id: 'dia_cinematic', name: '🎬 Sinematik (Mendukung Tawa, Desah, Bisikan)' }
+    ],
+    xtts: [
+      { id: 'Damian Black', name: 'Pria: Damian Black (Berat, Sinematik Trailer)', default: true },
+      { id: 'Claribel Dervla', name: 'Wanita: Claribel Dervla (Elegan, Narasi Buku)' },
+      { id: 'Daisy Studious', name: 'Wanita: Daisy Studious (Cerdas & Informatif)' },
+      { id: 'Gracie Wise', name: 'Wanita: Gracie Wise (Hangat & Mengalir)' },
+      { id: 'Craig Gutsy', name: 'Pria: Craig Gutsy (Antusias & Energik)' },
+      { id: 'Baldur Sanjin', name: 'Pria: Baldur Sanjin (Tenang & Suara Dalam)' }
+    ]
+  };
+
+  function populateTtsVoiceOptions(model, preferredVoice = null) {
+    if (!elements.ttsVoiceSelect) return;
+    const voices = TTS_VOICE_CATALOG[model] || TTS_VOICE_CATALOG.kokoro;
+    elements.ttsVoiceSelect.innerHTML = '';
+
+    let matchFound = false;
+    voices.forEach(v => {
+      const opt = document.createElement('option');
+      opt.value = v.id;
+      opt.textContent = v.name;
+      if (preferredVoice && v.id === preferredVoice) {
+        opt.selected = true;
+        matchFound = true;
+      }
+      elements.ttsVoiceSelect.appendChild(opt);
+    });
+
+    if (!matchFound) {
+      const defaultVoice = voices.find(v => v.default) || voices[0];
+      if (defaultVoice) {
+        elements.ttsVoiceSelect.value = defaultVoice.id;
+      }
+    }
+  }
+
   function updateTtsUI() {
     const cfg = state.ttsConfig || {};
     const hasUrl = Boolean(cfg.colab_url && cfg.colab_url.startsWith('http'));
@@ -1066,12 +1239,12 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     if (elements.inputColabUrl && cfg.colab_url) {
       elements.inputColabUrl.value = cfg.colab_url;
     }
-    if (elements.ttsModelSelect && cfg.model) {
-      elements.ttsModelSelect.value = cfg.model;
+    const currentModel = cfg.model || (elements.ttsModelSelect ? elements.ttsModelSelect.value : 'kokoro');
+    if (elements.ttsModelSelect) {
+      elements.ttsModelSelect.value = currentModel;
     }
-    if (elements.ttsVoiceSelect && cfg.voice) {
-      elements.ttsVoiceSelect.value = cfg.voice;
-    }
+    populateTtsVoiceOptions(currentModel, cfg.voice);
+
     if (elements.ttsSpeedRange && cfg.speed) {
       elements.ttsSpeedRange.value = cfg.speed;
       if (elements.ttsSpeedVal) elements.ttsSpeedVal.textContent = `${cfg.speed}x`;
@@ -1138,19 +1311,75 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     }
   }
 
+  // --- Smart Sentence Segmentation for Indonesian & English Storytelling ---
+  // Prevents truncating titles (Mr., Mrs., Dr.), abbreviations (dll., dsb.), numbers (2.5, 10.000), initials, etc.
+  function splitIntoSentences(text) {
+    if (!text || typeof text !== 'string') return [];
+    const P = '\uE000'; // Private Use Unicode character for safe placeholder
+
+    // 1. Honorifics, titles, and person prefixes (never end a sentence)
+    const titles = [
+      'mr', 'mrs', 'ms', 'miss', 'dr', 'prof', 'rev', 'capt', 'sgt', 'col', 'gen', 'lt', 'maj', 'cpl', 'pvt', 'adm',
+      'jr', 'sr', 'st', 'master', 'bpk', 'ibu', 'sdr', 'sdri', 'ust', 'habib', 'kyai',
+      'ir', 'drs', 'dra', 'sh', 'se', 'mm', 'mh', 'pt', 'cv', 'tbk', 'alm'
+    ];
+    const titlesRegex = new RegExp('\\b(' + titles.join('|') + ')\\.', 'gi');
+    let processed = text.replace(titlesRegex, (m, t) => t + P);
+
+    // 2. Numbers (decimals, thousands, time): e.g. 2.5, 10.000, 14.30
+    processed = processed.replace(/(\d+)\.(\d+)/g, '$1' + P + '$2');
+
+    // 3. Numbered references: No. 12, Hal. 45, Vol. 3
+    processed = processed.replace(/\b(no|nomor|hal|hlm|vol|art|bab)\.\s*(\d+)/gi, (m, w, n) => w + P + ' ' + n);
+
+    // 4. Single uppercase initials: e.g. A. Yani, J. K. Rowling, Mr. J. Han
+    processed = processed.replace(/\b([A-Z])\./g, '$1' + P);
+
+    // 5. Common abbreviations: dll., dsb., dst., etc., vs.
+    const midAbbr = ['dll', 'dsb', 'dst', 'dlsb', 'tsb', 'ttg', 'yg', 'dgn', 'spt', 'etc', 'eg', 'ie', 'vs', 'al'];
+    const midAbbrRegex = new RegExp('\\b(' + midAbbr.join('|') + ')\\.(?=\\s+[a-z0-9]|[,;:]|\\s*$)', 'gi');
+    processed = processed.replace(midAbbrRegex, (m, a) => a + P);
+    processed = processed.replace(new RegExp('\\b(' + midAbbr.join('|') + ')\\.(?=[)"]\\s+[a-z0-9])', 'gi'), (m, a) => a + P);
+
+    // 6. Ellipses (...)
+    processed = processed.replace(/\.{2,}/g, m => P.repeat(m.length));
+
+    // 7. Split sentences: match sentence ending punctuation (.!? or quotes) followed by space or EOF
+    const rawSentences = processed.match(/[^.!?]+(?:[.!?]+["'”’)]*|\s*$)/g) || [processed];
+
+    return rawSentences
+      .map(s => s.replace(new RegExp(P, 'g'), '.').trim())
+      .filter(s => s.length > 0);
+  }
+
+  let ttsAbortController = null;
+
+  function handleStopTtsGenerate() {
+    if (ttsAbortController) {
+      ttsAbortController.abort();
+      ttsAbortController = null;
+    }
+    if (elements.btnStopTtsGenerate) elements.btnStopTtsGenerate.hidden = true;
+    if (elements.btnTriggerTtsGenerate) {
+      elements.btnTriggerTtsGenerate.hidden = false;
+      elements.btnTriggerTtsGenerate.disabled = false;
+    }
+    if (elements.ttsProgressBox) elements.ttsProgressBox.hidden = true;
+    if (elements.ttsSentenceStepLabel) {
+      elements.ttsSentenceStepLabel.textContent = "⏹️ Proses voiceover dihentikan oleh pengguna";
+    }
+    showToast("⏹️ Proses pembuatan voiceover dihentikan.");
+  }
+
   async function handleTriggerTtsGenerate() {
-    // 1. Gather clean sentences from editorial tracker or source textarea
+    // 1. Gather clean sentences from source textarea or editorial tracker
+    const rawInputText = elements.ttsSourceText ? elements.ttsSourceText.value.trim() : '';
     let sentencesToProcess = [];
-    if (state.editorialSentences && state.editorialSentences.length > 0) {
+
+    if (rawInputText) {
+      sentencesToProcess = splitIntoSentences(rawInputText);
+    } else if (state.editorialSentences && state.editorialSentences.length > 0) {
       sentencesToProcess = state.editorialSentences.map(s => s.text);
-    } else {
-      const text = elements.ttsSourceText.value.trim();
-      if (!text) {
-        showToast("Teks voiceover kosong.");
-        return;
-      }
-      const rawSentences = text.match(/[^.!?]+[.!?]+(?:\s+|$)|[^.!?]+$/g) || [text];
-      sentencesToProcess = rawSentences.map(s => s.trim()).filter(s => s.length > 1);
     }
 
     if (sentencesToProcess.length === 0) {
@@ -1167,8 +1396,12 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
       el.classList.remove('tts-processing', 'tts-completed');
     });
 
+    // Setup AbortController for cancel / stop capability
+    ttsAbortController = new AbortController();
+
     // UI Progress State
-    elements.btnTriggerTtsGenerate.disabled = true;
+    elements.btnTriggerTtsGenerate.hidden = true;
+    if (elements.btnStopTtsGenerate) elements.btnStopTtsGenerate.hidden = false;
     elements.ttsProgressBox.hidden = false;
     elements.ttsSentenceProgressCard.hidden = false;
     elements.ttsResultCard.hidden = true;
@@ -1177,6 +1410,34 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     elements.ttsSentenceStepLabel.textContent = `Memproses 0 dari ${sentencesToProcess.length} kalimat`;
     elements.ttsSentencePercentLabel.textContent = '0%';
     elements.ttsSentenceLiveQuote.textContent = `"${sentencesToProcess[0].slice(0, 50)}..."`;
+
+    // Show Sentence Preview Card & Populate placeholder rows
+    if (elements.ttsSentencePreviewCard && elements.ttsSentenceScrollList) {
+      elements.ttsSentencePreviewCard.hidden = false;
+      elements.ttsSentenceScrollList.innerHTML = '';
+      if (elements.ttsPreviewCountBadge) {
+        elements.ttsPreviewCountBadge.textContent = `0 / ${sentencesToProcess.length}`;
+      }
+
+      sentencesToProcess.forEach((sentText, i) => {
+        const row = document.createElement('div');
+        row.className = 'tts-preview-row';
+        row.id = `ttsPreviewRow-${i}`;
+        row.innerHTML = `
+          <div class="tts-preview-row-left">
+            <span class="tts-preview-idx">#${i + 1}</span>
+            <button type="button" class="btn-sentence-play" data-idx="${i}" disabled aria-label="Menunggu kalimat #${i + 1}">
+              <svg class="icon-xs" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+            </button>
+            <span class="tts-preview-text" title="${escapeHtml(sentText)}">${escapeHtml(sentText)}</span>
+          </div>
+          <div class="tts-preview-row-right">
+            <span class="tts-preview-status" id="ttsPreviewStatus-${i}">Menunggu</span>
+          </div>
+        `;
+        elements.ttsSentenceScrollList.appendChild(row);
+      });
+    }
 
     try {
       const response = await fetch('/api/tts/generate-stream', {
@@ -1187,8 +1448,10 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
           sentences: sentencesToProcess,
           model,
           voice,
-          speed
-        })
+          speed,
+          colab_url: (state.ttsConfig && state.ttsConfig.colab_url) || (elements.inputColabUrl && elements.inputColabUrl.value.trim()) || ''
+        }),
+        signal: ttsAbortController.signal
       });
 
       if (!response.ok) {
@@ -1221,22 +1484,60 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
                 el.classList.add('tts-processing');
                 el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
               }
+              const row = document.getElementById(`ttsPreviewRow-${data.index}`);
+              if (row) {
+                row.classList.add('is-processing');
+                row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                const st = document.getElementById(`ttsPreviewStatus-${data.index}`);
+                if (st) {
+                  st.className = 'tts-preview-status processing';
+                  st.textContent = 'Memproses...';
+                }
+              }
               const pct = Math.round((data.index / sentencesToProcess.length) * 100);
               elements.ttsSentenceBarFill.style.width = `${pct}%`;
               elements.ttsSentenceStepLabel.textContent = `Memproses kalimat #${data.index + 1} dari ${sentencesToProcess.length}`;
               elements.ttsSentencePercentLabel.textContent = `${pct}%`;
               elements.ttsSentenceLiveQuote.textContent = `"${data.text}"`;
             } else if (data.type === 'sentence_done') {
+              const row = document.getElementById(`ttsPreviewRow-${data.index}`);
+              if (row) {
+                row.classList.remove('is-processing');
+                const st = document.getElementById(`ttsPreviewStatus-${data.index}`);
+                if (st) {
+                  st.className = 'tts-preview-status ready';
+                  st.textContent = data.duration ? `${data.duration.toFixed(1)}s` : '✓ Siap';
+                }
+                const btn = row.querySelector('.btn-sentence-play');
+                if (btn) {
+                  btn.disabled = false;
+                  btn.dataset.audioUrl = data.audio_url;
+                  btn.setAttribute('aria-label', `Putar kalimat #${data.index + 1}`);
+                }
+              }
+              const completedCount = elements.ttsSentenceScrollList ? elements.ttsSentenceScrollList.querySelectorAll('.btn-sentence-play:not(:disabled)').length : 0;
+              if (elements.ttsPreviewCountBadge) {
+                elements.ttsPreviewCountBadge.textContent = `${completedCount} / ${sentencesToProcess.length}`;
+              }
+
               const el = document.getElementById(`ttsSentence-${data.index}`);
               if (el) {
                 el.classList.remove('tts-processing');
                 el.classList.add('tts-completed');
+                el.dataset.audioUrl = data.audio_url;
+                el.setAttribute('tabindex', '0');
+                el.setAttribute('role', 'button');
+                el.setAttribute('aria-label', `Putar audio kalimat #${data.index + 1}`);
+                el.title = `Kalimat #${data.index + 1} (${data.duration ? data.duration.toFixed(1) + 's' : ''}) • Klik untuk dengarkan audio`;
               }
             } else if (data.type === 'complete') {
               // Master audio completed
               elements.ttsSentenceBarFill.style.width = '100%';
               elements.ttsSentenceStepLabel.textContent = `✓ Selesai (${data.total_sentences} kalimat disatukan)`;
               elements.ttsSentencePercentLabel.textContent = '100%';
+              if (elements.ttsPreviewCountBadge) {
+                elements.ttsPreviewCountBadge.textContent = `${data.total_sentences} / ${data.total_sentences} (Lengkap)`;
+              }
 
               // Show Result Audio Player
               elements.ttsResultCard.hidden = false;
@@ -1249,7 +1550,7 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
               elements.ttsAudioPlayer.load();
               elements.ttsAudioPlayer.play().catch(() => {});
 
-              showToast(`✓ Selesai! Seluruh ${data.total_sentences} kalimat berhasil disatukan (${data.total_duration} detik).`);
+              showToast(`Selesai! Seluruh ${data.total_sentences} kalimat berhasil disatukan (${data.total_duration} detik).`);
             } else if (data.type === 'error') {
               showToast(`✕ Gagal: ${data.message}`);
             }
@@ -1259,10 +1560,21 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
         }
       }
     } catch (err) {
-      console.error('Stream error:', err);
-      showToast("Koneksi terputus saat memproses kalimat.");
+      if (err.name === 'AbortError') {
+        if (elements.ttsSentenceStepLabel) {
+          elements.ttsSentenceStepLabel.textContent = "⏹️ Proses pembuatan voiceover dihentikan oleh pengguna";
+        }
+        elements.ttsSentenceBarFill.style.background = "#94A3B8";
+        showToast("⏹️ Proses pembuatan voiceover dihentikan.");
+      } else {
+        console.error('Stream error:', err);
+        showToast("Koneksi terputus saat memproses kalimat.");
+      }
     } finally {
+      ttsAbortController = null;
+      elements.btnTriggerTtsGenerate.hidden = false;
       elements.btnTriggerTtsGenerate.disabled = false;
+      if (elements.btnStopTtsGenerate) elements.btnStopTtsGenerate.hidden = true;
       elements.ttsProgressBox.hidden = true;
     }
   }
@@ -1278,7 +1590,7 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     let inParagraph = false;
 
     function wrapSentencesInParagraph(rawText) {
-      const matches = rawText.match(/[^.!?]+[.!?]+(?:\s+|$)|[^.!?]+$/g);
+      const matches = splitIntoSentences(rawText);
       if (!matches || matches.length === 0) {
         return formatInlineMarkdown(rawText);
       }
@@ -1309,8 +1621,20 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
         continue;
       }
 
-      // Metadata block like **Genre**: ...
-      if (line.startsWith('**Genre**:') || line.startsWith('**Channel**:')) {
+      // Title on first line if starts with # or if short movie title without prefix
+      if (line.startsWith('# ')) {
+        if (inParagraph) { html += '</p>'; inParagraph = false; }
+        html += `<h1>${escapeHtml(line.slice(2))}</h1>`;
+        continue;
+      }
+      if (i === 0 && !line.includes(':') && line.length > 0 && line.length < 80) {
+        if (inParagraph) { html += '</p>'; inParagraph = false; }
+        html += `<h1>${escapeHtml(line)}</h1>`;
+        continue;
+      }
+
+      // Metadata block like **Genre**: ... or Genre: ...
+      if (line.startsWith('**Genre**:') || line.startsWith('Genre:') || line.startsWith('**Channel**:') || line.startsWith('Channel:')) {
         if (inParagraph) { html += '</p>'; inParagraph = false; }
         html += `<div class="doc-metadata-bar"><span>${formatInlineMarkdown(line)}</span></div>`;
         continue;
@@ -1331,6 +1655,21 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
         continue;
       }
 
+      // Plain text block "ARAHAN VISUAL (B-ROLL)"
+      if (line === 'ARAHAN VISUAL (B-ROLL)' && i + 1 < lines.length) {
+        i++;
+        const cueText = escapeHtml(lines[i].trim());
+        if (inParagraph) { html += '</p>'; inParagraph = false; }
+        html += `<aside class="visual-note">
+          <div class="visual-note-tag">
+            <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"></rect><line x1="7" y1="2" x2="7" y2="22"></line><line x1="17" y1="2" x2="17" y2="22"></line><line x1="2" y1="12" x2="22" y2="12"></line><line x1="2" y1="7" x2="7" y2="7"></line><line x1="2" y1="17" x2="7" y2="17"></line><line x1="17" y1="17" x2="22" y2="17"></line><line x1="17" y1="7" x2="22" y2="7"></line></svg>
+            ARAHAN VISUAL (B-ROLL)
+          </div>
+          <div class="visual-note-content">${cueText}</div>
+        </aside>`;
+        continue;
+      }
+
       // Horizontal separator
       if (line === '---') {
         if (inParagraph) { html += '</p>'; inParagraph = false; }
@@ -1338,22 +1677,29 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
         continue;
       }
 
-      // Headings
-      if (line.startsWith('# ')) {
-        if (inParagraph) { html += '</p>'; inParagraph = false; }
-        html += `<h1>${escapeHtml(line.slice(2))}</h1>`;
-        continue;
-      }
+      // Headings level 2: ## [OPENING] or [OPENING], [BODY STORY], [OUTRO]
       if (line.startsWith('## ')) {
         if (inParagraph) { html += '</p>'; inParagraph = false; }
         const h2Text = escapeHtml(line.slice(3).trim());
         html += `<h2><span>${h2Text}</span></h2>`;
         continue;
       }
+      if (/^\[(?:OPENING|BODY STORY|CLIMAX|ENDING|OUTRO|PENUTUP)\]/i.test(line)) {
+        if (inParagraph) { html += '</p>'; inParagraph = false; }
+        html += `<h2><span>${escapeHtml(line)}</span></h2>`;
+        continue;
+      }
+
+      // Headings level 3: ### PART 1: ... or PART 1: ...
       if (line.startsWith('### ')) {
         if (inParagraph) { html += '</p>'; inParagraph = false; }
         const h3Text = escapeHtml(line.slice(4).trim());
         html += `<h3>${h3Text}</h3>`;
+        continue;
+      }
+      if (/^(?:PART|BABAK|ADEGAN)\s+\d+:/i.test(line)) {
+        if (inParagraph) { html += '</p>'; inParagraph = false; }
+        html += `<h3>${escapeHtml(line)}</h3>`;
         continue;
       }
 
@@ -1507,7 +1853,28 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
   }
 
   // --- Multi-Agent Simulation / API Generation ---
+  let pipelineAbortController = null;
+  let pipelineTimers = [];
+
+  function handleCancelPipeline() {
+    if (pipelineAbortController) {
+      pipelineAbortController.abort();
+      pipelineAbortController = null;
+    }
+    pipelineTimers.forEach(t => clearTimeout(t));
+    pipelineTimers = [];
+
+    elements.btnGenerate.disabled = false;
+    elements.btnGenerateText.textContent = "Sintesis Naskah (Multi-Agent)";
+    elements.generationPipelineCard.hidden = true;
+    showToast("⏹️ Sintesis naskah dihentikan oleh pengguna.");
+  }
+
   async function triggerMultiAgentGeneration() {
+    pipelineAbortController = new AbortController();
+    pipelineTimers.forEach(t => clearTimeout(t));
+    pipelineTimers = [];
+
     elements.btnGenerate.disabled = true;
     elements.generationPipelineCard.hidden = false;
     elements.btnGenerateText.textContent = "AI Sedang Menulis Naskah...";
@@ -1534,12 +1901,13 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
 
     try {
       // Step 2 animation
-      setTimeout(() => {
+      const t1 = setTimeout(() => {
         elements.pipelineCurrentStep.textContent = "Tahap 2 / 3";
         elements.pipelineProgressBar.style.width = "66%";
         elements.stepItem1.className = "step-item completed";
         elements.stepItem2.className = "step-item active";
       }, 800);
+      pipelineTimers.push(t1);
 
       // Call Backend API
       const endpoint = state.currentProjectId 
@@ -1549,7 +1917,8 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
+        signal: pipelineAbortController.signal
       });
 
       const resData = await response.json();
@@ -1560,7 +1929,7 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
       elements.stepItem2.className = "step-item completed";
       elements.stepItem3.className = "step-item active";
 
-      setTimeout(() => {
+      const t2 = setTimeout(() => {
         elements.stepItem3.className = "step-item completed";
         elements.btnGenerate.disabled = false;
         elements.btnGenerateText.textContent = "Sintesis Naskah (Multi-Agent)";
@@ -1573,15 +1942,25 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
           showToast("Naskah berhasil disintesis dan disimpan ke database SQL!");
         }
 
-        setTimeout(() => {
+        const t3 = setTimeout(() => {
           elements.generationPipelineCard.hidden = true;
         }, 1200);
+        pipelineTimers.push(t3);
       }, 600);
+      pipelineTimers.push(t2);
 
     } catch (err) {
+      if (err.name === 'AbortError') {
+        console.log('Multi-agent pipeline aborted by user.');
+        elements.btnGenerate.disabled = false;
+        elements.btnGenerateText.textContent = "Sintesis Naskah (Multi-Agent)";
+        elements.generationPipelineCard.hidden = true;
+        return;
+      }
+
       console.warn('API generation fallback to client simulation:', err);
       // Fallback local assemble
-      setTimeout(() => {
+      const tFallback = setTimeout(() => {
         elements.stepItem3.className = "step-item completed";
         elements.btnGenerate.disabled = false;
         elements.btnGenerateText.textContent = "Sintesis Naskah (Multi-Agent)";
@@ -1601,12 +1980,14 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
         renderScript(true);
         saveCurrentProjectToSQLite();
 
-        setTimeout(() => {
+        const tEnd = setTimeout(() => {
           elements.generationPipelineCard.hidden = true;
         }, 1200);
+        pipelineTimers.push(tEnd);
 
         showToast("Naskah utuh berhasil disintesis tanpa celah!");
       }, 1500);
+      pipelineTimers.push(tFallback);
     }
   }
 
@@ -1702,8 +2083,65 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
       if (elements.ttsSpeedVal) elements.ttsSpeedVal.textContent = `${e.target.value}x`;
     });
     if (elements.btnTriggerTtsGenerate) elements.btnTriggerTtsGenerate.addEventListener('click', handleTriggerTtsGenerate);
+    if (elements.btnStopTtsGenerate) elements.btnStopTtsGenerate.addEventListener('click', handleStopTtsGenerate);
     if (elements.colabConfigForm) elements.colabConfigForm.addEventListener('submit', handleSaveColabConfig);
     if (elements.btnTestColabConnection) elements.btnTestColabConnection.addEventListener('click', handleTestColabConnection);
+
+    // Dynamic Character/Voice selection per TTS Model
+    if (elements.ttsModelSelect) {
+      elements.ttsModelSelect.addEventListener('change', (e) => {
+        populateTtsVoiceOptions(e.target.value);
+        handleSaveColabConfig();
+      });
+    }
+    if (elements.ttsVoiceSelect) {
+      elements.ttsVoiceSelect.addEventListener('change', () => {
+        handleSaveColabConfig();
+      });
+    }
+
+    // Sentence Preview List Click Listener (Modal)
+    if (elements.ttsSentenceScrollList) {
+      elements.ttsSentenceScrollList.addEventListener('click', (e) => {
+        const btn = e.target.closest('.btn-sentence-play');
+        if (btn && !btn.disabled && btn.dataset.audioUrl) {
+          const idx = parseInt(btn.dataset.idx, 10);
+          playSentenceAudio(idx, btn.dataset.audioUrl);
+        }
+      });
+    }
+
+    // Stop sentence audio if master audio starts playing
+    if (elements.ttsAudioPlayer) {
+      elements.ttsAudioPlayer.addEventListener('play', () => {
+        if (currentSentenceAudio) {
+          currentSentenceAudio.pause();
+          updateSentencePlayState(currentPlayingIdx, false);
+          currentSentenceAudio = null;
+          currentPlayingIdx = null;
+        }
+      });
+    }
+
+    // Script Reader Sentence Click & Keyboard Listener (Editorial Reader)
+    document.addEventListener('click', (e) => {
+      const sentenceEl = e.target.closest('.tts-sentence');
+      if (sentenceEl && sentenceEl.dataset.audioUrl) {
+        const idx = parseInt(sentenceEl.dataset.idx, 10);
+        playSentenceAudio(idx, sentenceEl.dataset.audioUrl);
+      }
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        const sentenceEl = e.target.closest('.tts-sentence');
+        if (sentenceEl && sentenceEl.dataset.audioUrl && document.activeElement === sentenceEl) {
+          e.preventDefault();
+          const idx = parseInt(sentenceEl.dataset.idx, 10);
+          playSentenceAudio(idx, sentenceEl.dataset.audioUrl);
+        }
+      }
+    });
 
     // Preset dropdown
     elements.channelPresetSelect.addEventListener('change', (e) => {
@@ -1754,6 +2192,7 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
 
     // Generate Button
     elements.btnGenerate.addEventListener('click', triggerMultiAgentGeneration);
+    if (elements.btnCancelPipeline) elements.btnCancelPipeline.addEventListener('click', handleCancelPipeline);
 
     // View Mode Switching (Reader vs Raw)
     elements.viewBtnReader.addEventListener('click', () => {
@@ -1765,7 +2204,9 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
       elements.viewBtnReader.classList.add('active');
       elements.viewBtnRaw.classList.remove('active');
       elements.scriptPaperReader.hidden = false;
+      elements.scriptPaperReader.style.display = 'block';
       elements.scriptRawEditor.hidden = true;
+      elements.scriptRawEditor.style.display = 'none';
     });
 
     elements.viewBtnRaw.addEventListener('click', () => {
@@ -1773,20 +2214,24 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
       elements.viewBtnRaw.classList.add('active');
       elements.viewBtnReader.classList.remove('active');
       elements.scriptPaperReader.hidden = true;
+      elements.scriptPaperReader.style.display = 'none';
       elements.scriptRawEditor.hidden = false;
+      elements.scriptRawEditor.style.display = 'block';
       elements.scriptRawEditor.value = state.currentScriptMarkdown;
     });
 
-    // Contenteditable Sync in Reader
-    elements.scriptPaperReader.addEventListener('input', () => {
-      state.currentScriptMarkdown = elements.scriptPaperReader.innerText;
-      elements.canvasSyncStatus.textContent = "Menyimpan perubahan...";
-      clearTimeout(elements.scriptPaperReader._saveTimer);
-      elements.scriptPaperReader._saveTimer = setTimeout(() => {
-        saveCurrentProjectToSQLite();
-        updateScriptMetrics();
-      }, 1000);
-    });
+    // Sync Raw Markdown Editor changes to State & SQLite
+    if (elements.scriptRawEditor) {
+      elements.scriptRawEditor.addEventListener('input', () => {
+        state.currentScriptMarkdown = elements.scriptRawEditor.value;
+        elements.canvasSyncStatus.textContent = "Menyimpan perubahan...";
+        clearTimeout(elements.scriptRawEditor._saveTimer);
+        elements.scriptRawEditor._saveTimer = setTimeout(() => {
+          saveCurrentProjectToSQLite();
+          updateScriptMetrics();
+        }, 1000);
+      });
+    }
 
     // Toggle Visual Cues in Reader
     elements.btnToggleVisualCues.addEventListener('click', () => {
@@ -1893,6 +2338,14 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
       elements.btnPrompterMirror.style.background = state.prompter.isMirrored ? '#007AFF' : '#27272A';
     });
 
+    // Close Toast Notification Manually
+    if (elements.toastClose) {
+      elements.toastClose.addEventListener('click', () => {
+        clearTimeout(elements.toastMessage._timer);
+        elements.toastMessage.hidden = true;
+      });
+    }
+
     // Keyboard Shortcuts
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
@@ -1937,8 +2390,21 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
   // --- Initial Mount ---
   async function initApp() {
     initEvents();
+
+    // Pastikan status tampilan awal adalah Editorial Reader
+    state.isRawMode = false;
+    if (elements.scriptPaperReader) {
+      elements.scriptPaperReader.hidden = false;
+      elements.scriptPaperReader.style.display = 'block';
+    }
+    if (elements.scriptRawEditor) {
+      elements.scriptRawEditor.hidden = true;
+      elements.scriptRawEditor.style.display = 'none';
+    }
+
     fetchApiKeysList(); // Load registered API keys from SQLite
     fetchTtsSettings(); // Load TTS & Colab configuration from SQLite
+    populateTtsVoiceOptions(elements.ttsModelSelect ? elements.ttsModelSelect.value : 'kokoro');
 
     // Check last project ID or try to load project 1 from SQLite
     const lastId = localStorage.getItem('alurcerita_last_project_id') || 1;
