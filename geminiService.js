@@ -169,6 +169,7 @@ async function callGeminiSmartStage(prompt, stageName, preferredModel = 'auto') 
 async function runGeminiGeneration(data) {
   const {
     movieTitle = 'Film Tanpa Judul',
+    movieYear = '',
     movieDirector = '',
     movieDescription = '',
     channelName = 'AAAlur Cerita',
@@ -196,7 +197,8 @@ Hindari: Sarkasme berlebihan, celetukan konyol yang memutus suasana, bahasa baku
 
 Informasi Film:
 - Judul: ${movieTitle}
-- Sutradara & Tahun: ${movieDirector}
+- Tahun Rilis: ${movieYear || 'Tidak disebutkan'}
+- Sutradara: ${movieDirector || 'Tidak disebutkan'}
 - Sinopsis/IMDb: ${movieDescription}
 - Sapaan Pembuka: "${openingHook}"
 - Outro Opening: "${outroBridge}"

@@ -18,6 +18,8 @@ db.exec(`
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     title TEXT NOT NULL,
     director_year TEXT,
+    release_year TEXT,
+    director TEXT,
     synopsis TEXT,
     channel_name TEXT DEFAULT 'AAAlur Cerita',
     opening_hook TEXT DEFAULT 'Halo Nakama',
@@ -27,6 +29,18 @@ db.exec(`
     enforce_visual_cues INTEGER DEFAULT 1,
     script_markdown TEXT,
     word_count INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS channels (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    greeting TEXT DEFAULT 'Halo Nakama',
+    outro_bridge TEXT DEFAULT 'Jadi, gak perlu cacicu lagi. langsung aja masuk ke alur ceritanya',
+    persona_style TEXT DEFAULT 'teman_ngopi',
+    target_language TEXT DEFAULT 'id',
+    is_default INTEGER DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
@@ -81,13 +95,57 @@ db.exec(`
   );
 `);
 
+// Migration for existing databases: ensure release_year & director columns exist
+try {
+  db.exec(`ALTER TABLE projects ADD COLUMN release_year TEXT`);
+} catch (e) {}
+try {
+  db.exec(`ALTER TABLE projects ADD COLUMN director TEXT`);
+} catch (e) {}
+
+// Extract and populate release_year and director for existing projects
+try {
+  const existingProjects = db.prepare(`SELECT id, title, director_year, release_year, director FROM projects`).all();
+  for (const p of existingProjects) {
+    if (!p.release_year) {
+      let foundYear = null;
+      let foundDirector = p.director || null;
+
+      if (p.director_year) {
+        const match = p.director_year.match(/\((\d{4})\)/) || p.director_year.match(/\b(19\d\d|20\d\d)\b/);
+        if (match) {
+          foundYear = match[1];
+          if (!foundDirector) {
+            foundDirector = p.director_year.replace(/\s*\(\d{4}\)\s*/, '').replace(/\b(19\d\d|20\d\d)\b/, '').trim();
+          }
+        } else if (!foundDirector) {
+          foundDirector = p.director_year.trim();
+        }
+      }
+
+      if (!foundYear && p.title) {
+        const titleMatch = p.title.match(/\((\d{4})\)/) || p.title.match(/\b(19\d\d|20\d\d)\b/);
+        if (titleMatch) {
+          foundYear = titleMatch[1];
+        }
+      }
+
+      if (foundYear || foundDirector) {
+        db.prepare(`UPDATE projects SET release_year = ?, director = ? WHERE id = ?`).run(foundYear, foundDirector, p.id);
+      }
+    }
+  }
+} catch (e) {
+  console.warn('Project migration warning:', e.message);
+}
+
 // Repository Methods
 const ProjectRepo = {
   // List all projects with snippet info
   getAll() {
     const stmt = db.prepare(`
       SELECT 
-        p.id, p.title, p.director_year, p.synopsis, p.channel_name,
+        p.id, p.title, p.director_year, p.release_year, p.director, p.synopsis, p.channel_name,
         p.opening_hook, p.persona_style, p.word_count, p.created_at, p.updated_at,
         COUNT(s.id) as source_count
       FROM projects p
@@ -126,17 +184,23 @@ const ProjectRepo = {
   // Create a new project
   create(data) {
     const now = new Date().toISOString();
+    const releaseYear = data.release_year !== undefined ? (data.release_year ? String(data.release_year).trim() : '') : '';
+    const director = data.director !== undefined ? (data.director ? String(data.director).trim() : '') : '';
+    const directorYear = data.director_year || (director && releaseYear ? `${director} (${releaseYear})` : (director || releaseYear || ''));
+
     const insertProject = db.prepare(`
       INSERT INTO projects (
-        title, director_year, synopsis, channel_name, opening_hook,
+        title, director_year, release_year, director, synopsis, channel_name, opening_hook,
         outro_bridge, persona_style, include_analysis, enforce_visual_cues,
         script_markdown, word_count, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     const result = insertProject.run(
       data.title || 'Proyek Tanpa Judul',
-      data.director_year || '',
+      directorYear,
+      releaseYear,
+      director,
       data.synopsis || '',
       data.channel_name || 'AAAlur Cerita',
       data.opening_hook || 'Halo Nakama',
@@ -170,10 +234,23 @@ const ProjectRepo = {
   // Update an existing project
   update(id, data) {
     const now = new Date().toISOString();
+    const releaseYear = data.release_year !== undefined ? (data.release_year ? String(data.release_year).trim() : null) : undefined;
+    const director = data.director !== undefined ? (data.director ? String(data.director).trim() : null) : undefined;
+
+    let computedDirectorYear = data.director_year;
+    if (computedDirectorYear === undefined && (releaseYear !== undefined || director !== undefined)) {
+      const curr = this.getById(id);
+      const effectiveDirector = director !== undefined ? director : curr.director;
+      const effectiveYear = releaseYear !== undefined ? releaseYear : curr.release_year;
+      computedDirectorYear = effectiveDirector && effectiveYear ? `${effectiveDirector} (${effectiveYear})` : (effectiveDirector || effectiveYear || '');
+    }
+
     const updateStmt = db.prepare(`
       UPDATE projects SET
         title = COALESCE(?, title),
         director_year = COALESCE(?, director_year),
+        release_year = COALESCE(?, release_year),
+        director = COALESCE(?, director),
         synopsis = COALESCE(?, synopsis),
         channel_name = COALESCE(?, channel_name),
         opening_hook = COALESCE(?, opening_hook),
@@ -189,7 +266,9 @@ const ProjectRepo = {
 
     updateStmt.run(
       data.title !== undefined ? data.title : null,
-      data.director_year !== undefined ? data.director_year : null,
+      computedDirectorYear !== undefined ? computedDirectorYear : null,
+      releaseYear !== undefined ? releaseYear : null,
+      director !== undefined ? director : null,
       data.synopsis !== undefined ? data.synopsis : null,
       data.channel_name !== undefined ? data.channel_name : null,
       data.opening_hook !== undefined ? data.opening_hook : null,
@@ -454,6 +533,82 @@ const TtsRepo = {
   }
 };
 
+// Repository for YouTube / Social Media Channels Management
+const ChannelRepo = {
+  getAll() {
+    const stmt = db.prepare(`SELECT * FROM channels ORDER BY is_default DESC, name ASC`);
+    return stmt.all();
+  },
+  getById(id) {
+    const stmt = db.prepare(`SELECT * FROM channels WHERE id = ?`);
+    return stmt.get(Number(id));
+  },
+  create(data) {
+    const now = new Date().toISOString();
+    const isDefault = data.is_default ? 1 : 0;
+    if (isDefault) {
+      db.prepare(`UPDATE channels SET is_default = 0`).run();
+    }
+    const stmt = db.prepare(`
+      INSERT INTO channels (name, greeting, outro_bridge, persona_style, target_language, is_default, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    const res = stmt.run(
+      data.name.trim(),
+      data.greeting || 'Halo Nakama',
+      data.outro_bridge || 'Jadi, gak perlu cacicu lagi. langsung aja masuk ke alur ceritanya',
+      data.persona_style || 'teman_ngopi',
+      data.target_language || 'id',
+      isDefault,
+      now,
+      now
+    );
+    return this.getById(res.lastInsertRowid);
+  },
+  update(id, data) {
+    const now = new Date().toISOString();
+    if (data.is_default) {
+      db.prepare(`UPDATE channels SET is_default = 0`).run();
+    }
+    const stmt = db.prepare(`
+      UPDATE channels SET
+        name = COALESCE(?, name),
+        greeting = COALESCE(?, greeting),
+        outro_bridge = COALESCE(?, outro_bridge),
+        persona_style = COALESCE(?, persona_style),
+        target_language = COALESCE(?, target_language),
+        is_default = COALESCE(?, is_default),
+        updated_at = ?
+      WHERE id = ?
+    `);
+    stmt.run(
+      data.name !== undefined ? data.name.trim() : null,
+      data.greeting !== undefined ? data.greeting : null,
+      data.outro_bridge !== undefined ? data.outro_bridge : null,
+      data.persona_style !== undefined ? data.persona_style : null,
+      data.target_language !== undefined ? data.target_language : null,
+      data.is_default !== undefined ? (data.is_default ? 1 : 0) : null,
+      now,
+      Number(id)
+    );
+    return this.getById(id);
+  },
+  delete(id) {
+    const count = db.prepare(`SELECT COUNT(*) as count FROM channels`).get().count;
+    if (count <= 1) {
+      throw new Error('Tidak bisa menghapus satu-satunya profil channel tersisa.');
+    }
+    const stmt = db.prepare(`DELETE FROM channels WHERE id = ?`);
+    const res = stmt.run(Number(id));
+    return res.changes > 0;
+  },
+  setDefault(id) {
+    db.prepare(`UPDATE channels SET is_default = 0`).run();
+    db.prepare(`UPDATE channels SET is_default = 1 WHERE id = ?`).run(Number(id));
+    return this.getById(id);
+  }
+};
+
 // Seed sample project if database is empty
 (function seedInitialData() {
   const countStmt = db.prepare(`SELECT COUNT(*) as count FROM projects`);
@@ -466,8 +621,9 @@ const TtsRepo = {
       const finalScript = fs.existsSync(path.join(__dirname, 'Final-Naskah.txt')) ? fs.readFileSync(path.join(__dirname, 'Final-Naskah.txt'), 'utf8') : '';
 
       ProjectRepo.create({
-        title: "The Karate Kid (2010)",
-        director_year: "Harald Zwart (2010)",
+        title: "The Karate Kid",
+        release_year: "2010",
+        director: "Harald Zwart",
         synopsis: "Dre Parker (12) pindah ke Beijing bersama ibunya. Menghadapi perundungan oleh Cheng, Dre dibimbing oleh Mr. Han untuk belajar kungfu sejati dan bertanding di turnamen terbuka Beijing.",
         channel_name: "AAAlur Cerita",
         opening_hook: "Halo Nakama",
@@ -489,6 +645,44 @@ const TtsRepo = {
     }
   }
 
+  // Seed channels if empty
+  const channelCount = db.prepare(`SELECT COUNT(*) as count FROM channels`).get().count;
+  if (channelCount === 0) {
+    ChannelRepo.create({
+      name: 'AAAlur Cerita',
+      greeting: 'Halo Nakama',
+      outro_bridge: 'Jadi, gak perlu cacicu lagi. langsung aja masuk ke alur ceritanya',
+      persona_style: 'teman_ngopi',
+      target_language: 'id',
+      is_default: 1
+    });
+    ChannelRepo.create({
+      name: 'Malas Movie',
+      greeting: 'Halo Malas People',
+      outro_bridge: 'Tanpa basa-basi lagi, kita langsung masuk ke ceritanya!',
+      persona_style: 'teman_ngopi',
+      target_language: 'id',
+      is_default: 0
+    });
+    ChannelRepo.create({
+      name: 'Movie Rastis',
+      greeting: 'Halo Cinefile',
+      outro_bridge: 'Yuk langsung kita kupas tuntas alur filmnya!',
+      persona_style: 'kritis_serius',
+      target_language: 'id',
+      is_default: 0
+    });
+    ChannelRepo.create({
+      name: 'Movie Recap Hub (Global)',
+      greeting: 'Hey movie fans, welcome back!',
+      outro_bridge: "Without further ado, let's dive straight into the story!",
+      persona_style: 'engaging_storyteller',
+      target_language: 'en-US',
+      is_default: 0
+    });
+    console.log('📺 Berhasil inisialisasi profil channel default di database SQLite.');
+  }
+
   // Seed / migrate API key from .env if present and api_keys is empty
   const keyCount = db.prepare(`SELECT COUNT(*) as count FROM api_keys`).get().count;
   if (keyCount === 0 && process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim() !== '' && !process.env.GEMINI_API_KEY.includes('YOUR_GEMINI')) {
@@ -505,5 +699,6 @@ module.exports = {
   db,
   ProjectRepo,
   ApiKeyRepo,
+  ChannelRepo,
   TtsRepo
 };

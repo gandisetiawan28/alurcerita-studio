@@ -12,7 +12,7 @@ const cors = require('cors');
 const path = require('node:path');
 const fs = require('node:fs');
 const { spawn, execSync } = require('node:child_process');
-const { ProjectRepo, ApiKeyRepo, TtsRepo } = require('./db');
+const { ProjectRepo, ApiKeyRepo, TtsRepo, ChannelRepo } = require('./db');
 const { GEMINI_MODELS, runGeminiGeneration, runGeminiTranscreation, testGeminiApiKey } = require('./geminiService');
 
 const app = express();
@@ -153,6 +153,86 @@ app.post('/api/keys/test-raw', async (req, res) => {
     const { key } = req.body;
     const testResult = await testGeminiApiKey(key);
     res.json(testResult);
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ===========================================================================
+// CHANNEL MANAGEMENT ROUTES (Database SQLite)
+// ===========================================================================
+
+// 1. Get all channels
+app.get('/api/channels', (req, res) => {
+  try {
+    const channels = ChannelRepo.getAll();
+    res.json({ success: true, data: channels });
+  } catch (error) {
+    console.error('Error fetching channels:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 2. Get single channel
+app.get('/api/channels/:id', (req, res) => {
+  try {
+    const channel = ChannelRepo.getById(req.params.id);
+    if (!channel) return res.status(404).json({ success: false, error: 'Channel tidak ditemukan.' });
+    res.json({ success: true, data: channel });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 3. Create channel
+app.post('/api/channels', (req, res) => {
+  try {
+    const { name, greeting, outro_bridge, persona_style, target_language, is_default } = req.body;
+    if (!name || name.trim().length === 0) {
+      return res.status(400).json({ success: false, error: 'Nama channel tidak boleh kosong.' });
+    }
+    const created = ChannelRepo.create({
+      name: name.trim(),
+      greeting,
+      outro_bridge,
+      persona_style,
+      target_language,
+      is_default
+    });
+    res.status(201).json({ success: true, data: created });
+  } catch (error) {
+    console.error('Error creating channel:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 4. Update channel
+app.put('/api/channels/:id', (req, res) => {
+  try {
+    const updated = ChannelRepo.update(req.params.id, req.body);
+    if (!updated) return res.status(404).json({ success: false, error: 'Channel tidak ditemukan.' });
+    res.json({ success: true, data: updated });
+  } catch (error) {
+    console.error('Error updating channel:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 5. Delete channel
+app.delete('/api/channels/:id', (req, res) => {
+  try {
+    const deleted = ChannelRepo.delete(req.params.id);
+    res.json({ success: true, message: 'Channel berhasil dihapus.' });
+  } catch (error) {
+    res.status(400).json({ success: false, error: error.message });
+  }
+});
+
+// 6. Set channel as default
+app.post('/api/channels/:id/default', (req, res) => {
+  try {
+    const channel = ChannelRepo.setDefault(req.params.id);
+    res.json({ success: true, data: channel });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
@@ -662,9 +742,13 @@ app.post('/api/projects/:id/generate', async (req, res) => {
       return res.status(404).json({ success: false, error: 'Proyek tidak ditemukan.' });
     }
 
+    const releaseYear = req.body.release_year !== undefined ? req.body.release_year : project.release_year;
+    const director = req.body.director !== undefined ? req.body.director : project.director;
+
     const generationPayload = {
       movieTitle: req.body.title || project.title,
-      movieDirector: req.body.director_year || project.director_year,
+      movieYear: releaseYear,
+      movieDirector: director || req.body.director_year || project.director_year,
       movieDescription: req.body.synopsis || project.synopsis,
       channelName: req.body.channel_name || project.channel_name,
       openingHook: req.body.opening_hook || project.opening_hook,
@@ -681,6 +765,8 @@ app.post('/api/projects/:id/generate', async (req, res) => {
     // Save to SQL database
     const updated = ProjectRepo.update(req.params.id, {
       ...generationPayload,
+      release_year: releaseYear,
+      director: director,
       script_markdown: aiResult.script_markdown,
       word_count: aiResult.word_count
     });

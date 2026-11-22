@@ -2789,3 +2789,104 @@ button:active {
   flex-direction: column;
   gap: 14px;
 }
+
+/* Release Year & Channel Management Styles */
+.form-row-2col {
+  display: grid;
+  grid-template-columns: 100px 1fr;
+  gap: 8px;
+}
+
+.header-channel-manage-btn {
+  padding: 3px 8px;
+  font-size: 11px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-hover);
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.header-channel-manage-btn:hover {
+  background: var(--border-color);
+  color: var(--text-main);
+}
+
+.project-year-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: #EFF6FF;
+  color: #2563EB;
+  border: 1px solid #BFDBFE;
+  margin-left: 6px;
+}
+
+.channel-item-card {
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: all 0.15s ease-out;
+}
+
+.channel-item-card:hover {
+  border-color: #CBD5E1;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+}
+
+.channel-item-card.is-default {
+  border-color: #86EFAC;
+  background: #F0FDF4;
+}
+
+.channel-item-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.channel-name-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0F172A;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.channel-badges {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.channel-details-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 4px;
+  font-size: 12px;
+  color: #475569;
+  background: rgba(248, 250, 252, 0.7);
+  padding: 8px 10px;
+  border-radius: 4px;
+  border: 1px solid #E2E8F0;
+}
+
+.channel-item-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  padding-top: 4px;
+}

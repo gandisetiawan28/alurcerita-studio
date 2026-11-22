@@ -48,12 +48,12 @@
         <label for="channelPresetSelect" class="preset-label">Channel:</label>
         <div class="select-wrapper">
           <select id="channelPresetSelect" aria-label="Pilih Profil Channel">
-            <option value="aaalur" selected>AAAlur Cerita (Halo Nakama)</option>
-            <option value="malas">Malas Movie (Halo Malas People)</option>
-            <option value="movie_rastis">Movie Rastis (Halo Cinefile)</option>
-            <option value="custom">+ Profil Baru...</option>
+            <!-- Diisi secara dinamis dari database SQLite (channels) -->
           </select>
         </div>
+        <button type="button" class="btn-subtle btn-xs header-channel-manage-btn" id="btnOpenChannelModal" title="Kelola Profil Channel di Database SQLite">
+          ⚙️ Kelola
+        </button>
       </div>
     </div>
 
@@ -235,13 +235,19 @@
         </div>
 
         <div class="form-grid">
-          <div class="form-group">
+          <div class="form-group full-width">
             <label for="movieTitle">Judul Film</label>
-            <input type="text" id="movieTitle" class="input-field" value="The Karate Kid (2010)" placeholder="Contoh: The Karate Kid">
+            <input type="text" id="movieTitle" class="input-field" value="The Karate Kid" placeholder="Contoh: The Karate Kid">
           </div>
-          <div class="form-group">
-            <label for="movieDirector">Sutradara & Tahun</label>
-            <input type="text" id="movieDirector" class="input-field" value="Harald Zwart (2010)" placeholder="Contoh: Harald Zwart (2010)">
+          <div class="form-row-2col">
+            <div class="form-group">
+              <label for="movieYear">Tahun Rilis</label>
+              <input type="text" id="movieYear" class="input-field" value="2010" placeholder="Contoh: 2010" maxlength="4">
+            </div>
+            <div class="form-group">
+              <label for="movieDirector">Sutradara</label>
+              <input type="text" id="movieDirector" class="input-field" value="Harald Zwart" placeholder="Contoh: Harald Zwart">
+            </div>
           </div>
           <div class="form-group full-width">
             <label for="movieDescription">Sinopsis Ringkas</label>
@@ -516,21 +522,23 @@
       <form id="newProjectForm" class="modal-form">
         <div class="form-group full-width">
           <label for="newModalTitle">Judul Film *</label>
-          <input type="text" id="newModalTitle" class="input-field" required placeholder="Contoh: Hacksaw Ridge (2016) atau Interstellar">
+          <input type="text" id="newModalTitle" class="input-field" required placeholder="Contoh: Hacksaw Ridge atau Interstellar">
         </div>
         <div class="form-grid">
           <div class="form-group">
-            <label for="newModalDirector">Sutradara & Tahun</label>
-            <input type="text" id="newModalDirector" class="input-field" placeholder="Contoh: Mel Gibson (2016)">
+            <label for="newModalYear">Tahun Rilis</label>
+            <input type="text" id="newModalYear" class="input-field" placeholder="Contoh: 2016" maxlength="4">
           </div>
           <div class="form-group">
-            <label for="newModalChannel">Profil Channel</label>
-            <select id="newModalChannel" class="input-field">
-              <option value="AAAlur Cerita" selected>AAAlur Cerita (Halo Nakama)</option>
-              <option value="Malas Movie">Malas Movie (Halo Malas People)</option>
-              <option value="Movie Rastis">Movie Rastis (Halo Cinefile)</option>
-            </select>
+            <label for="newModalDirector">Sutradara</label>
+            <input type="text" id="newModalDirector" class="input-field" placeholder="Contoh: Mel Gibson">
           </div>
+        </div>
+        <div class="form-group full-width">
+          <label for="newModalChannel">Profil Channel</label>
+          <select id="newModalChannel" class="input-field">
+            <!-- Diisi secara dinamis dari database SQLite -->
+          </select>
         </div>
         <div class="form-group full-width">
           <label for="newModalSynopsis">Sinopsis / Ringkasan Cerita</label>
@@ -541,6 +549,107 @@
           <button type="submit" class="btn-primary" id="btnSubmitNewProject">Buat & Buka di Studio</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- =======================================================================
+       MODAL: MANAJEMEN PROFIL CHANNEL (SQLITE DATABASE)
+       ======================================================================= -->
+  <div class="modal-overlay" id="channelModal" hidden role="dialog" aria-modal="true" aria-labelledby="modalChannelTitle">
+    <div class="modal-card modal-card-lg">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <span class="modal-icon">📺</span>
+          <div>
+            <h2 class="modal-title" id="modalChannelTitle">Manajemen Profil Channel</h2>
+            <p class="modal-subtitle">Tersimpan di SQLite (alurcerita.db) • Beralih sapaan, persona & outro secara otomatis</p>
+          </div>
+        </div>
+        <button type="button" class="modal-close-btn" id="btnCloseChannelModal" title="Tutup">✕</button>
+      </div>
+
+      <div class="modal-body-scrollable">
+        <!-- Form Tambah / Edit Channel -->
+        <div class="add-key-card" style="margin-bottom: 20px;">
+          <h3 class="section-title" id="channelFormHeading" style="margin-bottom: 12px;">+ Tambah Profil Channel Baru</h3>
+          <form id="channelForm">
+            <input type="hidden" id="channelEditId" value="">
+            <div class="advanced-grid" style="margin-bottom: 12px;">
+              <div class="form-group">
+                <label for="inputChannelName">Nama Channel *</label>
+                <input type="text" id="inputChannelName" class="input-field" required placeholder="Contoh: AAAlur Cerita">
+              </div>
+              <div class="form-group">
+                <label for="inputChannelGreeting">Sapaan Opening *</label>
+                <input type="text" id="inputChannelGreeting" class="input-field" required placeholder="Contoh: Halo Nakama">
+              </div>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 12px;">
+              <label for="inputChannelOutro">Kalimat Penutup Opening (Outro Bridge) *</label>
+              <input type="text" id="inputChannelOutro" class="input-field" required placeholder="Contoh: Jadi, gak perlu cacicu lagi. langsung aja masuk ke alur ceritanya">
+            </div>
+
+            <div class="advanced-grid" style="margin-bottom: 14px;">
+              <div class="form-group">
+                <label for="inputChannelPersona">Gaya Tutur / Persona</label>
+                <select id="inputChannelPersona" class="input-field">
+                  <option value="teman_ngopi" selected>Lo-Gue Santai (Teman ngopi, natural, tanpa lelucon garing)</option>
+                  <option value="kritis_serius">Kritis & Analitis (Fokus pada tensi cerita & motif karakter)</option>
+                  <option value="semi_formal">Semi-Formal Hangat (Cocok untuk drama & film klasik)</option>
+                  <option value="engaging_storyteller">Engaging Storyteller (Asik, Hangat, Cepat)</option>
+                  <option value="cinematic_intense">Cinematic & Intense (Dramatis, Tegang)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="inputChannelLang">Bahasa Naskah Utama</label>
+                <select id="inputChannelLang" class="input-field">
+                  <option value="id" selected>🇮🇩 Bahasa Indonesia</option>
+                  <option value="en-US">🇺🇸 English (US)</option>
+                  <option value="en-GB">🇬🇧 English (UK)</option>
+                  <option value="es">🇪🇸 Español</option>
+                  <option value="pt-BR">🇧🇷 Português</option>
+                  <option value="ja">🇯🇵 日本語</option>
+                </select>
+              </div>
+            </div>
+
+            <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+              <label class="custom-checkbox" style="margin: 0;">
+                <input type="checkbox" id="checkChannelDefault">
+                <span class="checkbox-box" aria-hidden="true"></span>
+                <span class="checkbox-label">
+                  <strong>Jadikan Channel Default</strong>
+                  <small>Otomatis terpilih untuk proyek baru</small>
+                </span>
+              </label>
+              <div style="display: flex; gap: 8px;">
+                <button type="button" class="btn-subtle" id="btnCancelEditChannel" hidden>Batal Edit</button>
+                <button type="submit" class="btn-primary" id="btnSubmitChannel">
+                  <span id="btnSubmitChannelText">+ Simpan Channel</span>
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+
+        <!-- Daftar Channel Terdaftar -->
+        <div class="keys-list-section">
+          <div class="keys-list-header">
+            <h3 class="section-title">Daftar Channel di Database (<span id="channelCountDisplay">0</span>)</h3>
+            <span class="keys-status-summary" id="channelStatusSummary">Tersimpan di SQLite</span>
+          </div>
+          <div class="keys-table-container">
+            <div id="channelListContainer" class="keys-list-container">
+              <!-- Rendered dynamically via app.js -->
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-subtle" id="btnCloseChannelModalFooter">Selesai</button>
+      </div>
     </div>
   </div>
 

@@ -238,6 +238,7 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     activeView: 'studio', // 'home' | 'studio'
     currentProjectId: 1,
     projectsList: [],
+    channelsList: [],
     editorialSentences: [],
     apiKeys: [],
     ttsConfig: {
@@ -386,9 +387,31 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     btnCancelNewProject: document.getElementById('btnCancelNewProject'),
     newProjectForm: document.getElementById('newProjectForm'),
     newModalTitle: document.getElementById('newModalTitle'),
+    newModalYear: document.getElementById('newModalYear'),
     newModalDirector: document.getElementById('newModalDirector'),
     newModalChannel: document.getElementById('newModalChannel'),
     newModalSynopsis: document.getElementById('newModalSynopsis'),
+
+    // Channel Management Modal Elements (SQLite Database)
+    btnOpenChannelModal: document.getElementById('btnOpenChannelModal'),
+    channelModal: document.getElementById('channelModal'),
+    btnCloseChannelModal: document.getElementById('btnCloseChannelModal'),
+    btnCloseChannelModalFooter: document.getElementById('btnCloseChannelModalFooter'),
+    channelForm: document.getElementById('channelForm'),
+    channelEditId: document.getElementById('channelEditId'),
+    channelFormHeading: document.getElementById('channelFormHeading'),
+    inputChannelName: document.getElementById('inputChannelName'),
+    inputChannelGreeting: document.getElementById('inputChannelGreeting'),
+    inputChannelOutro: document.getElementById('inputChannelOutro'),
+    inputChannelPersona: document.getElementById('inputChannelPersona'),
+    inputChannelLang: document.getElementById('inputChannelLang'),
+    checkChannelDefault: document.getElementById('checkChannelDefault'),
+    btnCancelEditChannel: document.getElementById('btnCancelEditChannel'),
+    btnSubmitChannel: document.getElementById('btnSubmitChannel'),
+    btnSubmitChannelText: document.getElementById('btnSubmitChannelText'),
+    channelCountDisplay: document.getElementById('channelCountDisplay'),
+    channelStatusSummary: document.getElementById('channelStatusSummary'),
+    channelListContainer: document.getElementById('channelListContainer'),
 
     // Studio Header & Metrics
     channelPresetSelect: document.getElementById('channelPresetSelect'),
@@ -405,6 +428,7 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     
     // Sidebar Fields
     movieTitle: document.getElementById('movieTitle'),
+    movieYear: document.getElementById('movieYear'),
     movieDirector: document.getElementById('movieDirector'),
     movieDescription: document.getElementById('movieDescription'),
     channelNameInput: document.getElementById('channelNameInput'),
@@ -599,6 +623,8 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     const query = (elements.projectSearchInput.value || '').toLowerCase().trim();
     const filtered = list.filter(p => 
       (p.title && p.title.toLowerCase().includes(query)) || 
+      (p.release_year && p.release_year.toLowerCase().includes(query)) ||
+      (p.director && p.director.toLowerCase().includes(query)) ||
       (p.director_year && p.director_year.toLowerCase().includes(query)) ||
       (p.channel_name && p.channel_name.toLowerCase().includes(query))
     );
@@ -625,6 +651,8 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
       });
       const words = Number(p.word_count || 0);
       const estMin = Math.ceil(words / 140);
+      const displayDirector = p.director || (p.director_year || 'Sutradara belum diisi');
+      const yearBadge = p.release_year ? `<span class="project-year-badge">${escapeHtml(p.release_year)}</span>` : '';
 
       return `
         <article class="project-card" data-id="${p.id}">
@@ -632,7 +660,7 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
             <div class="project-card-header">
               <div>
                 <h3 class="project-card-title">${escapeHtml(p.title)}</h3>
-                <div class="project-card-director">${escapeHtml(p.director_year || 'Sutradara & Tahun belum diisi')}</div>
+                <div class="project-card-director">${escapeHtml(displayDirector)} ${yearBadge}</div>
               </div>
               <span class="meta-chip primary">${escapeHtml(p.channel_name || 'Channel')}</span>
             </div>
@@ -688,7 +716,8 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
 
         // Populate fields
         elements.movieTitle.value = p.title || '';
-        elements.movieDirector.value = p.director_year || '';
+        if (elements.movieYear) elements.movieYear.value = p.release_year || '';
+        if (elements.movieDirector) elements.movieDirector.value = p.director || (p.director_year || '').replace(/\s*\(\d{4}\)$/, '');
         elements.movieDescription.value = p.synopsis || '';
         elements.channelNameInput.value = p.channel_name || 'AAAlur Cerita';
         elements.openingHookInput.value = p.opening_hook || 'Halo Nakama';
@@ -696,6 +725,9 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
         elements.personaStyleSelect.value = p.persona_style || 'teman_ngopi';
         elements.checkIncludeAnalysis.checked = Boolean(p.include_analysis);
         elements.checkEnforceVisualCues.checked = Boolean(p.enforce_visual_cues);
+
+        // Sync header channel select
+        syncChannelSelectWithCurrent(p.channel_name);
 
         // Populate sources
         state.sources = {
@@ -711,7 +743,8 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
         renderScript(true);
 
         // Header display
-        elements.activeProjectTitleDisplay.textContent = p.title;
+        const yearPart = p.release_year ? ` (${p.release_year})` : '';
+        elements.activeProjectTitleDisplay.textContent = `${p.title}${yearPart}`;
 
         switchView('studio');
         showToast(`Proyek "${p.title}" dibuka dari database.`);
@@ -725,9 +758,15 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
 
   // --- SQLite Backend Integration: Save Project ---
   async function saveCurrentProjectToSQLite() {
+    const releaseYear = elements.movieYear ? elements.movieYear.value.trim() : '';
+    const director = elements.movieDirector ? elements.movieDirector.value.trim() : '';
+    const directorYear = `${director}${releaseYear ? ' (' + releaseYear + ')' : ''}`.trim();
+
     const payload = {
       title: elements.movieTitle.value || 'Film Tanpa Judul',
-      director_year: elements.movieDirector.value || '',
+      release_year: releaseYear,
+      director: director,
+      director_year: directorYear,
       synopsis: elements.movieDescription.value || '',
       channel_name: elements.channelNameInput.value || 'AAAlur Cerita',
       opening_hook: elements.openingHookInput.value || 'Halo Nakama',
@@ -760,7 +799,8 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
       const json = await res.json();
       if (json.success && json.data) {
         state.currentProjectId = json.data.id;
-        elements.activeProjectTitleDisplay.textContent = json.data.title;
+        const yearPart = json.data.release_year ? ` (${json.data.release_year})` : '';
+        elements.activeProjectTitleDisplay.textContent = `${json.data.title}${yearPart}`;
         elements.canvasSyncStatus.textContent = "✓ Tersimpan di SQLite (alurcerita.db)";
         showToast(`Data film "${json.data.title}" tersimpan permanen di database SQL!`);
         localStorage.setItem('alurcerita_last_project_id', json.data.id);
@@ -793,6 +833,7 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
   // --- Modal: Create New Project ---
   function openNewProjectModal() {
     elements.newModalTitle.value = '';
+    if (elements.newModalYear) elements.newModalYear.value = '';
     elements.newModalDirector.value = '';
     elements.newModalSynopsis.value = '';
     elements.newProjectModal.hidden = false;
@@ -808,21 +849,33 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     const title = elements.newModalTitle.value.trim();
     if (!title) return;
 
-    const channelName = elements.newModalChannel.value;
-    const presetKey = Object.keys(PRESETS).find(k => PRESETS[k].channelName === channelName) || 'aaalur';
-    const preset = PRESETS[presetKey];
+    const releaseYear = elements.newModalYear ? elements.newModalYear.value.trim() : '';
+    const director = elements.newModalDirector ? elements.newModalDirector.value.trim() : '';
+    const directorYear = `${director}${releaseYear ? ' (' + releaseYear + ')' : ''}`.trim();
+
+    const selectedChannelVal = elements.newModalChannel ? elements.newModalChannel.value : '';
+    let channel = state.channelsList.find(c => String(c.id) === String(selectedChannelVal) || c.name === selectedChannelVal);
+    if (!channel && state.channelsList.length > 0) {
+      channel = state.channelsList.find(c => c.is_default) || state.channelsList[0];
+    }
+    const channelName = channel ? channel.name : 'AAAlur Cerita';
+    const channelGreeting = channel ? channel.greeting : 'Halo Nakama';
+    const channelOutro = channel ? channel.outro_bridge : 'Jadi, gak perlu cacicu lagi. langsung aja masuk ke alur ceritanya';
+    const channelPersona = channel ? channel.persona_style : 'teman_ngopi';
 
     const payload = {
       title: title,
-      director_year: elements.newModalDirector.value.trim(),
+      release_year: releaseYear,
+      director: director,
+      director_year: directorYear,
       synopsis: elements.newModalSynopsis.value.trim(),
-      channel_name: preset.channelName,
-      opening_hook: preset.openingHook,
-      outro_bridge: preset.outroBridge,
-      persona_style: preset.persona,
+      channel_name: channelName,
+      opening_hook: channelGreeting,
+      outro_bridge: channelOutro,
+      persona_style: channelPersona,
       include_analysis: true,
       enforce_visual_cues: true,
-      script_markdown: `# ${title.toUpperCase()}\n**Genre**: Action / Drama\n**Channel**: ${preset.channelName}\n\n---\n\n## [OPENING]\n(Visual: Scene pembuka film)\n\n${preset.openingHook}! Selamat datang di alur cerita film ${title}...\n\n${preset.outroBridge}!\n\n---\n\n## [BODY STORY]\n\n### PART 1: AWAL MULA KISAH\n(Visual: Tokoh utama diperkenalkan)\n\nKisah bermula di sini...\n`,
+      script_markdown: `# ${title.toUpperCase()}${releaseYear ? ' (' + releaseYear + ')' : ''}\n**Genre**: Action / Drama\n**Channel**: ${channelName}\n\n---\n\n## [OPENING]\n(Visual: Scene pembuka film)\n\n${channelGreeting}! Selamat datang di alur cerita film ${title}...\n\n${channelOutro}!\n\n---\n\n## [BODY STORY]\n\n### PART 1: AWAL MULA KISAH\n(Visual: Tokoh utama diperkenalkan)\n\nKisah bermula di sini...\n`,
       word_count: 50,
       sources: { source1: '', source2: '', source3: '' }
     };
@@ -842,6 +895,304 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     } catch (err) {
       console.error('Error creating project:', err);
       showToast("Gagal membuat proyek di database.");
+    }
+  }
+
+  // --- Channel Management Modal & SQLite Integration ---
+  function openChannelModal() {
+    if (elements.channelModal) {
+      elements.channelModal.hidden = false;
+      resetChannelForm();
+      fetchChannelsList();
+      if (elements.inputChannelName) elements.inputChannelName.focus();
+    }
+  }
+
+  function closeChannelModal() {
+    if (elements.channelModal) {
+      elements.channelModal.hidden = true;
+      resetChannelForm();
+    }
+  }
+
+  function resetChannelForm() {
+    if (elements.channelForm) elements.channelForm.reset();
+    if (elements.channelEditId) elements.channelEditId.value = '';
+    if (elements.channelFormHeading) elements.channelFormHeading.textContent = '+ Tambah Profil Channel Baru';
+    if (elements.btnSubmitChannelText) elements.btnSubmitChannelText.textContent = '+ Simpan Channel';
+    if (elements.btnCancelEditChannel) elements.btnCancelEditChannel.hidden = true;
+    if (elements.checkChannelDefault) elements.checkChannelDefault.checked = false;
+  }
+
+  async function fetchChannelsList() {
+    try {
+      const res = await fetch('/api/channels');
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data)) {
+        state.channelsList = json.data;
+
+        // Populate Header Channel Select
+        if (elements.channelPresetSelect) {
+          const currentVal = elements.channelPresetSelect.value;
+          elements.channelPresetSelect.innerHTML = state.channelsList.map(c => `
+            <option value="${c.id}" ${c.is_default ? 'data-default="true"' : ''}>
+              ${escapeHtml(c.name)} (${escapeHtml(c.greeting)})
+            </option>
+          `).join('');
+
+          // Select current active if matches, else default
+          const matching = state.channelsList.find(c => c.name.toLowerCase() === (elements.channelNameInput?.value || '').toLowerCase());
+          if (matching) {
+            elements.channelPresetSelect.value = matching.id;
+          } else if (state.channelsList.find(c => String(c.id) === String(currentVal))) {
+            elements.channelPresetSelect.value = currentVal;
+          } else {
+            const def = state.channelsList.find(c => c.is_default) || state.channelsList[0];
+            if (def) elements.channelPresetSelect.value = def.id;
+          }
+        }
+
+        // Populate New Project Modal Channel Select
+        if (elements.newModalChannel) {
+          elements.newModalChannel.innerHTML = state.channelsList.map(c => `
+            <option value="${c.id}" ${c.is_default ? 'selected' : ''}>
+              ${escapeHtml(c.name)} (${escapeHtml(c.greeting)})
+            </option>
+          `).join('');
+        }
+
+        renderChannelsList();
+      }
+    } catch (err) {
+      console.warn('Gagal memuat profil channel dari database:', err);
+    }
+  }
+
+  function renderChannelsList() {
+    if (!elements.channelListContainer) return;
+    const channels = state.channelsList || [];
+
+    if (elements.channelCountDisplay) {
+      elements.channelCountDisplay.textContent = channels.length;
+    }
+
+    if (channels.length === 0) {
+      elements.channelListContainer.innerHTML = `
+        <div class="keys-empty-box">
+          <p>Belum ada profil channel yang tersimpan di database SQLite.</p>
+          <small>Gunakan form di atas untuk menambahkan channel YouTube/Sosmed Anda.</small>
+        </div>
+      `;
+      return;
+    }
+
+    const personaLabels = {
+      'teman_ngopi': 'Lo-Gue Santai',
+      'kritis_serius': 'Kritis & Analitis',
+      'semi_formal': 'Semi-Formal Hangat',
+      'engaging_storyteller': 'Engaging Storyteller',
+      'cinematic_intense': 'Cinematic Intense'
+    };
+
+    const langFlags = {
+      'id': '🇮🇩 ID',
+      'en-US': '🇺🇸 EN-US',
+      'en-GB': '🇬🇧 EN-GB',
+      'es': '🇪🇸 ES',
+      'pt-BR': '🇧🇷 PT-BR',
+      'ja': '🇯🇵 JA'
+    };
+
+    elements.channelListContainer.innerHTML = channels.map(c => {
+      const isDefault = Boolean(c.is_default);
+      const personaName = personaLabels[c.persona_style] || c.persona_style || 'Teman Ngopi';
+      const langName = langFlags[c.target_language] || c.target_language || '🇮🇩 ID';
+
+      return `
+        <div class="channel-item-card ${isDefault ? 'is-default' : ''}" data-id="${c.id}">
+          <div class="channel-item-top">
+            <div class="channel-name-title">
+              <span>📺 ${escapeHtml(c.name)}</span>
+              ${isDefault ? '<span class="badge badge-success" style="font-size:10px; background:#DCFCE7; color:#15803D; font-weight:700; padding:2px 7px; border-radius:4px; border:1px solid #86EFAC;">DEFAULT</span>' : ''}
+            </div>
+            <div class="channel-badges">
+              <span class="meta-chip primary" style="font-size:11px;">${langName}</span>
+              <span class="meta-chip" style="font-size:11px;">${personaName}</span>
+            </div>
+          </div>
+          <div class="channel-details-grid">
+            <div><strong>Sapaan:</strong> "${escapeHtml(c.greeting)}"</div>
+            <div><strong>Outro:</strong> "${escapeHtml(c.outro_bridge)}"</div>
+          </div>
+          <div class="channel-item-actions">
+            <button type="button" class="btn-subtle btn-xs btn-apply-channel" data-id="${c.id}" title="Terapkan profil ini ke Studio naskah saat ini">
+              ✓ Terapkan ke Studio
+            </button>
+            ${!isDefault ? `
+              <button type="button" class="btn-subtle btn-xs btn-default-channel" data-id="${c.id}" title="Jadikan profil default untuk proyek baru">
+                ★ Set Default
+              </button>
+            ` : ''}
+            <button type="button" class="btn-subtle btn-xs btn-edit-channel" data-id="${c.id}" title="Edit channel ini">
+              ✏️ Edit
+            </button>
+            ${channels.length > 1 ? `
+              <button type="button" class="btn-subtle btn-xs danger btn-delete-channel" data-id="${c.id}" title="Hapus channel dari database">
+                🗑 Hapus
+              </button>
+            ` : ''}
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function applyChannelById(channelId, showFeedback = true) {
+    const c = state.channelsList.find(ch => String(ch.id) === String(channelId));
+    if (!c) return;
+
+    if (elements.channelNameInput) elements.channelNameInput.value = c.name;
+    if (elements.openingHookInput) elements.openingHookInput.value = c.greeting;
+    if (elements.outroBridgeInput) elements.outroBridgeInput.value = c.outro_bridge;
+    if (elements.personaStyleSelect) elements.personaStyleSelect.value = c.persona_style || 'teman_ngopi';
+
+    if (elements.channelPresetSelect) elements.channelPresetSelect.value = c.id;
+
+    saveCurrentProjectToSQLite();
+
+    if (showFeedback) {
+      showToast(`Profil channel diubah ke: ${c.name}`);
+    }
+  }
+
+  function syncChannelSelectWithCurrent(channelName) {
+    if (!elements.channelPresetSelect || !state.channelsList.length) return;
+    const match = state.channelsList.find(c => c.name.toLowerCase() === (channelName || '').toLowerCase());
+    if (match) {
+      elements.channelPresetSelect.value = match.id;
+    }
+  }
+
+  function startEditChannel(channelId) {
+    const c = state.channelsList.find(ch => String(ch.id) === String(channelId));
+    if (!c) return;
+
+    if (elements.channelEditId) elements.channelEditId.value = c.id;
+    if (elements.inputChannelName) elements.inputChannelName.value = c.name;
+    if (elements.inputChannelGreeting) elements.inputChannelGreeting.value = c.greeting;
+    if (elements.inputChannelOutro) elements.inputChannelOutro.value = c.outro_bridge;
+    if (elements.inputChannelPersona) elements.inputChannelPersona.value = c.persona_style || 'teman_ngopi';
+    if (elements.inputChannelLang) elements.inputChannelLang.value = c.target_language || 'id';
+    if (elements.checkChannelDefault) elements.checkChannelDefault.checked = Boolean(c.is_default);
+
+    if (elements.channelFormHeading) elements.channelFormHeading.textContent = `✏️ Edit Profil Channel: ${c.name}`;
+    if (elements.btnSubmitChannelText) elements.btnSubmitChannelText.textContent = 'Simpan Perubahan';
+    if (elements.btnCancelEditChannel) elements.btnCancelEditChannel.hidden = false;
+
+    if (elements.inputChannelName) {
+      elements.inputChannelName.focus();
+      elements.inputChannelName.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }
+
+  async function handleSaveChannelSubmit(e) {
+    e.preventDefault();
+
+    const editId = elements.channelEditId ? elements.channelEditId.value : '';
+    const name = elements.inputChannelName.value.trim();
+    const greeting = elements.inputChannelGreeting.value.trim();
+    const outro_bridge = elements.inputChannelOutro.value.trim();
+    const persona_style = elements.inputChannelPersona.value;
+    const target_language = elements.inputChannelLang.value;
+    const is_default = elements.checkChannelDefault.checked ? 1 : 0;
+
+    if (!name || !greeting || !outro_bridge) {
+      showToast('Harap lengkapi semua kolom bertanda *', 'error');
+      return;
+    }
+
+    const payload = {
+      name,
+      greeting,
+      outro_bridge,
+      persona_style,
+      target_language,
+      is_default
+    };
+
+    try {
+      let res;
+      if (editId) {
+        res = await fetch(`/api/channels/${editId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+      } else {
+        res = await fetch('/api/channels', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+      }
+
+      const json = await res.json();
+      if (json.success) {
+        showToast(editId ? `Channel "${name}" berhasil diperbarui!` : `Channel baru "${name}" berhasil disimpan ke database!`);
+        resetChannelForm();
+        await fetchChannelsList();
+      } else {
+        showToast(json.error || 'Gagal menyimpan profil channel.', 'error');
+      }
+    } catch (err) {
+      console.error('Error saving channel:', err);
+      showToast('Terjadi kesalahan jaringan saat menyimpan channel.', 'error');
+    }
+  }
+
+  async function handleDeleteChannel(channelId) {
+    const c = state.channelsList.find(ch => String(ch.id) === String(channelId));
+    const name = c ? c.name : 'ini';
+
+    if (state.channelsList.length <= 1) {
+      alert('Minimal harus ada 1 profil channel di database SQLite.');
+      return;
+    }
+
+    if (!confirm(`Apakah Anda yakin ingin menghapus profil channel "${name}" dari database?`)) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/channels/${channelId}`, { method: 'DELETE' });
+      const json = await res.json();
+      if (json.success) {
+        showToast(`Profil channel "${name}" berhasil dihapus.`);
+        resetChannelForm();
+        await fetchChannelsList();
+      } else {
+        showToast(json.error || 'Gagal menghapus profil channel.', 'error');
+      }
+    } catch (err) {
+      console.error('Error deleting channel:', err);
+      showToast('Gagal menghapus channel.', 'error');
+    }
+  }
+
+  async function handleSetDefaultChannel(channelId) {
+    try {
+      const res = await fetch(`/api/channels/${channelId}/default`, { method: 'POST' });
+      const json = await res.json();
+      if (json.success) {
+        const c = state.channelsList.find(ch => String(ch.id) === String(channelId));
+        showToast(`Channel "${c ? c.name : ''}" sekarang menjadi default!`);
+        await fetchChannelsList();
+      } else {
+        showToast(json.error || 'Gagal mengubah default channel.', 'error');
+      }
+    } catch (err) {
+      console.error('Error setting default channel:', err);
+      showToast('Gagal mengubah default channel.', 'error');
     }
   }
 
@@ -2061,8 +2412,15 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
   }
 
   // --- Presets Handler ---
-  function applyPreset(presetKey) {
-    const p = PRESETS[presetKey];
+  function applyPreset(presetKeyOrId) {
+    // If it's a number/string ID from SQLite channels:
+    const byId = state.channelsList.find(c => String(c.id) === String(presetKeyOrId));
+    if (byId) {
+      applyChannelById(byId.id, true);
+      return;
+    }
+
+    const p = PRESETS[presetKeyOrId];
     if (!p) return;
 
     elements.channelNameInput.value = p.channelName;
@@ -2107,9 +2465,17 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     elements.stepItem2.className = "step-item";
     elements.stepItem3.className = "step-item";
 
+    const releaseYear = elements.movieYear ? elements.movieYear.value.trim() : '';
+    const director = elements.movieDirector ? elements.movieDirector.value.trim() : '';
+    const directorYear = `${director}${releaseYear ? ' (' + releaseYear + ')' : ''}`.trim();
+
     const payload = {
       title: elements.movieTitle.value || 'Film Pilihan',
-      director_year: elements.movieDirector.value || '',
+      release_year: releaseYear,
+      movieYear: releaseYear,
+      director: director,
+      movieDirector: director,
+      director_year: directorYear,
       synopsis: elements.movieDescription.value || '',
       channel_name: elements.channelNameInput.value || 'AAAlur Cerita',
       opening_hook: elements.openingHookInput.value || 'Halo Nakama',
@@ -2487,6 +2853,55 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
       applyPreset(e.target.value);
     });
 
+    // Channel Management Modal (SQLite Database)
+    if (elements.btnOpenChannelModal) elements.btnOpenChannelModal.addEventListener('click', openChannelModal);
+    if (elements.btnCloseChannelModal) elements.btnCloseChannelModal.addEventListener('click', closeChannelModal);
+    if (elements.btnCloseChannelModalFooter) elements.btnCloseChannelModalFooter.addEventListener('click', closeChannelModal);
+    if (elements.btnCancelEditChannel) elements.btnCancelEditChannel.addEventListener('click', resetChannelForm);
+    if (elements.channelForm) elements.channelForm.addEventListener('submit', handleSaveChannelSubmit);
+
+    // Channel List Delegated Actions
+    if (elements.channelListContainer) {
+      elements.channelListContainer.addEventListener('click', (e) => {
+        const applyBtn = e.target.closest('.btn-apply-channel');
+        if (applyBtn) {
+          applyChannelById(applyBtn.dataset.id, true);
+          closeChannelModal();
+          return;
+        }
+
+        const editBtn = e.target.closest('.btn-edit-channel');
+        if (editBtn) {
+          startEditChannel(editBtn.dataset.id);
+          return;
+        }
+
+        const defBtn = e.target.closest('.btn-default-channel');
+        if (defBtn) {
+          handleSetDefaultChannel(defBtn.dataset.id);
+          return;
+        }
+
+        const delBtn = e.target.closest('.btn-delete-channel');
+        if (delBtn) {
+          handleDeleteChannel(delBtn.dataset.id);
+          return;
+        }
+      });
+    }
+
+    // Real-time Studio Header Title sync on Movie Title or Year edit
+    function updateStudioHeaderTitle() {
+      const title = elements.movieTitle ? elements.movieTitle.value.trim() : '';
+      const year = elements.movieYear ? elements.movieYear.value.trim() : '';
+      const yearPart = year ? ` (${year})` : '';
+      if (elements.activeProjectTitleDisplay) {
+        elements.activeProjectTitleDisplay.textContent = (title || 'Film Tanpa Judul') + yearPart;
+      }
+    }
+    if (elements.movieTitle) elements.movieTitle.addEventListener('input', updateStudioHeaderTitle);
+    if (elements.movieYear) elements.movieYear.addEventListener('input', updateStudioHeaderTitle);
+
     // Source tab switching
     elements.tabButtons.forEach(btn => {
       btn.addEventListener('click', () => switchSourceTab(btn.dataset.source));
@@ -2690,6 +3105,7 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
       if (e.key === 'Escape') {
         if (state.prompter.active) closeTeleprompter();
         if (elements.newProjectModal && !elements.newProjectModal.hidden) closeNewProjectModal();
+        if (elements.channelModal && !elements.channelModal.hidden) closeChannelModal();
         if (elements.apiKeyModal && !elements.apiKeyModal.hidden) closeApiKeyModal();
         if (elements.ttsModal && !elements.ttsModal.hidden) closeTtsModal();
         if (elements.translateModal && !elements.translateModal.hidden) closeTranslateModal();
@@ -2742,6 +3158,7 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
       elements.scriptRawEditor.style.display = 'none';
     }
 
+    await fetchChannelsList(); // Load registered channels from SQLite
     fetchApiKeysList(); // Load registered API keys from SQLite
     fetchTtsSettings(); // Load TTS & Colab configuration from SQLite
     populateTtsVoiceOptions(elements.ttsModelSelect ? elements.ttsModelSelect.value : 'kokoro');
