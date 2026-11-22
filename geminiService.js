@@ -51,6 +51,37 @@ function getModelSequence(preferredModel = 'auto') {
 }
 
 /**
+ * Membersihkan kata pengantar, basa-basi, atau chit-chat AI (seperti "Tentu, Nakama! Siap-siap...")
+ * Memastikan output naskah 100% murni langsung dimulai dari judul atau adegan pembuka.
+ */
+function stripAiConversationalPreamble(text) {
+  if (!text || typeof text !== 'string') return text;
+  let cleaned = text.trim();
+
+  // Strip Markdown code fences ```markdown ... ```
+  cleaned = cleaned.replace(/^```(?:markdown)?\s*\r?\n/i, '').replace(/\r?\n```\s*$/i, '').trim();
+
+  // Pattern 1: Leading conversational paragraphs (Tentu, Siap-siap, Baik, Berikut, dll)
+  const preambleRegex = /^(?:Tentu|Baik|Siap|Tentu saja|Berikut|Ini dia)[^\n]*?(?:satukan|naskah|alur cerita|kepala lu|permintaan|lu minta|versi|buatkan|simak|ngampleh)[^\n]*(\r?\n)+([\s\*\-_]*\r?\n)*/i;
+  while (preambleRegex.test(cleaned)) {
+    cleaned = cleaned.replace(preambleRegex, '').trim();
+  }
+
+  // Pattern 2: Any conversational chatter before script headings, [OPENING], or visual note
+  const scriptStartMatch = cleaned.match(/(?:^|\n)(#\s+[^\n]+|##\s*\[[^\n]+|\[OPENING\]|\(Visual:[^\n]+)/i);
+  if (scriptStartMatch && scriptStartMatch.index > 0 && scriptStartMatch.index < 500) {
+    const priorText = cleaned.substring(0, scriptStartMatch.index).trim();
+    if (/tentu|siap|satukan|naskah|ngampleh|minta|gua udah|berikut adalah|versi/i.test(priorText)) {
+      cleaned = cleaned.substring(scriptStartMatch.index).trim();
+    }
+  }
+
+  // Pattern 3: Stray markdown separators (*, ***, ---) at the very start
+  cleaned = cleaned.replace(/^[\*\-_]{1,5}\s*(\r?\n)+/m, '').trim();
+  return cleaned;
+}
+
+/**
  * Live test kunci API terhadap 8 Model Gemini Resmi dengan smart auto-fallback
  */
 async function testGeminiApiKey(apiKey) {
@@ -264,7 +295,7 @@ Tugas Utama:
     return generateLocalFallback(data, sourceTexts);
   }
 
-  const narrativeScript = stage1Result.text;
+  const narrativeScript = stripAiConversationalPreamble(stage1Result.text);
   const usedKeys = [stage1Result.keyInfo];
   const usedModels = [stage1Result.modelName];
 
@@ -316,7 +347,7 @@ ${narrativeScript.slice(0, 15000)}
 
   console.log('🧠 Menjalankan Stage 2 (Film Analyst Agent)...');
   const stage2Result = await callGeminiSmartStage(stage2Prompt, 'Stage 2 (Film Analyst)', preferredModel);
-  const analysisOutput = stage2Result.text;
+  const analysisOutput = stripAiConversationalPreamble(stage2Result.text);
   usedKeys.push(stage2Result.keyInfo);
   usedModels.push(stage2Result.modelName);
 
@@ -325,11 +356,17 @@ ${narrativeScript.slice(0, 15000)}
   // -------------------------------------------------------------------------
   const audienceCall = openingHook.replace(/^Halo\s+/i, '') || 'Nakama';
   const stage3Template = PromptTemplateRepo.getByKey('stage3_synthesis');
+  const stage3AntiPreamble = `
+ATURAN OUTPUT MUTLAK (DILARANG CHAT / BASA-BASI):
+- DILARANG KERAS menyertakan kata pengantar, basa-basi, atau salam pembuka ke user (CONTOH YANG SANGAT DILARANG: "Tentu, Nakama! Siap-siap, karena gua udah satukan semua yang lu minta...", "Ini dia naskah alur cerita...", "Baik, berikut naskahnya...").
+- DILARANG memberikan komentar penutup di luar naskah.
+- OUTPUT HARUS 100% NASKAH MURNI, langsung dimulai dari naskah cerita tanpa pengantar atau sapaan apa pun!`;
+
   let stage3Prompt = '';
   if (stage3Template && stage3Template.prompt_content) {
     stage3Prompt = stage3Template.prompt_content
       .replace(/{{audienceName}}/g, audienceCall);
-    stage3Prompt += `\n\nINPUT 1 (NARASI CERITA):\n${narrativeScript}\n\nINPUT 2 (ANALISIS FILM):\n${analysisOutput}\n\nHasilkan naskah final utuh dalam format Markdown yang rapi:`;
+    stage3Prompt += `\n\nINPUT 1 (NARASI CERITA):\n${narrativeScript}\n\nINPUT 2 (ANALISIS FILM):\n${analysisOutput}\n\n${stage3AntiPreamble}\n\nHasilkan naskah final utuh dalam format Markdown yang rapi:`;
   } else {
     stage3Prompt = `
 Tugas Anda: Satukan Narasi Cerita dan Analisis Film di bawah ini menjadi satu naskah alur cerita utuh yang mengalir sempurna tanpa celah.
@@ -343,6 +380,7 @@ Contoh: "Gimana, ${audienceCall}? Ceritanya gokil dan nendang banget kan? Tapi t
 
 Gaya Bahasa:
 Tetap gunakan kata "Gua", panggil penonton dengan "${audienceCall}", santai dan natural.
+${stage3AntiPreamble}
 
 INPUT 1 (NARASI CERITA):
 ${narrativeScript}
@@ -356,7 +394,7 @@ Hasilkan naskah final utuh dalam format Markdown yang rapi:
 
   console.log('✨ Menjalankan Stage 3 (Synthesizer Agent)...');
   const stage3Result = await callGeminiSmartStage(stage3Prompt, 'Stage 3 (Synthesizer)', preferredModel);
-  const finalScript = stage3Result.text;
+  const finalScript = stripAiConversationalPreamble(stage3Result.text);
   usedKeys.push(stage3Result.keyInfo);
   usedModels.push(stage3Result.modelName);
 

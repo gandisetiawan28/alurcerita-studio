@@ -949,7 +949,7 @@ Struktur yang wajib dihasilkan:
   },
   stage3_synthesis: {
     name: 'Tahap 3: Synthesizer & Quality Agent',
-    description: 'Menggabungkan narasi cerita dan bedah analisis dengan jembatan emosi yang mulus.',
+    description: 'Menggabungkan narasi cerita dan bedah analisis dengan jembatan emosi yang mulus tanpa basa-basi.',
     prompt_content: `Tugas Anda: Satukan Narasi Cerita dan Analisis Film di bawah ini menjadi satu naskah alur cerita utuh yang mengalir sempurna tanpa celah.
 
 Aturan Penempatan:
@@ -960,7 +960,12 @@ Sebelum masuk ke segmen analisis, buat 1 paragraf singkat yang "menjemput" emosi
 Contoh: "Gimana, {{audienceName}}? Ceritanya gokil dan nendang banget kan? Tapi tunggu dulu, sebenernya ada hal yang lebih dalam yang mungkin lu lewatin pas lagi asyik nonton..."
 
 Gaya Bahasa:
-Tetap gunakan kata "Gua", panggil penonton dengan "{{audienceName}}", santai dan natural.`
+Tetap gunakan kata "Gua", panggil penonton dengan "{{audienceName}}", santai dan natural.
+
+ATURAN OUTPUT MUTLAK (DILARANG CHAT / BASA-BASI):
+- DILARANG KERAS membuka dengan kata pengantar, basa-basi, atau salam pembuka ke pembuat prompt (SEPERTI: "Tentu, Nakama! Siap-siap, karena gua udah satukan semua yang lu minta. Ini dia naskah alur cerita...", "Baik, ini naskahnya...").
+- DILARANG memberikan kata penutup atau komentar di luar naskah.
+- OUTPUT HARUS LANGSUNG 100% NASKAH MURNI, dimulai langsung dari naskah cerita tanpa pengantar apa pun.`
   },
   transcreate: {
     name: 'Tahap 4: Anti-Duplicate Transcreation (Global)',
@@ -1214,6 +1219,16 @@ const SettingsRepo = {
           prompt_content: DEFAULT_PROMPT_TEMPLATES.stage1_story.prompt_content
         });
         console.log('🛡️ Berhasil sinkronisasi aturan Anti-Spoiler ke template prompt Stage 1 di SQLite.');
+      }
+
+      const stage3Row = db.prepare(`SELECT prompt_content FROM prompt_templates WHERE stage_key = 'stage3_synthesis'`).get();
+      if (stage3Row && !stage3Row.prompt_content.includes('DILARANG CHAT')) {
+        PromptTemplateRepo.update('stage3_synthesis', {
+          name: DEFAULT_PROMPT_TEMPLATES.stage3_synthesis.name,
+          description: DEFAULT_PROMPT_TEMPLATES.stage3_synthesis.description,
+          prompt_content: DEFAULT_PROMPT_TEMPLATES.stage3_synthesis.prompt_content
+        });
+        console.log('🛡️ Berhasil sinkronisasi aturan Anti-Preamble ke template Stage 3 di SQLite.');
       }
     } catch (e) {
       console.warn('Sync anti-spoiler prompt warning:', e.message);

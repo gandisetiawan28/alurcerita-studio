@@ -537,6 +537,7 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     // Editor Workspace
     viewBtnReader: document.getElementById('viewBtnReader'),
     viewBtnRaw: document.getElementById('viewBtnRaw'),
+    btnCleanAiPreamble: document.getElementById('btnCleanAiPreamble'),
     btnToggleVisualCues: document.getElementById('btnToggleVisualCues'),
     btnFontDecr: document.getElementById('btnFontDecr'),
     btnFontIncr: document.getElementById('btnFontIncr'),
@@ -837,6 +838,16 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
 
   // --- SQLite Backend Integration: Save Project ---
   async function saveCurrentProjectToSQLite() {
+    // Sinkronisasi otomatis dari Canvas Editor aktif ke state naskah sebelum disimpan ke database
+    if (!state.isRawMode && elements.scriptPaperReader) {
+      const liveMd = domPaperToMarkdown(elements.scriptPaperReader);
+      if (liveMd !== undefined && liveMd !== null) {
+        state.currentScriptMarkdown = liveMd;
+      }
+    } else if (state.isRawMode && elements.scriptRawEditor) {
+      state.currentScriptMarkdown = elements.scriptRawEditor.value;
+    }
+
     const releaseYear = elements.movieYear ? elements.movieYear.value.trim() : '';
     const director = elements.movieDirector ? elements.movieDirector.value.trim() : '';
     const directorYear = `${director}${releaseYear ? ' (' + releaseYear + ')' : ''}`.trim();
@@ -2278,12 +2289,12 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
       if (visualMatch) {
         if (inParagraph) { html += '</p>'; inParagraph = false; }
         const cueText = escapeHtml(visualMatch[1].trim());
-        html += `<aside class="visual-note">
-          <div class="visual-note-tag">
+        html += `<aside class="visual-note" contenteditable="false">
+          <div class="visual-note-tag" contenteditable="false">
             <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"></rect><line x1="7" y1="2" x2="7" y2="22"></line><line x1="17" y1="2" x2="17" y2="22"></line><line x1="2" y1="12" x2="22" y2="12"></line><line x1="2" y1="7" x2="7" y2="7"></line><line x1="2" y1="17" x2="7" y2="17"></line><line x1="17" y1="17" x2="22" y2="17"></line><line x1="17" y1="7" x2="22" y2="7"></line></svg>
             ARAHAN VISUAL (B-ROLL)
           </div>
-          <div class="visual-note-content">${cueText}</div>
+          <div class="visual-note-content" contenteditable="true">${cueText}</div>
         </aside>`;
         continue;
       }
@@ -2293,12 +2304,12 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
         i++;
         const cueText = escapeHtml(lines[i].trim());
         if (inParagraph) { html += '</p>'; inParagraph = false; }
-        html += `<aside class="visual-note">
-          <div class="visual-note-tag">
+        html += `<aside class="visual-note" contenteditable="false">
+          <div class="visual-note-tag" contenteditable="false">
             <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"></rect><line x1="7" y1="2" x2="7" y2="22"></line><line x1="17" y1="2" x2="17" y2="22"></line><line x1="2" y1="12" x2="22" y2="12"></line><line x1="2" y1="7" x2="7" y2="7"></line><line x1="2" y1="17" x2="7" y2="17"></line><line x1="17" y1="17" x2="22" y2="17"></line><line x1="17" y1="7" x2="22" y2="7"></line></svg>
             ARAHAN VISUAL (B-ROLL)
           </div>
-          <div class="visual-note-content">${cueText}</div>
+          <div class="visual-note-content" contenteditable="true">${cueText}</div>
         </aside>`;
         continue;
       }
@@ -2484,6 +2495,82 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     elements.sourceCharCount.textContent = `${charLen.toLocaleString('id-ID')} karakter • ${wordLen.toLocaleString('id-ID')} kata`;
   }
 
+  /**
+   * Menghapus kata pengantar, basa-basi, atau chit-chat AI (seperti "Tentu, Nakama! Siap-siap...")
+   */
+  function stripAiConversationalPreamble(text) {
+    if (!text || typeof text !== 'string') return text;
+    let cleaned = text.trim();
+
+    // Strip Markdown code fences
+    cleaned = cleaned.replace(/^```(?:markdown)?\s*\r?\n/i, '').replace(/\r?\n```\s*$/i, '').trim();
+
+    // Pattern 1: Leading conversational paragraphs (Tentu, Siap-siap, Baik, Berikut, dll)
+    const preambleRegex = /^(?:Tentu|Baik|Siap|Tentu saja|Berikut|Ini dia)[^\n]*?(?:satukan|naskah|alur cerita|kepala lu|permintaan|lu minta|versi|buatkan|simak|ngampleh)[^\n]*(\r?\n)+([\s\*\-_]*\r?\n)*/i;
+    while (preambleRegex.test(cleaned)) {
+      cleaned = cleaned.replace(preambleRegex, '').trim();
+    }
+
+    // Pattern 2: Any chatter before script headings, [OPENING], or visual note
+    const scriptStartMatch = cleaned.match(/(?:^|\n)(#\s+[^\n]+|##\s*\[[^\n]+|\[OPENING\]|\(Visual:[^\n]+)/i);
+    if (scriptStartMatch && scriptStartMatch.index > 0 && scriptStartMatch.index < 500) {
+      const priorText = cleaned.substring(0, scriptStartMatch.index).trim();
+      if (/tentu|siap|satukan|naskah|ngampleh|minta|gua udah|berikut adalah|versi/i.test(priorText)) {
+        cleaned = cleaned.substring(scriptStartMatch.index).trim();
+      }
+    }
+
+    // Pattern 3: Stray markdown separators
+    cleaned = cleaned.replace(/^[\*\-_]{1,5}\s*(\r?\n)+/m, '').trim();
+    return cleaned;
+  }
+
+  /**
+   * Mengonversi struktur DOM kertas naskah (.script-paper) kembali ke teks Markdown murni
+   * Memungkinkan pengguna melakukan CRUD (Ketik, Edit, Hapus, Tambah) secara langsung di kanvas.
+   */
+  function domPaperToMarkdown(paperEl) {
+    if (!paperEl) return '';
+    const childNodes = Array.from(paperEl.childNodes);
+    const chunks = [];
+
+    childNodes.forEach(node => {
+      // Text node langsung di canvas paper
+      if (node.nodeType === 3) {
+        const text = node.textContent.trim();
+        if (text) chunks.push(text);
+        return;
+      }
+      if (node.nodeType !== 1) return;
+
+      const tag = node.tagName.toLowerCase();
+      if (tag === 'h1') {
+        const t = (node.innerText || node.textContent).trim();
+        chunks.push(t.startsWith('# ') ? t : `# ${t}`);
+      } else if (tag === 'h2') {
+        const span = node.querySelector('span');
+        const t = (span ? span.innerText : (node.innerText || node.textContent)).trim();
+        chunks.push(t.startsWith('## ') ? t : `## ${t}`);
+      } else if (tag === 'h3') {
+        const t = (node.innerText || node.textContent).trim();
+        chunks.push(t.startsWith('### ') ? t : `### ${t}`);
+      } else if (node.classList.contains('visual-note')) {
+        const contentEl = node.querySelector('.visual-note-content');
+        const text = (contentEl ? contentEl.innerText : node.innerText || node.textContent).trim();
+        chunks.push(`(Visual: ${text})`);
+      } else if (node.classList.contains('doc-metadata-bar')) {
+        chunks.push((node.innerText || node.textContent).trim());
+      } else if (tag === 'hr') {
+        chunks.push('---');
+      } else if (tag === 'p' || tag === 'div' || tag === 'section' || tag === 'blockquote') {
+        const text = (node.innerText || node.textContent).trim();
+        if (text) chunks.push(text);
+      }
+    });
+
+    return chunks.join('\n\n').trim();
+  }
+
   // --- Render Script to Editorial Reader & Raw Editor ---
   function renderScript(scrollToTop = false) {
     elements.scriptPaperReader.innerHTML = parseMarkdownToHtml(state.currentScriptMarkdown);
@@ -2645,7 +2732,8 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
         elements.btnGenerateText.textContent = "Sintesis Naskah (Multi-Agent)";
 
         if (resData.success && resData.data) {
-          const generatedMarkdown = resData.data.script_markdown || resData.data;
+          let generatedMarkdown = resData.data.script_markdown || resData.data;
+          generatedMarkdown = stripAiConversationalPreamble(generatedMarkdown);
           state.currentScriptMarkdown = generatedMarkdown;
           renderScript(true);
           elements.canvasSyncStatus.textContent = "✓ Tersimpan di SQLite (alurcerita.db)";
@@ -3672,7 +3760,7 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     elements.btnGenerate.addEventListener('click', triggerMultiAgentGeneration);
     if (elements.btnCancelPipeline) elements.btnCancelPipeline.addEventListener('click', handleCancelPipeline);
 
-    // View Mode Switching (Reader vs Raw)
+    // View Mode Switching (Canvas Editor vs Raw Markdown)
     elements.viewBtnReader.addEventListener('click', () => {
       if (state.isRawMode) {
         state.currentScriptMarkdown = elements.scriptRawEditor.value;
@@ -3688,6 +3776,10 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     });
 
     elements.viewBtnRaw.addEventListener('click', () => {
+      if (!state.isRawMode && elements.scriptPaperReader) {
+        const liveMd = domPaperToMarkdown(elements.scriptPaperReader);
+        if (liveMd) state.currentScriptMarkdown = liveMd;
+      }
       state.isRawMode = true;
       elements.viewBtnRaw.classList.add('active');
       elements.viewBtnReader.classList.remove('active');
@@ -3698,11 +3790,54 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
       elements.scriptRawEditor.value = state.currentScriptMarkdown;
     });
 
+    // Live CRUD Sync: Canvas Editorial Paper (contenteditable) -> Markdown State & SQLite Auto-save
+    if (elements.scriptPaperReader) {
+      elements.scriptPaperReader.addEventListener('input', () => {
+        const md = domPaperToMarkdown(elements.scriptPaperReader);
+        state.currentScriptMarkdown = md;
+        if (elements.scriptRawEditor) {
+          elements.scriptRawEditor.value = md;
+        }
+        elements.canvasSyncStatus.textContent = "Menyimpan perubahan ke SQLite...";
+        clearTimeout(elements.scriptPaperReader._saveTimer);
+        elements.scriptPaperReader._saveTimer = setTimeout(() => {
+          saveCurrentProjectToSQLite();
+          updateScriptMetrics();
+        }, 1200);
+      });
+
+      elements.scriptPaperReader.addEventListener('blur', () => {
+        const md = domPaperToMarkdown(elements.scriptPaperReader);
+        if (md && md !== state.currentScriptMarkdown) {
+          state.currentScriptMarkdown = md;
+          if (elements.scriptRawEditor) elements.scriptRawEditor.value = md;
+          saveCurrentProjectToSQLite();
+          updateScriptMetrics();
+        }
+      });
+    }
+
+    // Button: Hapus Basa-Basi AI (Preamble Cleaner)
+    if (elements.btnCleanAiPreamble) {
+      elements.btnCleanAiPreamble.addEventListener('click', () => {
+        const before = state.currentScriptMarkdown;
+        const after = stripAiConversationalPreamble(before);
+        if (before === after) {
+          showToast("Naskah sudah bersih dari basa-basi AI!");
+        } else {
+          state.currentScriptMarkdown = after;
+          renderScript();
+          saveCurrentProjectToSQLite();
+          showToast("✓ Basa-basi AI berhasil dihapus & tersimpan ke SQLite!");
+        }
+      });
+    }
+
     // Sync Raw Markdown Editor changes to State & SQLite
     if (elements.scriptRawEditor) {
       elements.scriptRawEditor.addEventListener('input', () => {
         state.currentScriptMarkdown = elements.scriptRawEditor.value;
-        elements.canvasSyncStatus.textContent = "Menyimpan perubahan...";
+        elements.canvasSyncStatus.textContent = "Menyimpan perubahan ke SQLite...";
         clearTimeout(elements.scriptRawEditor._saveTimer);
         elements.scriptRawEditor._saveTimer = setTimeout(() => {
           saveCurrentProjectToSQLite();

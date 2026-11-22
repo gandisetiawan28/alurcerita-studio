@@ -909,6 +909,18 @@ button:active {
   line-height: 1.75;
   word-break: break-word;
   overflow-wrap: break-word;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.script-paper[contenteditable="true"] {
+  cursor: text;
+  caret-color: #2563EB;
+}
+
+.script-paper[contenteditable="true"]:focus,
+.script-paper[contenteditable="true"]:focus-within {
+  border-color: #2563EB;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12), var(--shadow-paper);
 }
 
 .script-paper[hidden],
@@ -1033,10 +1045,26 @@ button:active {
   color: #0284C7;
   text-transform: uppercase;
   margin-bottom: 4px;
+  user-select: none;
 }
 .visual-note-content {
   color: #1E293B;
   font-style: italic;
+  outline: none;
+  min-height: 20px;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: background 0.15s ease, box-shadow 0.15s ease;
+}
+.visual-note-content:focus {
+  background: rgba(255, 255, 255, 0.85);
+  box-shadow: 0 0 0 1px #93C5FD;
+}
+
+.tool-btn.danger-hover:hover {
+  color: #DC2626 !important;
+  border-color: #FCA5A5 !important;
+  background: #FEF2F2 !important;
 }
 
 /* Hide visual cues when toggle is off */
