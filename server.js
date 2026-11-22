@@ -12,7 +12,7 @@ const cors = require('cors');
 const path = require('node:path');
 const fs = require('node:fs');
 const { spawn, execSync } = require('node:child_process');
-const { ProjectRepo, ApiKeyRepo, TtsRepo, ChannelRepo, PersonaRepo, TtsVoiceRepo, PromptTemplateRepo, SettingsRepo } = require('./db');
+const { ProjectRepo, ApiKeyRepo, TtsRepo, ChannelRepo, PersonaRepo, TtsVoiceRepo, PromptTemplateRepo, SettingsRepo, AudioPresetRepo, AudioRecordingRepo } = require('./db');
 const { GEMINI_MODELS, runGeminiGeneration, runGeminiTranscreation, testGeminiApiKey } = require('./geminiService');
 
 const app = express();
@@ -20,8 +20,12 @@ const PORT = process.env.PORT || 3000;
 
 // Ensure audio storage directory exists
 const publicAudioDir = path.join(__dirname, 'public', 'audio');
+const publicBgmDir = path.join(publicAudioDir, 'bgm');
 if (!fs.existsSync(publicAudioDir)) {
   fs.mkdirSync(publicAudioDir, { recursive: true });
+}
+if (!fs.existsSync(publicBgmDir)) {
+  fs.mkdirSync(publicBgmDir, { recursive: true });
 }
 
 // Middlewares
@@ -882,8 +886,235 @@ app.post('/api/tts/generate-stream', async (req, res) => {
 // 5. Get audio history for a project
 app.get('/api/projects/:id/audios', (req, res) => {
   try {
-    const audios = TtsRepo.getAudiosByProject(req.params.id);
+    const audios = AudioRecordingRepo.getByProject(req.params.id);
     res.json({ success: true, data: audios });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Audio Mixing & Mastering Suite API (Presets, Upload, Recording, MP3 Convert)
+// ---------------------------------------------------------------------------
+
+// 1. Get all audio presets
+app.get('/api/audio/presets', (req, res) => {
+  try {
+    const presets = AudioPresetRepo.getAll();
+    res.json({ success: true, data: presets });
+  } catch (error) {
+    console.error('Error fetching audio presets:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 2. Create custom preset
+app.post('/api/audio/presets', (req, res) => {
+  try {
+    const { name, description, settings_json, category } = req.body;
+    if (!name || !settings_json) {
+      return res.status(400).json({ success: false, error: 'Nama preset dan konfigurasi DSP wajib diisi.' });
+    }
+    const id = AudioPresetRepo.create({
+      name,
+      description,
+      settings_json,
+      category: category || 'custom'
+    });
+    const created = AudioPresetRepo.getById(id);
+    res.json({ success: true, data: created, message: 'Preset mixing & mastering berhasil disimpan.' });
+  } catch (error) {
+    console.error('Error creating audio preset:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 3. Update preset
+app.put('/api/audio/presets/:id', (req, res) => {
+  try {
+    const updated = AudioPresetRepo.update(req.params.id, req.body);
+    res.json({ success: true, data: updated, message: 'Preset berhasil diperbarui.' });
+  } catch (error) {
+    console.error('Error updating audio preset:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 4. Delete custom preset
+app.delete('/api/audio/presets/:id', (req, res) => {
+  try {
+    AudioPresetRepo.delete(req.params.id);
+    res.json({ success: true, message: 'Preset berhasil dihapus.' });
+  } catch (error) {
+    console.error('Error deleting audio preset:', error);
+    res.status(400).json({ success: false, error: error.message });
+  }
+});
+
+// 5. Upload or save recorded/mastered audio
+app.post('/api/audio/upload', (req, res) => {
+  try {
+    const { projectId, base64Data, filename, sourceType, isMastered, presetUsed, durationSeconds, model, voice } = req.body;
+    if (!base64Data) {
+      return res.status(400).json({ success: false, error: 'Data audio base64 wajib dikirim.' });
+    }
+
+    const cleanBase64 = base64Data.replace(/^data:audio\/[a-zA-Z0-9\-_]+;base64,/, '');
+    const buffer = Buffer.from(cleanBase64, 'base64');
+
+    const ext = filename && filename.includes('.') ? filename.split('.').pop().toLowerCase() : (sourceType === 'recording' ? 'wav' : 'mp3');
+    const safeExt = ['wav', 'mp3', 'm4a', 'flac', 'ogg', 'webm'].includes(ext) ? ext : 'wav';
+    const timestamp = Date.now();
+    const prefix = isMastered ? 'mastered' : (sourceType === 'recording' ? 'rec' : 'audio');
+    const safeFilename = `${prefix}_${projectId || 'draft'}_${timestamp}.${safeExt}`;
+    const targetPath = path.join(publicAudioDir, safeFilename);
+
+    fs.writeFileSync(targetPath, buffer);
+
+    const calcDuration = durationSeconds ? Number(durationSeconds) : Math.round((buffer.length / 44100 / 2) * 10) / 10;
+    const audioId = AudioRecordingRepo.add({
+      project_id: projectId || 0,
+      filename: safeFilename,
+      model: model || (isMastered ? `Master (${presetUsed || 'Manual'})` : 'Audio Track'),
+      voice: voice || (sourceType === 'recording' ? 'Live Microphone' : 'Uploaded Audio'),
+      speed: 1.0,
+      duration_seconds: calcDuration,
+      source_type: sourceType || (isMastered ? 'mastered' : 'upload'),
+      original_filename: filename || safeFilename,
+      is_mastered: isMastered ? 1 : 0,
+      preset_used: presetUsed || null
+    });
+
+    res.json({
+      success: true,
+      id: audioId,
+      filename: safeFilename,
+      audio_url: `/audio/${safeFilename}`,
+      duration_seconds: calcDuration,
+      message: 'Audio berhasil disimpan.'
+    });
+  } catch (error) {
+    console.error('Error saving audio upload:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 6. High-Quality MP3 Transcoding (320 kbps broadcast master via FFmpeg)
+app.post('/api/audio/convert-mp3', (req, res) => {
+  try {
+    const { base64Data, filename, projectId, presetUsed, durationSeconds } = req.body;
+    if (!base64Data) {
+      return res.status(400).json({ success: false, error: 'Data audio base64 wajib dikirim.' });
+    }
+
+    const cleanBase64 = base64Data.replace(/^data:audio\/[a-zA-Z0-9\-_]+;base64,/, '');
+    const wavBuffer = Buffer.from(cleanBase64, 'base64');
+    const timestamp = Date.now();
+    const tempWavName = `temp_${timestamp}.wav`;
+    const tempWavPath = path.join(publicAudioDir, tempWavName);
+    const outMp3Name = `mastered_${projectId || 'draft'}_${timestamp}.mp3`;
+    const outMp3Path = path.join(publicAudioDir, outMp3Name);
+
+    fs.writeFileSync(tempWavPath, wavBuffer);
+
+    // Run FFmpeg 320kbps MP3 conversion
+    execSync(`ffmpeg -y -i "${tempWavPath}" -codec:a libmp3lame -b:a 320k "${outMp3Path}"`, {
+      stdio: 'pipe'
+    });
+
+    // Cleanup temp WAV
+    if (fs.existsSync(tempWavPath)) {
+      try { fs.unlinkSync(tempWavPath); } catch (e) {}
+    }
+
+    const mp3Stats = fs.statSync(outMp3Path);
+    const estDuration = durationSeconds ? Number(durationSeconds) : Math.round((mp3Stats.size / 40000) * 10) / 10;
+
+    let audioId = null;
+    if (projectId) {
+      audioId = AudioRecordingRepo.add({
+        project_id: projectId,
+        filename: outMp3Name,
+        model: `Master (${presetUsed || 'Custom 320k'})`,
+        voice: 'Mastered Studio Track',
+        speed: 1.0,
+        duration_seconds: estDuration,
+        source_type: 'mastered',
+        original_filename: filename || outMp3Name,
+        is_mastered: 1,
+        preset_used: presetUsed || null
+      });
+    }
+
+    res.json({
+      success: true,
+      id: audioId,
+      filename: outMp3Name,
+      audio_url: `/audio/${outMp3Name}`,
+      duration_seconds: estDuration,
+      format: 'MP3 (320 kbps)',
+      message: 'Mastering MP3 320 kbps berhasil dibuat.'
+    });
+  } catch (error) {
+    console.error('Error transcoding to MP3:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 7. Get BGM tracks list
+app.get('/api/audio/bgm-list', (req, res) => {
+  try {
+    const files = fs.readdirSync(publicBgmDir).filter(f => /\.(mp3|wav|ogg|m4a)$/i.test(f));
+    const items = files.map(f => {
+      let displayName = f.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' ');
+      displayName = displayName.charAt(0).toUpperCase() + displayName.slice(1);
+      return {
+        filename: f,
+        name: displayName,
+        url: `/audio/bgm/${f}`
+      };
+    });
+    res.json({ success: true, data: items });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 8. Upload Custom BGM track
+app.post('/api/audio/bgm/upload', (req, res) => {
+  try {
+    const { filename, base64Data } = req.body;
+    if (!filename || !base64Data) {
+      return res.status(400).json({ success: false, error: 'File BGM dan data base64 wajib diisi.' });
+    }
+    const cleanBase64 = base64Data.replace(/^data:audio\/[a-zA-Z0-9\-_]+;base64,/, '');
+    const buffer = Buffer.from(cleanBase64, 'base64');
+    const safeName = 'custom_' + Date.now() + '_' + filename.replace(/[^a-zA-Z0-9._-]/g, '');
+    fs.writeFileSync(path.join(publicBgmDir, safeName), buffer);
+
+    res.json({
+      success: true,
+      filename: safeName,
+      url: `/audio/bgm/${safeName}`,
+      message: 'Musik latar BGM berhasil diunggah.'
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 9. Delete Audio record & file
+app.delete('/api/audio/:id', (req, res) => {
+  try {
+    const record = AudioRecordingRepo.getById(req.params.id);
+    if (record) {
+      const filePath = path.join(publicAudioDir, record.filename);
+      if (fs.existsSync(filePath)) {
+        try { fs.unlinkSync(filePath); } catch (e) {}
+      }
+      AudioRecordingRepo.delete(req.params.id);
+    }
+    res.json({ success: true, message: 'File audio berhasil dihapus.' });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }

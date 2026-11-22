@@ -139,6 +139,18 @@ db.exec(`
 
   INSERT OR IGNORE INTO app_settings (id, default_wpm, max_hook_seconds, default_gemini_model, default_language)
   VALUES (1, 140, 30, 'auto', 'id');
+
+  CREATE TABLE IF NOT EXISTS audio_master_presets (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    preset_key TEXT UNIQUE NOT NULL,
+    name TEXT NOT NULL,
+    description TEXT,
+    category TEXT DEFAULT 'alur_cerita',
+    settings_json TEXT NOT NULL,
+    is_system INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
 `);
 
 // Migration for existing databases: ensure release_year & director columns exist
@@ -147,6 +159,18 @@ try {
 } catch (e) {}
 try {
   db.exec(`ALTER TABLE projects ADD COLUMN director TEXT`);
+} catch (e) {}
+try {
+  db.exec(`ALTER TABLE project_audios ADD COLUMN source_type TEXT DEFAULT 'tts'`);
+} catch (e) {}
+try {
+  db.exec(`ALTER TABLE project_audios ADD COLUMN original_filename TEXT`);
+} catch (e) {}
+try {
+  db.exec(`ALTER TABLE project_audios ADD COLUMN is_mastered INTEGER DEFAULT 0`);
+} catch (e) {}
+try {
+  db.exec(`ALTER TABLE project_audios ADD COLUMN preset_used TEXT`);
 } catch (e) {}
 
 // Extract and populate release_year and director for existing projects
@@ -629,6 +653,330 @@ const TtsRepo = {
       ORDER BY id DESC
     `);
     return stmt.all(Number(projectId));
+  }
+};
+
+// Repository for Project Audio Files (Voiceover TTS, Mic Recording, Uploads, & Mastered)
+const AudioRecordingRepo = {
+  add(data) {
+    const stmt = db.prepare(`
+      INSERT INTO project_audios (project_id, filename, model, voice, speed, duration_seconds, source_type, original_filename, is_mastered, preset_used)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    const res = stmt.run(
+      Number(data.project_id || 0),
+      data.filename,
+      data.model || null,
+      data.voice || null,
+      data.speed ? Number(data.speed) : 1.0,
+      data.duration_seconds ? Number(data.duration_seconds) : 0,
+      data.source_type || 'tts',
+      data.original_filename || null,
+      data.is_mastered ? 1 : 0,
+      data.preset_used || null
+    );
+    return Number(res.lastInsertRowid);
+  },
+  getByProject(projectId) {
+    const stmt = db.prepare(`
+      SELECT * FROM project_audios 
+      WHERE project_id = ? 
+      ORDER BY id DESC
+    `);
+    return stmt.all(Number(projectId));
+  },
+  getById(id) {
+    const stmt = db.prepare(`SELECT * FROM project_audios WHERE id = ?`);
+    return stmt.get(Number(id));
+  },
+  delete(id) {
+    const stmt = db.prepare(`DELETE FROM project_audios WHERE id = ?`);
+    stmt.run(Number(id));
+    return true;
+  }
+};
+
+const DEFAULT_AUDIO_PRESETS = [
+  {
+    preset_key: 'youtube_recap',
+    name: 'YouTube Recap Gold',
+    description: 'Standar emas alur cerita YouTube. Artikulasi vokal renyah, dynamic punchy, low-end rapi, dan high air kemilau.',
+    category: 'alur_cerita',
+    settings_json: JSON.stringify({
+      highPass: { enabled: true, frequency: 85 },
+      noiseGate: { enabled: true, threshold: -48, attack: 0.010, release: 0.120 },
+      deEsser: { enabled: true, frequency: 6200, threshold: -22, amount: -6.0 },
+      eq: {
+        enabled: true,
+        lowShelfFreq: 160,
+        lowShelfGain: 1.5,
+        midDipFreq: 450,
+        midDipGain: -2.5,
+        midDipQ: 1.4,
+        presenceFreq: 3400,
+        presenceGain: 3.0,
+        presenceQ: 1.2,
+        highShelfFreq: 11000,
+        highShelfGain: 2.5
+      },
+      compressor: {
+        enabled: true,
+        threshold: -18,
+        ratio: 3.5,
+        attack: 0.015,
+        release: 0.100,
+        knee: 6,
+        makeupGain: 4.0
+      },
+      saturation: { enabled: true, warmth: 25 },
+      limiter: { enabled: true, ceiling: -1.0, targetLufs: -14 },
+      ducking: { enabled: true, duckDb: -14, attack: 0.10, release: 0.45 }
+    })
+  },
+  {
+    preset_key: 'deep_cinema',
+    name: 'Deep Cinema Radiophonic',
+    description: 'Karakter suara narator film bioskop berat. Proximity effect berwibawa, nada bass tebal dan hangat ala radio klasik.',
+    category: 'alur_cerita',
+    settings_json: JSON.stringify({
+      highPass: { enabled: true, frequency: 65 },
+      noiseGate: { enabled: true, threshold: -52, attack: 0.015, release: 0.150 },
+      deEsser: { enabled: true, frequency: 5800, threshold: -20, amount: -5.0 },
+      eq: {
+        enabled: true,
+        lowShelfFreq: 140,
+        lowShelfGain: 3.5,
+        midDipFreq: 600,
+        midDipGain: -3.0,
+        midDipQ: 1.2,
+        presenceFreq: 2800,
+        presenceGain: 1.8,
+        presenceQ: 1.0,
+        highShelfFreq: 9000,
+        highShelfGain: 1.0
+      },
+      compressor: {
+        enabled: true,
+        threshold: -22,
+        ratio: 4.0,
+        attack: 0.025,
+        release: 0.160,
+        knee: 8,
+        makeupGain: 5.0
+      },
+      saturation: { enabled: true, warmth: 40 },
+      limiter: { enabled: true, ceiling: -1.0, targetLufs: -14 },
+      ducking: { enabled: true, duckDb: -15, attack: 0.10, release: 0.50 }
+    })
+  },
+  {
+    preset_key: 'crisp_female',
+    name: 'Crisp Female Clarifier',
+    description: 'Optimal untuk narator wanita / vokal nada tinggi. Menjinakkan desis sibilance (S/T/C) dan memunculkan kejelasan kata.',
+    category: 'alur_cerita',
+    settings_json: JSON.stringify({
+      highPass: { enabled: true, frequency: 100 },
+      noiseGate: { enabled: true, threshold: -46, attack: 0.008, release: 0.100 },
+      deEsser: { enabled: true, frequency: 6800, threshold: -24, amount: -8.0 },
+      eq: {
+        enabled: true,
+        lowShelfFreq: 220,
+        lowShelfGain: -1.0,
+        midDipFreq: 800,
+        midDipGain: -2.0,
+        midDipQ: 1.5,
+        presenceFreq: 3800,
+        presenceGain: 3.5,
+        presenceQ: 1.3,
+        highShelfFreq: 12000,
+        highShelfGain: 3.0
+      },
+      compressor: {
+        enabled: true,
+        threshold: -16,
+        ratio: 3.0,
+        attack: 0.012,
+        release: 0.090,
+        knee: 5,
+        makeupGain: 3.5
+      },
+      saturation: { enabled: true, warmth: 15 },
+      limiter: { enabled: true, ceiling: -1.0, targetLufs: -14 },
+      ducking: { enabled: true, duckDb: -13, attack: 0.08, release: 0.40 }
+    })
+  },
+  {
+    preset_key: 'dramatic_trailer',
+    name: 'Dramatic Trailer Voice',
+    description: 'Suara trailer Hollywood super tegas & agresif. Kompresi padat dan saturasi tebal agar vokal menembus musik aksi keras.',
+    category: 'alur_cerita',
+    settings_json: JSON.stringify({
+      highPass: { enabled: true, frequency: 75 },
+      noiseGate: { enabled: true, threshold: -45, attack: 0.006, release: 0.080 },
+      deEsser: { enabled: true, frequency: 6000, threshold: -22, amount: -7.0 },
+      eq: {
+        enabled: true,
+        lowShelfFreq: 150,
+        lowShelfGain: 3.0,
+        midDipFreq: 500,
+        midDipGain: -3.5,
+        midDipQ: 1.6,
+        presenceFreq: 3200,
+        presenceGain: 4.5,
+        presenceQ: 1.5,
+        highShelfFreq: 10000,
+        highShelfGain: 3.0
+      },
+      compressor: {
+        enabled: true,
+        threshold: -24,
+        ratio: 5.5,
+        attack: 0.008,
+        release: 0.080,
+        knee: 4,
+        makeupGain: 6.5
+      },
+      saturation: { enabled: true, warmth: 45 },
+      limiter: { enabled: true, ceiling: -0.5, targetLufs: -13 },
+      ducking: { enabled: true, duckDb: -16, attack: 0.06, release: 0.40 }
+    })
+  },
+  {
+    preset_key: 'tts_healer',
+    name: 'TTS Voice Healer',
+    description: 'Penyembuh audio AI/TTS. Menghilangkan bunyi sengau sintetis & desis logam, memberi kehangatan analog agar vokal terasa organik.',
+    category: 'alur_cerita',
+    settings_json: JSON.stringify({
+      highPass: { enabled: true, frequency: 90 },
+      noiseGate: { enabled: true, threshold: -55, attack: 0.015, release: 0.150 },
+      deEsser: { enabled: true, frequency: 6400, threshold: -26, amount: -9.0 },
+      eq: {
+        enabled: true,
+        lowShelfFreq: 200,
+        lowShelfGain: 2.5,
+        midDipFreq: 2500,
+        midDipGain: -3.0,
+        midDipQ: 2.0,
+        presenceFreq: 4000,
+        presenceGain: 1.2,
+        presenceQ: 1.0,
+        highShelfFreq: 8500,
+        highShelfGain: -2.0
+      },
+      compressor: {
+        enabled: true,
+        threshold: -19,
+        ratio: 3.2,
+        attack: 0.020,
+        release: 0.140,
+        knee: 6,
+        makeupGain: 3.0
+      },
+      saturation: { enabled: true, warmth: 35 },
+      limiter: { enabled: true, ceiling: -1.0, targetLufs: -14 },
+      ducking: { enabled: true, duckDb: -14, attack: 0.10, release: 0.45 }
+    })
+  },
+  {
+    preset_key: 'asmr_whisper',
+    name: 'ASMR Intimate Whisper',
+    description: 'Vokal bisikan dekat mic yang sangat intim, hangat, dan lembut. Cocok untuk cerita horor, misteri, atau adegan emosional.',
+    category: 'alur_cerita',
+    settings_json: JSON.stringify({
+      highPass: { enabled: true, frequency: 70 },
+      noiseGate: { enabled: true, threshold: -58, attack: 0.020, release: 0.200 },
+      deEsser: { enabled: true, frequency: 7000, threshold: -20, amount: -4.0 },
+      eq: {
+        enabled: true,
+        lowShelfFreq: 120,
+        lowShelfGain: 2.0,
+        midDipFreq: 700,
+        midDipGain: -1.5,
+        midDipQ: 1.0,
+        presenceFreq: 4500,
+        presenceGain: 2.5,
+        presenceQ: 1.2,
+        highShelfFreq: 13000,
+        highShelfGain: 4.5
+      },
+      compressor: {
+        enabled: true,
+        threshold: -26,
+        ratio: 2.5,
+        attack: 0.030,
+        release: 0.220,
+        knee: 10,
+        makeupGain: 7.0
+      },
+      saturation: { enabled: true, warmth: 20 },
+      limiter: { enabled: true, ceiling: -1.5, targetLufs: -16 },
+      ducking: { enabled: true, duckDb: -16, attack: 0.12, release: 0.55 }
+    })
+  }
+];
+
+// Repository for Audio Mixing & Mastering Presets (SQLite CRUD)
+const AudioPresetRepo = {
+  getAll() {
+    const stmt = db.prepare(`SELECT * FROM audio_master_presets ORDER BY is_system DESC, id ASC`);
+    return stmt.all();
+  },
+  getByKey(key) {
+    const stmt = db.prepare(`SELECT * FROM audio_master_presets WHERE preset_key = ?`);
+    return stmt.get(key);
+  },
+  getById(id) {
+    const stmt = db.prepare(`SELECT * FROM audio_master_presets WHERE id = ?`);
+    return stmt.get(Number(id));
+  },
+  create(data) {
+    const key = data.preset_key || `custom_${Date.now()}`;
+    const stmt = db.prepare(`
+      INSERT INTO audio_master_presets (preset_key, name, description, category, settings_json, is_system, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    `);
+    const res = stmt.run(
+      key,
+      data.name.trim(),
+      data.description ? data.description.trim() : null,
+      data.category || 'custom',
+      typeof data.settings_json === 'string' ? data.settings_json : JSON.stringify(data.settings_json)
+    );
+    return Number(res.lastInsertRowid);
+  },
+  update(id, data) {
+    const stmt = db.prepare(`
+      UPDATE audio_master_presets
+      SET name = ?, description = ?, settings_json = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `);
+    stmt.run(
+      data.name.trim(),
+      data.description ? data.description.trim() : null,
+      typeof data.settings_json === 'string' ? data.settings_json : JSON.stringify(data.settings_json),
+      Number(id)
+    );
+    return this.getById(id);
+  },
+  delete(id) {
+    const item = this.getById(id);
+    if (!item) return false;
+    if (item.is_system) {
+      throw new Error('Preset bawaan sistem tidak boleh dihapus.');
+    }
+    db.prepare(`DELETE FROM audio_master_presets WHERE id = ?`).run(Number(id));
+    return true;
+  },
+  resetDefaults() {
+    DEFAULT_AUDIO_PRESETS.forEach(p => {
+      const existing = db.prepare(`SELECT id FROM audio_master_presets WHERE preset_key = ?`).get(p.preset_key);
+      if (!existing) {
+        db.prepare(`
+          INSERT INTO audio_master_presets (preset_key, name, description, category, settings_json, is_system, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        `).run(p.preset_key, p.name, p.description, p.category, p.settings_json);
+      }
+    });
   }
 };
 
@@ -1234,6 +1582,20 @@ const SettingsRepo = {
       console.warn('Sync anti-spoiler prompt warning:', e.message);
     }
   }
+
+  // Seed Audio Mixing & Mastering Presets if empty
+  try {
+    const presetCount = db.prepare(`SELECT COUNT(*) as count FROM audio_master_presets`).get().count;
+    if (presetCount === 0) {
+      AudioPresetRepo.resetDefaults();
+      console.log('🎚️ Berhasil inisialisasi 6 preset audio mixing & mastering alur cerita di SQLite.');
+    } else {
+      // Ensure any missing system presets are added
+      AudioPresetRepo.resetDefaults();
+    }
+  } catch (e) {
+    console.warn('Preset seed warning:', e.message);
+  }
 })();
 
 module.exports = {
@@ -1245,5 +1607,8 @@ module.exports = {
   PersonaRepo,
   TtsVoiceRepo,
   PromptTemplateRepo,
-  SettingsRepo
+  SettingsRepo,
+  AudioPresetRepo,
+  AudioRecordingRepo,
+  DEFAULT_AUDIO_PRESETS
 };

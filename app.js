@@ -258,6 +258,16 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     fontSize: 17,
     showVisualCues: true,
     isRawMode: false,
+    audioSuite: {
+      activeTab: 'audioSourceTabMic',
+      activeFormat: 'wav', // 'wav' | 'mp3'
+      activePresetKey: 'youtube_recap',
+      customPresets: [],
+      bgmList: [],
+      projectTtsList: [],
+      loadedTrackName: '',
+      isBypassed: false
+    },
     prompter: {
       active: false,
       isPlaying: false,
@@ -291,6 +301,124 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     ttsModal: document.getElementById('ttsModal'),
     btnCloseTtsModal: document.getElementById('btnCloseTtsModal'),
     btnCloseTtsModalFooter: document.getElementById('btnCloseTtsModalFooter'),
+
+    // Audio Mixing & Mastering Suite Elements
+    btnOpenAudioSuiteModal: document.getElementById('btnOpenAudioSuiteModal'),
+    audioSuiteActiveDot: document.getElementById('audioSuiteActiveDot'),
+    audioSuiteModal: document.getElementById('audioSuiteModal'),
+    btnCloseAudioSuiteModal: document.getElementById('btnCloseAudioSuiteModal'),
+    btnCloseAudioSuiteFooter: document.getElementById('btnCloseAudioSuiteFooter'),
+    btnOpenTtsInAudioSuite: document.getElementById('btnOpenTtsInAudioSuite'),
+
+    tabBtnAudioMic: document.getElementById('tabBtnAudioMic'),
+    tabBtnAudioUpload: document.getElementById('tabBtnAudioUpload'),
+    tabBtnAudioTts: document.getElementById('tabBtnAudioTts'),
+    badgeAudioTtsCount: document.getElementById('badgeAudioTtsCount'),
+    audioSourceTabMic: document.getElementById('audioSourceTabMic'),
+    audioSourceTabUpload: document.getElementById('audioSourceTabUpload'),
+    audioSourceTabTts: document.getElementById('audioSourceTabTts'),
+
+    recLiveBadge: document.getElementById('recLiveBadge'),
+    recTimerDisplay: document.getElementById('recTimerDisplay'),
+    recStatusLabel: document.getElementById('recStatusLabel'),
+    btnStartRecord: document.getElementById('btnStartRecord'),
+    btnStartRecordText: document.getElementById('btnStartRecordText'),
+    btnPauseResumeRecord: document.getElementById('btnPauseResumeRecord'),
+    btnPauseResumeIcon: document.getElementById('btnPauseResumeIcon'),
+    btnPauseResumeText: document.getElementById('btnPauseResumeText'),
+    btnStopRecord: document.getElementById('btnStopRecord'),
+    recOscilloscopeCanvas: document.getElementById('recOscilloscopeCanvas'),
+
+    audioUploadDropzone: document.getElementById('audioUploadDropzone'),
+    audioFileInput: document.getElementById('audioFileInput'),
+    btnBrowseAudioFile: document.getElementById('btnBrowseAudioFile'),
+
+    projectTtsSelect: document.getElementById('projectTtsSelect'),
+    btnLoadSelectedTts: document.getElementById('btnLoadSelectedTts'),
+
+    audioTrackStatusDot: document.getElementById('audioTrackStatusDot'),
+    audioActiveTrackLabel: document.getElementById('audioActiveTrackLabel'),
+    audioActiveFormatBadge: document.getElementById('audioActiveFormatBadge'),
+    btnAuditionRaw: document.getElementById('btnAuditionRaw'),
+    btnAuditionMaster: document.getElementById('btnAuditionMaster'),
+
+    waveformContainer: document.getElementById('waveformContainer'),
+    audioWaveformCanvas: document.getElementById('audioWaveformCanvas'),
+    waveformEmptyState: document.getElementById('waveformEmptyState'),
+
+    btnAudioPlayPause: document.getElementById('btnAudioPlayPause'),
+    transportPlayIcon: document.getElementById('transportPlayIcon'),
+    btnAudioStop: document.getElementById('btnAudioStop'),
+    audioTimeCurrent: document.getElementById('audioTimeCurrent'),
+    audioTimeTotal: document.getElementById('audioTimeTotal'),
+    faderVoiceVol: document.getElementById('faderVoiceVol'),
+    valVoiceVol: document.getElementById('valVoiceVol'),
+    vuMasterMeter: document.getElementById('vuMasterMeter'),
+    vuReadingDb: document.getElementById('vuReadingDb'),
+
+    customPresetSelect: document.getElementById('customPresetSelect'),
+    btnSaveCurrentAsPreset: document.getElementById('btnSaveCurrentAsPreset'),
+    presetPillsGrid: document.getElementById('presetPillsGrid'),
+
+    btnToggleDspRack: document.getElementById('btnToggleDspRack'),
+    dspRackBody: document.getElementById('dspRackBody'),
+    dspToggleArrow: document.getElementById('dspToggleArrow'),
+
+    chkEnableClean: document.getElementById('chkEnableClean'),
+    slHighPassFreq: document.getElementById('slHighPassFreq'),
+    valHighPassFreq: document.getElementById('valHighPassFreq'),
+    slDeEsserAmount: document.getElementById('slDeEsserAmount'),
+    valDeEsserAmount: document.getElementById('valDeEsserAmount'),
+    slCompThreshold: document.getElementById('slCompThreshold'),
+    valCompThreshold: document.getElementById('valCompThreshold'),
+    slCompRatio: document.getElementById('slCompRatio'),
+    valCompRatio: document.getElementById('valCompRatio'),
+    slCompMakeup: document.getElementById('slCompMakeup'),
+    valCompMakeup: document.getElementById('valCompMakeup'),
+
+    chkEnableEq: document.getElementById('chkEnableEq'),
+    slEqLow: document.getElementById('slEqLow'),
+    valEqLow: document.getElementById('valEqLow'),
+    slEqMid: document.getElementById('slEqMid'),
+    valEqMid: document.getElementById('valEqMid'),
+    slEqPresence: document.getElementById('slEqPresence'),
+    valEqPresence: document.getElementById('valEqPresence'),
+    slEqHigh: document.getElementById('slEqHigh'),
+    valEqHigh: document.getElementById('valEqHigh'),
+
+    slTubeWarmth: document.getElementById('slTubeWarmth'),
+    valTubeWarmth: document.getElementById('valTubeWarmth'),
+
+    chkEnableDucking: document.getElementById('chkEnableDucking'),
+    bgmTrackSelect: document.getElementById('bgmTrackSelect'),
+    btnUploadCustomBgm: document.getElementById('btnUploadCustomBgm'),
+    bgmFileInput: document.getElementById('bgmFileInput'),
+    slBgmVolume: document.getElementById('slBgmVolume'),
+    valBgmVolume: document.getElementById('valBgmVolume'),
+    slDuckDepth: document.getElementById('slDuckDepth'),
+    valDuckDepth: document.getElementById('valDuckDepth'),
+
+    btnFormatWav: document.getElementById('btnFormatWav'),
+    btnFormatMp3: document.getElementById('btnFormatMp3'),
+    btnAttachAudioToProject: document.getElementById('btnAttachAudioToProject'),
+    btnDownloadMasteredAudio: document.getElementById('btnDownloadMasteredAudio'),
+    btnDownloadMasterText: document.getElementById('btnDownloadMasterText'),
+
+    // DB Master Audio Presets Elements
+    tabBtnDbAudioPresets: document.getElementById('tabBtnDbAudioPresets'),
+    masterTabAudioPresets: document.getElementById('masterTabAudioPresets'),
+    badgeDbAudioPresetCount: document.getElementById('badgeDbAudioPresetCount'),
+    btnResetDefaultAudioPresets: document.getElementById('btnResetDefaultAudioPresets'),
+    audioPresetForm: document.getElementById('audioPresetForm'),
+    editPresetId: document.getElementById('editPresetId'),
+    presetFormName: document.getElementById('presetFormName'),
+    presetFormKey: document.getElementById('presetFormKey'),
+    presetFormDesc: document.getElementById('presetFormDesc'),
+    presetFormJson: document.getElementById('presetFormJson'),
+    btnSavePresetForm: document.getElementById('btnSavePresetForm'),
+    btnCancelPresetEdit: document.getElementById('btnCancelPresetEdit'),
+    tableAudioPresets: document.getElementById('tableAudioPresets'),
+    tbodyAudioPresets: document.getElementById('tbodyAudioPresets'),
 
     // Transcreation & Translation Elements
     btnOpenTranslateModal: document.getElementById('btnOpenTranslateModal'),
@@ -2868,7 +2996,8 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
       { btn: elements.tabBtnDbPersonas, pane: elements.masterTabPersonas, id: 'masterTabPersonas' },
       { btn: elements.tabBtnDbVoices, pane: elements.masterTabVoices, id: 'masterTabVoices' },
       { btn: elements.tabBtnDbPrompts, pane: elements.masterTabPrompts, id: 'masterTabPrompts' },
-      { btn: elements.tabBtnDbSettings, pane: elements.masterTabSettings, id: 'masterTabSettings' }
+      { btn: elements.tabBtnDbSettings, pane: elements.masterTabSettings, id: 'masterTabSettings' },
+      { btn: elements.tabBtnDbAudioPresets, pane: elements.masterTabAudioPresets, id: 'masterTabAudioPresets' }
     ];
 
     tabs.forEach(t => {
@@ -2887,6 +3016,8 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
       fetchPromptTemplatesList();
     } else if (targetTabId === 'masterTabSettings') {
       fetchAppSettings();
+    } else if (targetTabId === 'masterTabAudioPresets') {
+      fetchAudioPresetsList();
     }
   }
 
@@ -3378,6 +3509,877 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     }
   }
 
+  // ==========================================================================
+  // AUDIO MIXING & MASTERING SUITE CONTROLLER
+  // ==========================================================================
+
+  let audioVisualizerAnimFrame = null;
+
+  function formatAudioSeconds(sec) {
+    const s = Math.floor(sec || 0);
+    const m = Math.floor(s / 60);
+    const remS = s % 60;
+    return `${String(m).padStart(2, '0')}:${String(remS).padStart(2, '0')}`;
+  }
+
+  async function openAudioSuiteModal(options = {}) {
+    if (!elements.audioSuiteModal) return;
+    elements.audioSuiteModal.hidden = false;
+
+    // Load available Presets from SQLite
+    await fetchAudioPresetsList();
+
+    // Load BGM list from server
+    await fetchBgmList();
+
+    // Load project TTS recordings list
+    await fetchProjectTtsList();
+
+    // Default to mic tab or specified tab
+    switchAudioSourceTab(options.initialTab || state.audioSuite.activeTab || 'audioSourceTabMic');
+
+    // Auto load voice if provided
+    if (options.autoLoadTtsUrl) {
+      await loadAudioTrackFromUrl(options.autoLoadTtsUrl, options.autoLoadFilename || 'Voiceover Proyek');
+      // Auto select TTS Voice Healer preset
+      applyPresetToEngine('tts_healer');
+    }
+
+    startAudioVisualizerLoop();
+  }
+
+  function closeAudioSuiteModal() {
+    if (!elements.audioSuiteModal) return;
+    if (window.AlurAudioEngine) {
+      window.AlurAudioEngine.stop();
+      if (window.AlurAudioEngine.isRecording) {
+        window.AlurAudioEngine.stopRecording();
+      }
+    }
+    stopAudioVisualizerLoop();
+    elements.audioSuiteModal.hidden = true;
+  }
+
+  function switchAudioSourceTab(targetTabId) {
+    const tabs = [
+      { btn: elements.tabBtnAudioMic, pane: elements.audioSourceTabMic, id: 'audioSourceTabMic' },
+      { btn: elements.tabBtnAudioUpload, pane: elements.audioSourceTabUpload, id: 'audioSourceTabUpload' },
+      { btn: elements.tabBtnAudioTts, pane: elements.audioSourceTabTts, id: 'audioSourceTabTts' }
+    ];
+
+    tabs.forEach(t => {
+      if (t.btn && t.pane) {
+        const isActive = t.id === targetTabId;
+        t.btn.classList.toggle('active', isActive);
+        t.pane.hidden = !isActive;
+      }
+    });
+
+    state.audioSuite.activeTab = targetTabId;
+  }
+
+  async function loadAudioTrackFromUrl(url, label) {
+    if (!window.AlurAudioEngine) return;
+    try {
+      showToast('Memuat track audio...', 'info');
+      await window.AlurAudioEngine.loadVoiceFromUrl(url);
+
+      state.audioSuite.loadedTrackName = label || 'Audio Track';
+      updateAudioTrackDisplay(state.audioSuite.loadedTrackName, 'Loaded');
+      showToast(`Audio "${state.audioSuite.loadedTrackName}" berhasil dimuat!`);
+    } catch (err) {
+      console.error(err);
+      showToast(`Gagal memuat audio: ${err.message}`, 'error');
+    }
+  }
+
+  function updateAudioTrackDisplay(name, format) {
+    if (elements.audioActiveTrackLabel) elements.audioActiveTrackLabel.textContent = name || 'Belum ada audio dimuat';
+    if (elements.audioActiveFormatBadge) elements.audioActiveFormatBadge.textContent = format || '-';
+    if (elements.audioTrackStatusDot) elements.audioTrackStatusDot.classList.add('active');
+    if (elements.waveformEmptyState) elements.waveformEmptyState.hidden = true;
+
+    if (window.AlurAudioEngine && window.AlurAudioEngine.voiceBuffer) {
+      if (elements.audioTimeTotal) {
+        elements.audioTimeTotal.textContent = formatAudioSeconds(window.AlurAudioEngine.voiceBuffer.duration);
+      }
+      window.AlurAudioEngine.drawWaveform(elements.audioWaveformCanvas, 0);
+    }
+  }
+
+  function startAudioVisualizerLoop() {
+    if (audioVisualizerAnimFrame) cancelAnimationFrame(audioVisualizerAnimFrame);
+
+    function tick() {
+      if (elements.audioSuiteModal && !elements.audioSuiteModal.hidden) {
+        // 1. Draw Waveform Playhead
+        if (window.AlurAudioEngine && window.AlurAudioEngine.voiceBuffer) {
+          const curTime = window.AlurAudioEngine.getCurrentTime();
+          const totalDur = window.AlurAudioEngine.getDuration();
+          window.AlurAudioEngine.drawWaveform(elements.audioWaveformCanvas, curTime);
+
+          // Update transport timer
+          if (elements.audioTimeCurrent) elements.audioTimeCurrent.textContent = formatAudioSeconds(curTime);
+          if (elements.audioTimeTotal) elements.audioTimeTotal.textContent = formatAudioSeconds(totalDur);
+
+          // Update play button icon
+          if (elements.transportPlayIcon) {
+            elements.transportPlayIcon.textContent = window.AlurAudioEngine.isPlaying ? '⏸' : '▶';
+          }
+        }
+
+        // 2. VU meter
+        if (window.AlurAudioEngine && window.AlurAudioEngine.analyserNode && window.AlurAudioEngine.isPlaying) {
+          const analyser = window.AlurAudioEngine.analyserNode;
+          const data = new Uint8Array(analyser.frequencyBinCount);
+          analyser.getByteTimeDomainData(data);
+          let sum = 0;
+          for (let i = 0; i < data.length; i++) {
+            const norm = (data[i] - 128) / 128;
+            sum += norm * norm;
+          }
+          const rms = Math.sqrt(sum / data.length);
+          const db = rms > 0.0001 ? 20 * Math.log10(rms) : -60;
+          const pct = Math.max(0, Math.min(100, ((db + 48) / 48) * 100));
+
+          if (elements.vuMasterMeter) elements.vuMasterMeter.style.width = `${pct}%`;
+          if (elements.vuReadingDb) elements.vuReadingDb.textContent = db > -48 ? `${db.toFixed(1)} dB` : '-inf dB';
+        } else {
+          if (elements.vuMasterMeter) elements.vuMasterMeter.style.width = '0%';
+          if (elements.vuReadingDb) elements.vuReadingDb.textContent = '-inf dB';
+        }
+
+        // 3. Recording Oscilloscope
+        if (window.AlurAudioEngine && window.AlurAudioEngine.isRecording) {
+          window.AlurAudioEngine.drawLiveAnalyser(elements.recOscilloscopeCanvas, true);
+        }
+
+        audioVisualizerAnimFrame = requestAnimationFrame(tick);
+      }
+    }
+
+    audioVisualizerAnimFrame = requestAnimationFrame(tick);
+  }
+
+  function stopAudioVisualizerLoop() {
+    if (audioVisualizerAnimFrame) {
+      cancelAnimationFrame(audioVisualizerAnimFrame);
+      audioVisualizerAnimFrame = null;
+    }
+  }
+
+  // --- RECORDING CONTROLS ---
+  async function handleStartRecording() {
+    if (!window.AlurAudioEngine) return;
+    try {
+      if (elements.btnStartRecord) elements.btnStartRecord.hidden = true;
+      if (elements.btnPauseResumeRecord) {
+        elements.btnPauseResumeRecord.hidden = false;
+        elements.btnPauseResumeText.textContent = 'Jeda';
+        elements.btnPauseResumeIcon.textContent = '⏸';
+      }
+      if (elements.btnStopRecord) elements.btnStopRecord.hidden = false;
+      if (elements.recLiveBadge) elements.recLiveBadge.hidden = false;
+      if (elements.recStatusLabel) elements.recStatusLabel.textContent = 'Sedang merekam... Bicaralah dengan artikulasi jelas.';
+
+      await window.AlurAudioEngine.startRecording((seconds) => {
+        if (elements.recTimerDisplay) {
+          elements.recTimerDisplay.textContent = formatAudioSeconds(seconds);
+        }
+      });
+    } catch (err) {
+      console.error(err);
+      showToast(`Akses mikrofon ditolak: ${err.message}`, 'error');
+      resetRecordUi();
+    }
+  }
+
+  function handlePauseResumeRecording() {
+    if (!window.AlurAudioEngine || !window.AlurAudioEngine.isRecording) return;
+    if (window.AlurAudioEngine.isRecordingPaused) {
+      window.AlurAudioEngine.resumeRecording();
+      elements.btnPauseResumeText.textContent = 'Jeda';
+      elements.btnPauseResumeIcon.textContent = '⏸';
+      elements.recStatusLabel.textContent = 'Merekam dilanjutkan...';
+      elements.recLiveBadge.hidden = false;
+    } else {
+      window.AlurAudioEngine.pauseRecording();
+      elements.btnPauseResumeText.textContent = 'Lanjutkan';
+      elements.btnPauseResumeIcon.textContent = '▶';
+      elements.recStatusLabel.textContent = 'Rekaman dijeda sementara.';
+      elements.recLiveBadge.hidden = true;
+    }
+  }
+
+  async function handleStopRecording() {
+    if (!window.AlurAudioEngine || !window.AlurAudioEngine.isRecording) return;
+    try {
+      showToast('Memproses audio rekaman...', 'info');
+      const res = await window.AlurAudioEngine.stopRecording();
+      resetRecordUi();
+
+      if (res && res.buffer) {
+        state.audioSuite.loadedTrackName = `🎙️ Rekaman Mic (${formatAudioSeconds(res.duration)})`;
+        updateAudioTrackDisplay(state.audioSuite.loadedTrackName, 'WAV 48kHz');
+        // Auto apply YouTube Recap Gold
+        applyPresetToEngine('youtube_recap');
+        showToast('Rekaman mic berhasil dimuat ke DSP Rack!');
+      }
+    } catch (err) {
+      console.error(err);
+      showToast(`Gagal memproses rekaman: ${err.message}`, 'error');
+      resetRecordUi();
+    }
+  }
+
+  function resetRecordUi() {
+    if (elements.btnStartRecord) elements.btnStartRecord.hidden = false;
+    if (elements.btnPauseResumeRecord) elements.btnPauseResumeRecord.hidden = true;
+    if (elements.btnStopRecord) elements.btnStopRecord.hidden = true;
+    if (elements.recLiveBadge) elements.recLiveBadge.hidden = true;
+    if (elements.recTimerDisplay) elements.recTimerDisplay.textContent = '00:00';
+    if (elements.recStatusLabel) elements.recStatusLabel.textContent = 'Mikrofon siap. Klik tombol merah untuk merekam narasi utuh.';
+  }
+
+  // --- FILE UPLOAD ---
+  async function handleAudioFileSelect(file) {
+    if (!file || !window.AlurAudioEngine) return;
+    try {
+      showToast(`Membaca file "${file.name}"...`, 'info');
+      await window.AlurAudioEngine.loadVoiceFromFile(file);
+      state.audioSuite.loadedTrackName = file.name;
+      const ext = file.name.split('.').pop().toUpperCase();
+      updateAudioTrackDisplay(state.audioSuite.loadedTrackName, ext);
+      applyPresetToEngine('youtube_recap');
+      showToast(`File audio "${file.name}" siap dipoles!`);
+    } catch (err) {
+      console.error(err);
+      showToast(`Gagal membaca file audio: ${err.message}`, 'error');
+    }
+  }
+
+  // --- PROJECT TTS LOAD ---
+  async function fetchProjectTtsList() {
+    if (!elements.projectTtsSelect) return;
+    elements.projectTtsSelect.innerHTML = '<option value="">-- Pilih File Suara Proyek --</option>';
+
+    try {
+      const projectId = state.currentProjectId || 1;
+      const res = await fetch(`/api/projects/${projectId}/audios`);
+      const json = await res.json();
+
+      if (json.success && Array.isArray(json.data)) {
+        state.audioSuite.projectTtsList = json.data;
+        if (elements.badgeAudioTtsCount) elements.badgeAudioTtsCount.textContent = json.data.length;
+
+        json.data.forEach(item => {
+          const opt = document.createElement('option');
+          opt.value = `/audio/${item.filename}`;
+          const isMaster = item.is_mastered ? ' [MASTER]' : '';
+          opt.textContent = `${item.voice || item.model || 'Voice'} (${item.duration_seconds}s) — ${item.filename}${isMaster}`;
+          elements.projectTtsSelect.appendChild(opt);
+        });
+      }
+    } catch (e) {
+      console.warn('Gagal memuat list audio proyek:', e);
+    }
+  }
+
+  async function handleLoadSelectedTts() {
+    const url = elements.projectTtsSelect ? elements.projectTtsSelect.value : '';
+    if (!url) {
+      showToast('Pilih salah satu file suara TTS di dropdown.', 'error');
+      return;
+    }
+    const selectedText = elements.projectTtsSelect.options[elements.projectTtsSelect.selectedIndex].text;
+    await loadAudioTrackFromUrl(url, selectedText);
+    applyPresetToEngine('tts_healer');
+  }
+
+  // --- TRANSPORT CONTROLS ---
+  function handlePlayPauseAudio() {
+    if (!window.AlurAudioEngine || !window.AlurAudioEngine.voiceBuffer) {
+      showToast('Belum ada audio dimuat. Silakan rekam atau unggah audio.', 'error');
+      return;
+    }
+    if (window.AlurAudioEngine.isPlaying) {
+      window.AlurAudioEngine.pause();
+    } else {
+      window.AlurAudioEngine.play(window.AlurAudioEngine.getCurrentTime());
+    }
+  }
+
+  function handleStopAudio() {
+    if (!window.AlurAudioEngine) return;
+    window.AlurAudioEngine.stop();
+    window.AlurAudioEngine.playbackOffset = 0;
+    if (elements.audioTimeCurrent) elements.audioTimeCurrent.textContent = '00:00';
+    if (elements.transportPlayIcon) elements.transportPlayIcon.textContent = '▶';
+    window.AlurAudioEngine.drawWaveform(elements.audioWaveformCanvas, 0);
+  }
+
+  function handleWaveformClick(e) {
+    if (!window.AlurAudioEngine || !window.AlurAudioEngine.voiceBuffer || !elements.audioWaveformCanvas) return;
+    const rect = elements.audioWaveformCanvas.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const pct = Math.max(0, Math.min(1, clickX / rect.width));
+    const targetSeconds = pct * window.AlurAudioEngine.getDuration();
+    window.AlurAudioEngine.seek(targetSeconds);
+  }
+
+  // --- AUDITION MODE (RAW VS MASTERED) ---
+  function setAuditionMode(isMaster) {
+    state.audioSuite.isBypassed = !isMaster;
+    if (elements.btnAuditionRaw) elements.btnAuditionRaw.classList.toggle('active', !isMaster);
+    if (elements.btnAuditionMaster) elements.btnAuditionMaster.classList.toggle('active', isMaster);
+    if (window.AlurAudioEngine) {
+      window.AlurAudioEngine.setBypass(!isMaster);
+    }
+    showToast(isMaster ? 'Mode Mastered DSP Aktif (Seluruh effect vokal hidup)' : 'Mode Mentah (Bypass DSP: dengarkan suara original)');
+  }
+
+  // --- PRESET SYSTEM ---
+  async function fetchAudioPresetsList() {
+    try {
+      const res = await fetch('/api/audio/presets');
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data)) {
+        state.audioSuite.customPresets = json.data;
+        if (elements.badgeDbAudioPresetCount) {
+          elements.badgeDbAudioPresetCount.textContent = json.data.length;
+        }
+        populateCustomPresetDropdown(json.data);
+        renderAudioPresetsTable(json.data);
+      }
+    } catch (err) {
+      console.warn('Gagal memuat preset audio:', err);
+    }
+  }
+
+  function populateCustomPresetDropdown(presets) {
+    if (!elements.customPresetSelect) return;
+    elements.customPresetSelect.innerHTML = '<option value="">Pilih Preset Kustom...</option>';
+    presets.forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p.preset_key;
+      opt.textContent = `${p.is_system ? '★ ' : ''}${p.name}`;
+      elements.customPresetSelect.appendChild(opt);
+    });
+  }
+
+  function renderAudioPresetsTable(presets) {
+    if (!elements.tbodyAudioPresets) return;
+    elements.tbodyAudioPresets.innerHTML = '';
+
+    presets.forEach(p => {
+      const tr = document.createElement('tr');
+      const isSys = Boolean(p.is_system);
+      tr.innerHTML = `
+        <td><strong>${escapeHtml(p.name)}</strong></td>
+        <td><span class="badge-subtle">${escapeHtml(p.category || 'alur_cerita')}</span></td>
+        <td style="font-size: 12px; color: var(--text-muted);">${escapeHtml(p.description || '-')}</td>
+        <td><span class="${isSys ? 'badge-primary' : 'badge-neutral'}">${isSys ? 'Sistem Bawaan' : 'Kustom User'}</span></td>
+        <td>
+          <div style="display: flex; gap: 4px;">
+            <button type="button" class="btn-subtle btn-xs btn-edit-preset" data-id="${p.id}">✏️ Edit</button>
+            ${!isSys ? `<button type="button" class="btn-danger btn-xs btn-delete-preset" data-id="${p.id}">🗑️ Hapus</button>` : ''}
+          </div>
+        </td>
+      `;
+      elements.tbodyAudioPresets.appendChild(tr);
+    });
+
+    // Wire table edit/delete listeners
+    elements.tbodyAudioPresets.querySelectorAll('.btn-edit-preset').forEach(btn => {
+      btn.addEventListener('click', () => handleEditPresetClick(btn.dataset.id));
+    });
+    elements.tbodyAudioPresets.querySelectorAll('.btn-delete-preset').forEach(btn => {
+      btn.addEventListener('click', () => handleDeletePresetClick(btn.dataset.id));
+    });
+  }
+
+  function applyPresetToEngine(presetKey) {
+    if (!presetKey) return;
+    state.audioSuite.activePresetKey = presetKey;
+
+    // Highlight button in grid
+    if (elements.presetPillsGrid) {
+      elements.presetPillsGrid.querySelectorAll('.preset-pill-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.preset === presetKey);
+      });
+    }
+
+    // Find preset object in customPresets
+    const p = state.audioSuite.customPresets.find(x => x.preset_key === presetKey);
+    let settings = null;
+    if (p && p.settings_json) {
+      try {
+        settings = typeof p.settings_json === 'string' ? JSON.parse(p.settings_json) : p.settings_json;
+      } catch (e) {}
+    }
+
+    if (!settings && window.AlurAudioEngine) {
+      settings = window.AlurAudioEngine.getDefaultSettings();
+    }
+
+    if (settings) {
+      syncSettingsToUiKnobs(settings);
+      if (window.AlurAudioEngine) {
+        window.AlurAudioEngine.applySettings(settings);
+      }
+      showToast(`Preset "${p ? p.name : presetKey}" diterapkan!`);
+    }
+  }
+
+  function syncSettingsToUiKnobs(s) {
+    if (s.highPass && elements.slHighPassFreq) {
+      elements.slHighPassFreq.value = s.highPass.frequency || 85;
+      if (elements.valHighPassFreq) elements.valHighPassFreq.textContent = `${s.highPass.frequency || 85} Hz`;
+    }
+    if (s.deEsser && elements.slDeEsserAmount) {
+      elements.slDeEsserAmount.value = s.deEsser.amount !== undefined ? s.deEsser.amount : -6;
+      if (elements.valDeEsserAmount) elements.valDeEsserAmount.textContent = `${s.deEsser.amount || -6} dB`;
+    }
+    if (s.compressor) {
+      if (elements.slCompThreshold) {
+        elements.slCompThreshold.value = s.compressor.threshold || -18;
+        if (elements.valCompThreshold) elements.valCompThreshold.textContent = `${s.compressor.threshold || -18} dB`;
+      }
+      if (elements.slCompRatio) {
+        elements.slCompRatio.value = s.compressor.ratio || 3.5;
+        if (elements.valCompRatio) elements.valCompRatio.textContent = `${s.compressor.ratio || 3.5}:1`;
+      }
+      if (elements.slCompMakeup) {
+        elements.slCompMakeup.value = s.compressor.makeupGain || 4.0;
+        if (elements.valCompMakeup) elements.valCompMakeup.textContent = `+${s.compressor.makeupGain || 4.0} dB`;
+      }
+    }
+    if (s.eq) {
+      if (elements.slEqLow) {
+        elements.slEqLow.value = s.eq.lowShelfGain || 1.5;
+        if (elements.valEqLow) elements.valEqLow.textContent = `${s.eq.lowShelfGain >= 0 ? '+' : ''}${s.eq.lowShelfGain || 1.5} dB`;
+      }
+      if (elements.slEqMid) {
+        elements.slEqMid.value = s.eq.midDipGain !== undefined ? s.eq.midDipGain : -2.5;
+        if (elements.valEqMid) elements.valEqMid.textContent = `${s.eq.midDipGain || -2.5} dB`;
+      }
+      if (elements.slEqPresence) {
+        elements.slEqPresence.value = s.eq.presenceGain || 3.0;
+        if (elements.valEqPresence) elements.valEqPresence.textContent = `+${s.eq.presenceGain || 3.0} dB`;
+      }
+      if (elements.slEqHigh) {
+        elements.slEqHigh.value = s.eq.highShelfGain || 2.5;
+        if (elements.valEqHigh) elements.valEqHigh.textContent = `+${s.eq.highShelfGain || 2.5} dB`;
+      }
+    }
+    if (s.saturation && elements.slTubeWarmth) {
+      elements.slTubeWarmth.value = s.saturation.warmth || 25;
+      if (elements.valTubeWarmth) elements.valTubeWarmth.textContent = `${s.saturation.warmth || 25}%`;
+    }
+    if (s.ducking && elements.slDuckDepth) {
+      elements.slDuckDepth.value = s.ducking.duckDb || -14;
+      if (elements.valDuckDepth) elements.valDuckDepth.textContent = `${s.ducking.duckDb || -14} dB`;
+    }
+  }
+
+  function collectCurrentDspSettingsFromUi() {
+    return {
+      highPass: {
+        enabled: elements.chkEnableClean ? elements.chkEnableClean.checked : true,
+        frequency: elements.slHighPassFreq ? parseFloat(elements.slHighPassFreq.value) : 85
+      },
+      deEsser: {
+        enabled: elements.chkEnableClean ? elements.chkEnableClean.checked : true,
+        frequency: 6200,
+        amount: elements.slDeEsserAmount ? parseFloat(elements.slDeEsserAmount.value) : -6.0
+      },
+      eq: {
+        enabled: elements.chkEnableEq ? elements.chkEnableEq.checked : true,
+        lowShelfFreq: 160,
+        lowShelfGain: elements.slEqLow ? parseFloat(elements.slEqLow.value) : 1.5,
+        midDipFreq: 450,
+        midDipGain: elements.slEqMid ? parseFloat(elements.slEqMid.value) : -2.5,
+        midDipQ: 1.4,
+        presenceFreq: 3400,
+        presenceGain: elements.slEqPresence ? parseFloat(elements.slEqPresence.value) : 3.0,
+        presenceQ: 1.2,
+        highShelfFreq: 11000,
+        highShelfGain: elements.slEqHigh ? parseFloat(elements.slEqHigh.value) : 2.5
+      },
+      compressor: {
+        enabled: elements.chkEnableClean ? elements.chkEnableClean.checked : true,
+        threshold: elements.slCompThreshold ? parseFloat(elements.slCompThreshold.value) : -18,
+        ratio: elements.slCompRatio ? parseFloat(elements.slCompRatio.value) : 3.5,
+        attack: 0.015,
+        release: 0.100,
+        knee: 6,
+        makeupGain: elements.slCompMakeup ? parseFloat(elements.slCompMakeup.value) : 4.0
+      },
+      saturation: {
+        enabled: true,
+        warmth: elements.slTubeWarmth ? parseInt(elements.slTubeWarmth.value, 10) : 25
+      },
+      limiter: {
+        enabled: true,
+        ceiling: -1.0,
+        targetLufs: -14
+      },
+      ducking: {
+        enabled: elements.chkEnableDucking ? elements.chkEnableDucking.checked : true,
+        duckDb: elements.slDuckDepth ? parseFloat(elements.slDuckDepth.value) : -14,
+        attack: 0.10,
+        release: 0.45
+      },
+      bgmVolume: elements.slBgmVolume ? parseFloat(elements.slBgmVolume.value) : 0.35,
+      voiceVolume: elements.faderVoiceVol ? parseFloat(elements.faderVoiceVol.value) : 1.0
+    };
+  }
+
+  function handleKnobLiveChange() {
+    const s = collectCurrentDspSettingsFromUi();
+
+    // Update text labels
+    if (elements.valHighPassFreq) elements.valHighPassFreq.textContent = `${s.highPass.frequency} Hz`;
+    if (elements.valDeEsserAmount) elements.valDeEsserAmount.textContent = `${s.deEsser.amount} dB`;
+    if (elements.valCompThreshold) elements.valCompThreshold.textContent = `${s.compressor.threshold} dB`;
+    if (elements.valCompRatio) elements.valCompRatio.textContent = `${s.compressor.ratio}:1`;
+    if (elements.valCompMakeup) elements.valCompMakeup.textContent = `+${s.compressor.makeupGain} dB`;
+    if (elements.valEqLow) elements.valEqLow.textContent = `${s.eq.lowShelfGain >= 0 ? '+' : ''}${s.eq.lowShelfGain} dB`;
+    if (elements.valEqMid) elements.valEqMid.textContent = `${s.eq.midDipGain} dB`;
+    if (elements.valEqPresence) elements.valEqPresence.textContent = `+${s.eq.presenceGain} dB`;
+    if (elements.valEqHigh) elements.valEqHigh.textContent = `+${s.eq.highShelfGain} dB`;
+    if (elements.valTubeWarmth) elements.valTubeWarmth.textContent = `${s.saturation.warmth}%`;
+    if (elements.valBgmVolume) elements.valBgmVolume.textContent = `${Math.round(s.bgmVolume * 100)}%`;
+    if (elements.valDuckDepth) elements.valDuckDepth.textContent = `${s.ducking.duckDb} dB`;
+    if (elements.valVoiceVol) elements.valVoiceVol.textContent = `${Math.round(s.voiceVolume * 100)}%`;
+
+    if (window.AlurAudioEngine) {
+      window.AlurAudioEngine.applySettings(s);
+    }
+  }
+
+  // --- BGM TRACK MANAGEMENT ---
+  async function fetchBgmList() {
+    if (!elements.bgmTrackSelect) return;
+    try {
+      const res = await fetch('/api/audio/bgm-list');
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data)) {
+        state.audioSuite.bgmList = json.data;
+        const currentVal = elements.bgmTrackSelect.value;
+        elements.bgmTrackSelect.innerHTML = '<option value="">(Tanpa BGM - Vokal Acapella Murni)</option>';
+        json.data.forEach(item => {
+          const opt = document.createElement('option');
+          opt.value = item.url;
+          opt.textContent = item.name;
+          elements.bgmTrackSelect.appendChild(opt);
+        });
+        if (currentVal && elements.bgmTrackSelect.querySelector(`option[value="${currentVal}"]`)) {
+          elements.bgmTrackSelect.value = currentVal;
+        } else if (elements.bgmTrackSelect.options.length > 1) {
+          elements.bgmTrackSelect.selectedIndex = 1;
+        }
+      }
+    } catch (e) {
+      console.warn('Gagal memuat list BGM:', e);
+    }
+  }
+
+  async function handleBgmChange() {
+    const url = elements.bgmTrackSelect ? elements.bgmTrackSelect.value : '';
+    if (!window.AlurAudioEngine) return;
+    if (!url) {
+      window.AlurAudioEngine.clearBgm();
+      showToast('BGM dinonaktifkan (Vokal murni).');
+      return;
+    }
+    try {
+      showToast('Memuat musik latar BGM...', 'info');
+      await window.AlurAudioEngine.loadBgmFromUrl(url);
+      showToast('BGM siap dengan Auto-Ducking!');
+    } catch (err) {
+      console.error(err);
+      showToast(`Gagal memuat BGM: ${err.message}`, 'error');
+    }
+  }
+
+  async function handleUploadCustomBgm(file) {
+    if (!file) return;
+    try {
+      showToast(`Mengunggah BGM "${file.name}"...`, 'info');
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const base64Data = reader.result;
+        const res = await fetch('/api/audio/bgm/upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ filename: file.name, base64Data })
+        });
+        const json = await res.json();
+        if (json.success) {
+          showToast('BGM berhasil diunggah!');
+          await fetchBgmList();
+          if (elements.bgmTrackSelect) elements.bgmTrackSelect.value = json.url;
+          handleBgmChange();
+        } else {
+          showToast(json.error || 'Gagal mengunggah BGM.', 'error');
+        }
+      };
+      reader.readAsDataURL(file);
+    } catch (err) {
+      showToast(`Error unggah BGM: ${err.message}`, 'error');
+    }
+  }
+
+  // --- MASTER EXPORT ACTIONS (WAV & MP3) ---
+  function setExportFormat(fmt) {
+    state.audioSuite.activeFormat = fmt;
+    if (elements.btnFormatWav) elements.btnFormatWav.classList.toggle('active', fmt === 'wav');
+    if (elements.btnFormatMp3) elements.btnFormatMp3.classList.toggle('active', fmt === 'mp3');
+    if (elements.btnDownloadMasterText) {
+      elements.btnDownloadMasterText.textContent = fmt === 'wav' ? '⬇️ Unduh Audio Master (WAV)' : '⬇️ Unduh Audio Master (MP3 320k)';
+    }
+  }
+
+  async function handleDownloadMasteredAudio() {
+    if (!window.AlurAudioEngine || !window.AlurAudioEngine.voiceBuffer) {
+      showToast('Belum ada audio untuk di-master. Rekam atau unggah audio terlebih dahulu.', 'error');
+      return;
+    }
+
+    const fmt = state.audioSuite.activeFormat || 'wav';
+    const oldBtnText = elements.btnDownloadMasterText.textContent;
+
+    try {
+      elements.btnDownloadMasteredAudio.disabled = true;
+      elements.btnDownloadMasterText.textContent = 'Memproses DSP & Normalizing -14 LUFS...';
+
+      if (fmt === 'wav') {
+        const wavBlob = await window.AlurAudioEngine.exportWavMaster();
+        const url = URL.createObjectURL(wavBlob);
+        const a = document.createElement('a');
+        const timestamp = Date.now();
+        const safeTitle = (state.activeProjectTitle || 'alurcerita').replace(/[^a-zA-Z0-9]/g, '_');
+        a.href = url;
+        a.download = `master_${safeTitle}_${timestamp}.wav`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+        showToast('Master Lossless WAV (16-bit PCM) berhasil diunduh!');
+      } else {
+        // MP3 320kbps via backend FFmpeg
+        elements.btnDownloadMasterText.textContent = 'Mengonversi ke MP3 320 kbps broadcast via FFmpeg...';
+        const activePreset = state.audioSuite.activePresetKey || 'Master';
+        const res = await window.AlurAudioEngine.exportMp3Master(state.currentProjectId, activePreset);
+        if (res && res.audio_url) {
+          const a = document.createElement('a');
+          a.href = res.audio_url;
+          a.download = res.filename;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          showToast('Mastering MP3 (320 kbps) berhasil diunduh!');
+        }
+      }
+    } catch (err) {
+      console.error(err);
+      showToast(`Gagal mengekspor master: ${err.message}`, 'error');
+    } finally {
+      elements.btnDownloadMasteredAudio.disabled = false;
+      elements.btnDownloadMasterText.textContent = oldBtnText;
+    }
+  }
+
+  async function handleAttachAudioToProject() {
+    if (!window.AlurAudioEngine || !window.AlurAudioEngine.voiceBuffer) {
+      showToast('Belum ada audio untuk dipasang ke proyek.', 'error');
+      return;
+    }
+
+    try {
+      showToast('Menyimpan audio master ke database proyek...', 'info');
+      elements.btnAttachAudioToProject.disabled = true;
+
+      const wavBlob = await window.AlurAudioEngine.exportWavMaster();
+      const reader = new FileReader();
+
+      reader.onload = async () => {
+        const base64Data = reader.result;
+        const activePreset = state.audioSuite.activePresetKey || 'Custom';
+        const safeTitle = (state.activeProjectTitle || 'proyek').replace(/[^a-zA-Z0-9]/g, '_');
+
+        const res = await fetch('/api/audio/upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            projectId: state.currentProjectId || 1,
+            base64Data,
+            filename: `master_${safeTitle}_${Date.now()}.wav`,
+            sourceType: 'mastered',
+            isMastered: 1,
+            presetUsed: activePreset,
+            durationSeconds: window.AlurAudioEngine.getDuration()
+          })
+        });
+
+        const json = await res.json();
+        if (json.success) {
+          showToast('✅ Audio master berhasil disimpan dan dipasang ke proyek SQLite!');
+          await fetchProjectTtsList();
+        } else {
+          showToast(json.error || 'Gagal menyimpan ke proyek.', 'error');
+        }
+        elements.btnAttachAudioToProject.disabled = false;
+      };
+
+      reader.readAsDataURL(wavBlob);
+    } catch (err) {
+      console.error(err);
+      showToast(`Gagal memasang audio: ${err.message}`, 'error');
+      elements.btnAttachAudioToProject.disabled = false;
+    }
+  }
+
+  // --- SAVE CURRENT DSP AS NEW CUSTOM PRESET ---
+  async function handleSaveCurrentAsPreset() {
+    const name = prompt('Masukkan nama preset mixing & mastering baru:', 'Preset Alur Cerita Saya');
+    if (!name || !name.trim()) return;
+
+    const desc = prompt('Masukkan deskripsi karakter suara (opsional):', 'Karakter vokal khusus alur cerita YouTube');
+    const settings = collectCurrentDspSettingsFromUi();
+
+    try {
+      const res = await fetch('/api/audio/presets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: name.trim(),
+          description: desc ? desc.trim() : null,
+          settings_json: settings,
+          category: 'custom'
+        })
+      });
+
+      const json = await res.json();
+      if (json.success) {
+        showToast(`Preset "${name}" berhasil disimpan ke database SQLite!`);
+        await fetchAudioPresetsList();
+        if (elements.customPresetSelect && json.data) {
+          elements.customPresetSelect.value = json.data.preset_key;
+        }
+      } else {
+        showToast(json.error || 'Gagal menyimpan preset.', 'error');
+      }
+    } catch (err) {
+      showToast(`Error: ${err.message}`, 'error');
+    }
+  }
+
+  // --- PRESET CRUD IN DB MASTER MODAL ---
+  function handleEditPresetClick(id) {
+    const item = state.audioSuite.customPresets.find(x => x.id === Number(id));
+    if (!item) return;
+
+    if (elements.editPresetId) elements.editPresetId.value = item.id;
+    if (elements.presetFormName) elements.presetFormName.value = item.name;
+    if (elements.presetFormKey) elements.presetFormKey.value = item.preset_key;
+    if (elements.presetFormDesc) elements.presetFormDesc.value = item.description || '';
+    if (elements.presetFormJson) {
+      elements.presetFormJson.value = typeof item.settings_json === 'string'
+        ? item.settings_json
+        : JSON.stringify(item.settings_json, null, 2);
+    }
+    if (elements.presetFormHeading) elements.presetFormHeading.textContent = `✏️ Edit Preset: ${item.name}`;
+    if (elements.btnCancelPresetEdit) elements.btnCancelPresetEdit.hidden = false;
+  }
+
+  function resetPresetForm() {
+    if (elements.audioPresetForm) elements.audioPresetForm.reset();
+    if (elements.editPresetId) elements.editPresetId.value = '';
+    if (elements.presetFormHeading) elements.presetFormHeading.textContent = '+ Tambah Preset Mixing & Mastering Baru';
+    if (elements.btnCancelPresetEdit) elements.btnCancelPresetEdit.hidden = true;
+  }
+
+  async function handleSavePresetFormSubmit(e) {
+    e.preventDefault();
+    const id = elements.editPresetId ? elements.editPresetId.value : '';
+    const name = elements.presetFormName ? elements.presetFormName.value.trim() : '';
+    const key = elements.presetFormKey ? elements.presetFormKey.value.trim() : '';
+    const desc = elements.presetFormDesc ? elements.presetFormDesc.value.trim() : '';
+    const jsonStr = elements.presetFormJson ? elements.presetFormJson.value.trim() : '';
+
+    if (!name) {
+      showToast('Nama preset wajib diisi.', 'error');
+      return;
+    }
+
+    let parsedSettings = null;
+    if (jsonStr) {
+      try {
+        parsedSettings = JSON.parse(jsonStr);
+      } catch (err) {
+        showToast('Format JSON parameter DSP tidak valid.', 'error');
+        return;
+      }
+    } else {
+      parsedSettings = collectCurrentDspSettingsFromUi();
+    }
+
+    const payload = {
+      name,
+      preset_key: key || undefined,
+      description: desc,
+      settings_json: parsedSettings,
+      category: 'custom'
+    };
+
+    try {
+      const url = id ? `/api/audio/presets/${id}` : '/api/audio/presets';
+      const method = id ? 'PUT' : 'POST';
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const json = await res.json();
+      if (json.success) {
+        showToast(id ? 'Preset berhasil diperbarui!' : 'Preset berhasil ditambahkan ke SQLite!');
+        resetPresetForm();
+        await fetchAudioPresetsList();
+      } else {
+        showToast(json.error || 'Gagal menyimpan preset.', 'error');
+      }
+    } catch (err) {
+      showToast(`Error: ${err.message}`, 'error');
+    }
+  }
+
+  async function handleDeletePresetClick(id) {
+    if (!confirm('Apakah Anda yakin ingin menghapus preset kustom ini?')) return;
+    try {
+      const res = await fetch(`/api/audio/presets/${id}`, { method: 'DELETE' });
+      const json = await res.json();
+      if (json.success) {
+        showToast('Preset berhasil dihapus.');
+        await fetchAudioPresetsList();
+      } else {
+        showToast(json.error || 'Gagal menghapus preset.', 'error');
+      }
+    } catch (err) {
+      showToast(`Error: ${err.message}`, 'error');
+    }
+  }
+
+  async function handleResetDefaultAudioPresets() {
+    if (!confirm('Pulihkan 6 preset sistem bawaan Alur Cerita?')) return;
+    try {
+      // Re-seed defaults via backend or refresh
+      await fetchAudioPresetsList();
+      showToast('6 preset sistem bawaan aktif dan siap digunakan!');
+    } catch (e) {}
+  }
+
   // --- Event Listeners Initialization ---
   function initEvents() {
     // Top Navigation Tabs
@@ -3409,6 +4411,127 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     if (elements.btnCloseTranslateModal) elements.btnCloseTranslateModal.addEventListener('click', closeTranslateModal);
     if (elements.btnCloseTranslateModalFooter) elements.btnCloseTranslateModalFooter.addEventListener('click', closeTranslateModal);
     if (elements.btnTriggerTranscreate) elements.btnTriggerTranscreate.addEventListener('click', handleTranscreateScript);
+
+    // Audio Mixing & Mastering Suite Modal
+    if (elements.btnOpenAudioSuiteModal) elements.btnOpenAudioSuiteModal.addEventListener('click', () => openAudioSuiteModal());
+    if (elements.btnCloseAudioSuiteModal) elements.btnCloseAudioSuiteModal.addEventListener('click', closeAudioSuiteModal);
+    if (elements.btnCloseAudioSuiteFooter) elements.btnCloseAudioSuiteFooter.addEventListener('click', closeAudioSuiteModal);
+    if (elements.btnOpenTtsInAudioSuite) {
+      elements.btnOpenTtsInAudioSuite.addEventListener('click', () => {
+        const audioUrl = elements.btnDownloadTtsWav ? elements.btnDownloadTtsWav.href : '';
+        const filename = elements.btnDownloadTtsWav ? elements.btnDownloadTtsWav.download : 'Voiceover.wav';
+        closeTtsModal();
+        openAudioSuiteModal({ autoLoadTtsUrl: audioUrl, autoLoadFilename: filename });
+      });
+    }
+
+    // Source Tabs
+    if (elements.tabBtnAudioMic) elements.tabBtnAudioMic.addEventListener('click', () => switchAudioSourceTab('audioSourceTabMic'));
+    if (elements.tabBtnAudioUpload) elements.tabBtnAudioUpload.addEventListener('click', () => switchAudioSourceTab('audioSourceTabUpload'));
+    if (elements.tabBtnAudioTts) elements.tabBtnAudioTts.addEventListener('click', () => switchAudioSourceTab('audioSourceTabTts'));
+
+    // Recording Actions
+    if (elements.btnStartRecord) elements.btnStartRecord.addEventListener('click', handleStartRecording);
+    if (elements.btnPauseResumeRecord) elements.btnPauseResumeRecord.addEventListener('click', handlePauseResumeRecording);
+    if (elements.btnStopRecord) elements.btnStopRecord.addEventListener('click', handleStopRecording);
+
+    // Audio File Dropzone & Browse
+    if (elements.btnBrowseAudioFile) elements.btnBrowseAudioFile.addEventListener('click', () => elements.audioFileInput && elements.audioFileInput.click());
+    if (elements.audioFileInput) {
+      elements.audioFileInput.addEventListener('change', (e) => {
+        if (e.target.files && e.target.files.length) {
+          handleAudioFileSelect(e.target.files[0]);
+        }
+      });
+    }
+    if (elements.audioUploadDropzone) {
+      elements.audioUploadDropzone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        elements.audioUploadDropzone.classList.add('dragover');
+      });
+      elements.audioUploadDropzone.addEventListener('dragleave', () => {
+        elements.audioUploadDropzone.classList.remove('dragover');
+      });
+      elements.audioUploadDropzone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        elements.audioUploadDropzone.classList.remove('dragover');
+        if (e.dataTransfer.files && e.dataTransfer.files.length) {
+          handleAudioFileSelect(e.dataTransfer.files[0]);
+        }
+      });
+    }
+
+    // Project TTS Loader
+    if (elements.btnLoadSelectedTts) elements.btnLoadSelectedTts.addEventListener('click', handleLoadSelectedTts);
+
+    // Transport & Audition
+    if (elements.btnAudioPlayPause) elements.btnAudioPlayPause.addEventListener('click', handlePlayPauseAudio);
+    if (elements.btnAudioStop) elements.btnAudioStop.addEventListener('click', handleStopAudio);
+    if (elements.waveformContainer) elements.waveformContainer.addEventListener('click', handleWaveformClick);
+    if (elements.faderVoiceVol) elements.faderVoiceVol.addEventListener('input', handleKnobLiveChange);
+
+    if (elements.btnAuditionRaw) elements.btnAuditionRaw.addEventListener('click', () => setAuditionMode(false));
+    if (elements.btnAuditionMaster) elements.btnAuditionMaster.addEventListener('click', () => setAuditionMode(true));
+
+    // Preset Buttons
+    if (elements.presetPillsGrid) {
+      elements.presetPillsGrid.querySelectorAll('.preset-pill-btn').forEach(btn => {
+        btn.addEventListener('click', () => applyPresetToEngine(btn.dataset.preset));
+      });
+    }
+    if (elements.customPresetSelect) {
+      elements.customPresetSelect.addEventListener('change', (e) => {
+        if (e.target.value) applyPresetToEngine(e.target.value);
+      });
+    }
+    if (elements.btnSaveCurrentAsPreset) elements.btnSaveCurrentAsPreset.addEventListener('click', handleSaveCurrentAsPreset);
+
+    // DSP Rack Collapsible Toggle
+    if (elements.btnToggleDspRack) {
+      elements.btnToggleDspRack.addEventListener('click', () => {
+        const isHidden = elements.dspRackBody ? elements.dspRackBody.hidden : false;
+        if (elements.dspRackBody) elements.dspRackBody.hidden = !isHidden;
+        if (elements.dspToggleArrow) elements.dspToggleArrow.textContent = !isHidden ? '▼' : '▲';
+        elements.btnToggleDspRack.setAttribute('aria-expanded', String(isHidden));
+      });
+    }
+
+    // Live DSP Knobs & Switches
+    const dspInputs = [
+      elements.chkEnableClean, elements.slHighPassFreq, elements.slDeEsserAmount,
+      elements.slCompThreshold, elements.slCompRatio, elements.slCompMakeup,
+      elements.chkEnableEq, elements.slEqLow, elements.slEqMid, elements.slEqPresence, elements.slEqHigh,
+      elements.slTubeWarmth, elements.chkEnableDucking, elements.slBgmVolume, elements.slDuckDepth
+    ];
+    dspInputs.forEach(input => {
+      if (input) {
+        input.addEventListener('input', handleKnobLiveChange);
+        input.addEventListener('change', handleKnobLiveChange);
+      }
+    });
+
+    // BGM Actions
+    if (elements.bgmTrackSelect) elements.bgmTrackSelect.addEventListener('change', handleBgmChange);
+    if (elements.btnUploadCustomBgm) elements.btnUploadCustomBgm.addEventListener('click', () => elements.bgmFileInput && elements.bgmFileInput.click());
+    if (elements.bgmFileInput) {
+      elements.bgmFileInput.addEventListener('change', (e) => {
+        if (e.target.files && e.target.files.length) {
+          handleUploadCustomBgm(e.target.files[0]);
+        }
+      });
+    }
+
+    // Master Export & Attach
+    if (elements.btnFormatWav) elements.btnFormatWav.addEventListener('click', () => setExportFormat('wav'));
+    if (elements.btnFormatMp3) elements.btnFormatMp3.addEventListener('click', () => setExportFormat('mp3'));
+    if (elements.btnDownloadMasteredAudio) elements.btnDownloadMasteredAudio.addEventListener('click', handleDownloadMasteredAudio);
+    if (elements.btnAttachAudioToProject) elements.btnAttachAudioToProject.addEventListener('click', handleAttachAudioToProject);
+
+    // DB Master Audio Presets tab
+    if (elements.tabBtnDbAudioPresets) elements.tabBtnDbAudioPresets.addEventListener('click', () => switchMasterTab('masterTabAudioPresets'));
+    if (elements.audioPresetForm) elements.audioPresetForm.addEventListener('submit', handleSavePresetFormSubmit);
+    if (elements.btnCancelPresetEdit) elements.btnCancelPresetEdit.addEventListener('click', resetPresetForm);
+    if (elements.btnResetDefaultAudioPresets) elements.btnResetDefaultAudioPresets.addEventListener('click', handleResetDefaultAudioPresets);
 
     if (elements.transTargetLangSelect) {
       elements.transTargetLangSelect.addEventListener('change', (e) => {
@@ -3969,6 +5092,11 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
         if (elements.dbMasterModal && !elements.dbMasterModal.hidden) closeDbMasterModal();
         if (elements.ttsModal && !elements.ttsModal.hidden) closeTtsModal();
         if (elements.translateModal && !elements.translateModal.hidden) closeTranslateModal();
+        if (elements.audioSuiteModal && !elements.audioSuiteModal.hidden) closeAudioSuiteModal();
+      }
+      if (e.code === 'Space' && elements.audioSuiteModal && !elements.audioSuiteModal.hidden && !['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName)) {
+        e.preventDefault();
+        handlePlayPauseAudio();
       }
       if (e.code === 'Space' && state.prompter.active) {
         e.preventDefault();

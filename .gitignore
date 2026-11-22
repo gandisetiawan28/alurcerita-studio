@@ -13,6 +13,8 @@ node_modules/
 # Generated Audio Files
 public/audio/*
 !public/audio/.gitkeep
+!public/audio/bgm/**
+!public/audio/bgm/
 
 # Temporary & Scratch Files
 scratch/

@@ -101,6 +101,23 @@
           <span class="tts-dot-status" id="ttsColabDotStatus" title="Status koneksi Colab"></span>
         </button>
 
+        <!-- Audio Mixing & Mastering Suite Trigger -->
+        <button type="button" class="btn-subtle header-audio-btn" id="btnOpenAudioSuiteModal" title="Studio Rekaman Mic, Mixing & Mastering DSP, Auto-Ducking BGM">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <line x1="4" y1="21" x2="4" y2="14"></line>
+            <line x1="4" y1="10" x2="4" y2="3"></line>
+            <line x1="12" y1="21" x2="12" y2="12"></line>
+            <line x1="12" y1="8" x2="12" y2="3"></line>
+            <line x1="20" y1="21" x2="20" y2="16"></line>
+            <line x1="20" y1="12" x2="20" y2="3"></line>
+            <line x1="1" y1="14" x2="7" y2="14"></line>
+            <line x1="9" y1="8" x2="15" y2="8"></line>
+            <line x1="17" y1="16" x2="23" y2="16"></line>
+          </svg>
+          <span>Audio Suite</span>
+          <span class="audio-dot-indicator" id="audioSuiteActiveDot" title="Audio Track Ready"></span>
+        </button>
+
         <!-- Terjemah Adaptif & Anti-Duplikat Global Trigger -->
         <button type="button" class="btn-subtle header-translate-btn" id="btnOpenTranslateModal" title="Terjemah Adaptif & Anti-Duplikat (YouTube Global Recap)">
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
@@ -937,6 +954,9 @@
                 <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
                 <span>Unduh File WAV</span>
               </a>
+              <button type="button" class="btn-subtle btn-sm" id="btnOpenTtsInAudioSuite" title="Kirim file TTS ini langsung ke Audio Mixing & Mastering Suite">
+                <span>🎚️ Buka di Audio Suite & Master</span>
+              </button>
               <span class="result-filename" id="ttsResultFilename">voiceover.wav</span>
             </div>
           </div>
@@ -1149,6 +1169,490 @@
   </div>
 
   <!-- =======================================================================
+       MODAL: AUDIO SUITE (RECORDING, MIXING & MASTERING DSP, BGM DUCKING)
+       ======================================================================= -->
+  <div class="modal-overlay" id="audioSuiteModal" hidden role="dialog" aria-modal="true" aria-labelledby="modalAudioSuiteTitle">
+    <div class="modal-card modal-card-xl" style="max-width: 960px; max-height: 92vh;">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <span class="modal-icon">🎚️</span>
+          <div>
+            <h2 class="modal-title" id="modalAudioSuiteTitle">Studio Audio: Rekaman Mic, Mixing & Mastering DSP</h2>
+            <p class="modal-subtitle">Proses vokal alur cerita pro: De-Esser, 4-Band EQ, Leveler, Analog Warmth, Limiter (-14 LUFS) & BGM Auto-Ducking</p>
+          </div>
+        </div>
+        <button type="button" class="modal-close-btn" id="btnCloseAudioSuiteModal" title="Tutup">✕</button>
+      </div>
+
+      <!-- Segmented Input Track Source Tabs -->
+      <nav class="master-tabs-bar audio-source-tabs" role="tablist">
+        <button type="button" class="master-tab-btn active" id="tabBtnAudioMic" data-target="audioSourceTabMic">
+          <span>🎙️ Rekam Mic Langsung</span>
+        </button>
+        <button type="button" class="master-tab-btn" id="tabBtnAudioUpload" data-target="audioSourceTabUpload">
+          <span>📁 Unggah File Audio</span>
+        </button>
+        <button type="button" class="master-tab-btn" id="tabBtnAudioTts" data-target="audioSourceTabTts">
+          <span>🤖 Muat Voiceover TTS Proyek</span>
+          <span class="tab-badge" id="badgeAudioTtsCount">0</span>
+        </button>
+      </nav>
+
+      <div class="modal-body-scrollable" style="padding-top: 14px;">
+        <!-- TAB SOURCE 1: LIVE MIC RECORDING -->
+        <div class="audio-source-pane" id="audioSourceTabMic">
+          <div class="studio-rack-panel record-strip-panel">
+            <div class="record-strip-header">
+              <div class="record-meta-info">
+                <span class="studio-badge-live" id="recLiveBadge" hidden>● REC LIVE</span>
+                <span class="record-timer-big" id="recTimerDisplay">00:00</span>
+                <span class="record-status-label" id="recStatusLabel">Mikrofon siap. Klik tombol merah untuk merekam narasi utuh.</span>
+              </div>
+              <div class="record-action-group">
+                <button type="button" class="btn-primary btn-record-main" id="btnStartRecord">
+                  <span class="rec-dot-icon">●</span>
+                  <span id="btnStartRecordText">Mulai Merekam Mic</span>
+                </button>
+                <button type="button" class="btn-subtle" id="btnPauseResumeRecord" hidden>
+                  <span id="btnPauseResumeIcon">⏸</span>
+                  <span id="btnPauseResumeText">Jeda</span>
+                </button>
+                <button type="button" class="btn-danger" id="btnStopRecord" hidden>
+                  <span>⏹ Selesai & Muat ke DSP</span>
+                </button>
+              </div>
+            </div>
+            <!-- Live Input Canvas Oscilloscope / Level Meter -->
+            <div class="record-visualizer-box">
+              <canvas id="recOscilloscopeCanvas" width="880" height="48" class="rec-canvas-screen"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB SOURCE 2: FILE UPLOAD -->
+        <div class="audio-source-pane" id="audioSourceTabUpload" hidden>
+          <div class="audio-dropzone" id="audioUploadDropzone">
+            <input type="file" id="audioFileInput" accept="audio/*,.mp3,.wav,.m4a,.flac,.ogg,.webm" hidden>
+            <div class="dropzone-content">
+              <span class="dropzone-icon">📁</span>
+              <strong>Tarik & lepaskan file audio di sini, atau klik untuk memilih file</strong>
+              <p>Mendukung format WAV, MP3, M4A, FLAC, OGG, WebM hingga 100 MB.</p>
+              <button type="button" class="btn-subtle btn-sm" id="btnBrowseAudioFile">Pilih File dari Komputer</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB SOURCE 3: LOAD PROJECT TTS -->
+        <div class="audio-source-pane" id="audioSourceTabTts" hidden>
+          <div class="studio-rack-panel">
+            <div class="form-group" style="margin-bottom: 0;">
+              <label for="projectTtsSelect">Pilih Hasil Voiceover TTS dari Proyek Ini:</label>
+              <div style="display: flex; gap: 8px; align-items: center; margin-top: 6px;">
+                <select id="projectTtsSelect" class="input-field" style="flex: 1;">
+                  <option value="">-- Pilih File Suara Proyek --</option>
+                </select>
+                <button type="button" class="btn-primary btn-sm" id="btnLoadSelectedTts">
+                  <span>⚡ Muat ke DSP Rack</span>
+                </button>
+              </div>
+              <small class="field-hint" id="ttsSelectionHint">Pilih hasil render Kokoro / XTTS untuk dibersihkan dari suara sengau sintetis.</small>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===================================================================
+             MONITOR & WAVEFORM PLAYER CONSOLE
+             =================================================================== -->
+        <div class="studio-monitor-deck" id="studioMonitorDeck">
+          <div class="deck-top-row">
+            <div class="deck-track-title">
+              <span class="deck-status-dot" id="audioTrackStatusDot"></span>
+              <span class="track-name" id="audioActiveTrackLabel">Belum ada audio dimuat</span>
+              <span class="track-format-badge" id="audioActiveFormatBadge">-</span>
+            </div>
+            <!-- A/B Bypass Audition Toggle -->
+            <div class="ab-toggle-box">
+              <span class="ab-label">Mode Audisi:</span>
+              <div class="segmented-control ab-segmented">
+                <button type="button" class="seg-btn" id="btnAuditionRaw" title="Dengarkan audio mentah sebelum dipoles">Mentah (Bypass)</button>
+                <button type="button" class="seg-btn active" id="btnAuditionMaster" title="Dengarkan hasil polesan DSP mixing & mastering">🎚️ Mastered DSP</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Waveform Canvas Display -->
+          <div class="waveform-container" id="waveformContainer">
+            <canvas id="audioWaveformCanvas" width="880" height="74" class="waveform-canvas"></canvas>
+            <div class="waveform-empty-state" id="waveformEmptyState">
+              <span>Silakan rekam suara mic, unggah file, atau pilih TTS di atas untuk mulai mastering.</span>
+            </div>
+          </div>
+
+          <!-- Transport Controls Row -->
+          <div class="transport-row">
+            <div class="transport-btns">
+              <button type="button" class="btn-transport" id="btnAudioPlayPause" title="Play / Pause (Spasi)">
+                <span id="transportPlayIcon">▶</span>
+              </button>
+              <button type="button" class="btn-transport" id="btnAudioStop" title="Stop">
+                <span>⏹</span>
+              </button>
+            </div>
+
+            <div class="transport-time">
+              <span class="time-current" id="audioTimeCurrent">00:00</span>
+              <span class="time-slash">/</span>
+              <span class="time-total" id="audioTimeTotal">00:00</span>
+            </div>
+
+            <!-- Volume voice slider -->
+            <div class="transport-fader">
+              <label for="faderVoiceVol" title="Level Vokal Narasi">🎙️ Vokal:</label>
+              <input type="range" id="faderVoiceVol" min="0" max="1.5" step="0.05" value="1.0" class="mini-slider">
+              <span class="fader-val" id="valVoiceVol">100%</span>
+            </div>
+
+            <!-- Peak Level LED Indicator Bar -->
+            <div class="vu-meter-rack" title="Output Level Meter">
+              <div class="vu-bar-track">
+                <div class="vu-bar-fill" id="vuMasterMeter"></div>
+              </div>
+              <span class="vu-reading" id="vuReadingDb">-inf dB</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===================================================================
+             1-CLICK PRO PRESETS (ALUR CERITA CHANNEL STYLES)
+             =================================================================== -->
+        <div class="studio-section-card">
+          <div class="preset-section-header">
+            <div>
+              <h3 class="preset-title">🌟 Karakter Suara & Preset Khusus Alur Cerita</h3>
+              <p class="preset-subtitle">Pilih 1-klik untuk menerapkan seluruh rantai DSP vokal yang sudah dikalibrasi untuk YouTube.</p>
+            </div>
+            <div class="preset-header-actions">
+              <select id="customPresetSelect" class="input-field input-xs" style="max-width: 180px;">
+                <option value="">Preset Kustom...</option>
+              </select>
+              <button type="button" class="btn-subtle btn-xs" id="btnSaveCurrentAsPreset" title="Simpan konfigurasi knob saat ini ke preset database">
+                💾 Simpan Preset Baru
+              </button>
+            </div>
+          </div>
+
+          <!-- The 6 Preset Buttons Grid -->
+          <div class="preset-pills-grid" id="presetPillsGrid">
+            <!-- 1. YouTube Recap Gold -->
+            <button type="button" class="preset-pill-btn active" data-preset="youtube_recap">
+              <div class="pill-top">
+                <span class="pill-icon">👑</span>
+                <strong>YouTube Recap Gold</strong>
+              </div>
+              <span class="pill-desc">Standar emas: renyah, vokal tegas, artikulasi tajam & dinamis rapi.</span>
+            </button>
+
+            <!-- 2. Deep Cinema -->
+            <button type="button" class="preset-pill-btn" data-preset="deep_cinema">
+              <div class="pill-top">
+                <span class="pill-icon">🎬</span>
+                <strong>Deep Cinema Radiophonic</strong>
+              </div>
+              <span class="pill-desc">Suara bioskop berat: resonansi dada tebal, berwibawa & hangat.</span>
+            </button>
+
+            <!-- 3. Crisp Female -->
+            <button type="button" class="preset-pill-btn" data-preset="crisp_female">
+              <div class="pill-top">
+                <span class="pill-icon">✨</span>
+                <strong>Crisp Female Clarifier</strong>
+              </div>
+              <span class="pill-desc">Vokal wanita: anti-desis (de-esser), artikulasi intonasi jernih.</span>
+            </button>
+
+            <!-- 4. Dramatic Trailer -->
+            <button type="button" class="preset-pill-btn" data-preset="dramatic_trailer">
+              <div class="pill-top">
+                <span class="pill-icon">🔥</span>
+                <strong>Dramatic Trailer Voice</strong>
+              </div>
+              <span class="pill-desc">Trailer tegang: kompresi padat, saturasi tebal menembus musik keras.</span>
+            </button>
+
+            <!-- 5. TTS Voice Healer -->
+            <button type="button" class="preset-pill-btn" data-preset="tts_healer">
+              <div class="pill-top">
+                <span class="pill-icon">🩺</span>
+                <strong>TTS Voice Healer</strong>
+              </div>
+              <span class="pill-desc">Penyembuh AI: buang bunyi sengau logam, tambah kehangatan manusia.</span>
+            </button>
+
+            <!-- 6. ASMR Intimate -->
+            <button type="button" class="preset-pill-btn" data-preset="asmr_whisper">
+              <div class="pill-top">
+                <span class="pill-icon">🌙</span>
+                <strong>ASMR Intimate Whisper</strong>
+              </div>
+              <span class="pill-desc">Bisikan dekat mic: lembut, sensitif, cocok narasi horor/misteri.</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- ===================================================================
+             DSP CHANNEL STRIP RACK (DETAILED MANUAL TWEAKS)
+             =================================================================== -->
+        <div class="dsp-rack-collapsible">
+          <button type="button" class="dsp-toggle-header" id="btnToggleDspRack" aria-expanded="true">
+            <span class="dsp-toggle-left">
+              <span style="font-size: 15px;">🎛️</span>
+              <strong>Channel Strip DSP Rack (Equalizer, Compressor, De-Esser, Tube Warmth)</strong>
+              <span class="badge-subtle">Kustomisasi Parameter Presisi</span>
+            </span>
+            <span class="adv-toggle-arrow" id="dspToggleArrow">▲</span>
+          </button>
+
+          <div class="dsp-rack-body" id="dspRackBody">
+            <div class="rack-columns-3">
+              <!-- COLUMN 1: CLEANING & DYNAMICS -->
+              <div class="rack-module-card">
+                <div class="module-header">
+                  <span class="module-title">1. Pembersihan & Dinamika</span>
+                  <label class="switch-toggle" title="Aktifkan/Nonaktifkan Pembersihan">
+                    <input type="checkbox" id="chkEnableClean" checked>
+                    <span class="slider round"></span>
+                  </label>
+                </div>
+
+                <!-- High-Pass Filter -->
+                <div class="knob-row">
+                  <div class="knob-label-line">
+                    <label for="slHighPassFreq">High-Pass Filter (Low-Cut)</label>
+                    <span class="val-pill" id="valHighPassFreq">85 Hz</span>
+                  </div>
+                  <input type="range" id="slHighPassFreq" min="30" max="200" step="5" value="85" class="dsp-slider">
+                  <small class="knob-hint">Potong gemuruh meja, AC, dan getaran mikrofon di bawah 85Hz.</small>
+                </div>
+
+                <!-- De-Esser -->
+                <div class="knob-row">
+                  <div class="knob-label-line">
+                    <label for="slDeEsserAmount">De-Esser (Reduksi Desis S/T)</label>
+                    <span class="val-pill" id="valDeEsserAmount">-6.0 dB</span>
+                  </div>
+                  <input type="range" id="slDeEsserAmount" min="-18" max="0" step="0.5" value="-6" class="dsp-slider">
+                  <small class="knob-hint">Menjinakkan frekuensi tajam 6.2 kHz tanpa membuat suara sengau.</small>
+                </div>
+
+                <!-- Vocal Compressor Threshold -->
+                <div class="knob-row">
+                  <div class="knob-label-line">
+                    <label for="slCompThreshold">Compressor Threshold</label>
+                    <span class="val-pill" id="valCompThreshold">-18 dB</span>
+                  </div>
+                  <input type="range" id="slCompThreshold" min="-36" max="-6" step="1" value="-18" class="dsp-slider">
+                </div>
+
+                <!-- Vocal Compressor Ratio & Makeup -->
+                <div class="knob-row">
+                  <div class="knob-label-line">
+                    <label for="slCompRatio">Compression Ratio</label>
+                    <span class="val-pill" id="valCompRatio">3.5:1</span>
+                  </div>
+                  <input type="range" id="slCompRatio" min="1.5" max="8.0" step="0.5" value="3.5" class="dsp-slider">
+                </div>
+
+                <div class="knob-row">
+                  <div class="knob-label-line">
+                    <label for="slCompMakeup">Makeup Gain</label>
+                    <span class="val-pill" id="valCompMakeup">+4.0 dB</span>
+                  </div>
+                  <input type="range" id="slCompMakeup" min="0" max="12" step="0.5" value="4.0" class="dsp-slider">
+                </div>
+              </div>
+
+              <!-- COLUMN 2: 4-BAND PARAMETRIC EQ -->
+              <div class="rack-module-card">
+                <div class="module-header">
+                  <span class="module-title">2. 4-Band Parametric EQ</span>
+                  <label class="switch-toggle" title="Aktifkan/Nonaktifkan EQ">
+                    <input type="checkbox" id="chkEnableEq" checked>
+                    <span class="slider round"></span>
+                  </label>
+                </div>
+
+                <!-- Band 1: Low Warmth -->
+                <div class="knob-row">
+                  <div class="knob-label-line">
+                    <label for="slEqLow">Low Warmth (160 Hz)</label>
+                    <span class="val-pill" id="valEqLow">+1.5 dB</span>
+                  </div>
+                  <input type="range" id="slEqLow" min="-8" max="8" step="0.5" value="1.5" class="dsp-slider">
+                  <small class="knob-hint">Ketebalan resonansi dada narator.</small>
+                </div>
+
+                <!-- Band 2: Mid Mud Dip -->
+                <div class="knob-row">
+                  <div class="knob-label-line">
+                    <label for="slEqMid">Mid Mud Dip (450 Hz)</label>
+                    <span class="val-pill" id="valEqMid">-2.5 dB</span>
+                  </div>
+                  <input type="range" id="slEqMid" min="-10" max="6" step="0.5" value="-2.5" class="dsp-slider">
+                  <small class="knob-hint">Membersihkan bunyi dengung "kardus/ruang kosong".</small>
+                </div>
+
+                <!-- Band 3: Presence Intelligibility -->
+                <div class="knob-row">
+                  <div class="knob-label-line">
+                    <label for="slEqPresence">Presence (3.4 kHz)</label>
+                    <span class="val-pill" id="valEqPresence">+3.0 dB</span>
+                  </div>
+                  <input type="range" id="slEqPresence" min="-6" max="10" step="0.5" value="3.0" class="dsp-slider">
+                  <small class="knob-hint">Kejelasan pengucapan kata dan artikulasi vokal.</small>
+                </div>
+
+                <!-- Band 4: High Air Sheen -->
+                <div class="knob-row">
+                  <div class="knob-label-line">
+                    <label for="slEqHigh">High Air (11 kHz)</label>
+                    <span class="val-pill" id="valEqHigh">+2.5 dB</span>
+                  </div>
+                  <input type="range" id="slEqHigh" min="-6" max="8" step="0.5" value="2.5" class="dsp-slider">
+                  <small class="knob-hint">Kilau vokal studio modern ala narasi premium.</small>
+                </div>
+              </div>
+
+              <!-- COLUMN 3: ANALOG WARMTH & CEILING -->
+              <div class="rack-module-card">
+                <div class="module-header">
+                  <span class="module-title">3. Karakter & Master Limiter</span>
+                  <span class="badge-subtle">-14 LUFS YouTube</span>
+                </div>
+
+                <!-- Tube Saturation -->
+                <div class="knob-row">
+                  <div class="knob-label-line">
+                    <label for="slTubeWarmth">Analog Tube Warmth (Tanh)</label>
+                    <span class="val-pill" id="valTubeWarmth">25%</span>
+                  </div>
+                  <input type="range" id="slTubeWarmth" min="0" max="80" step="5" value="25" class="dsp-slider">
+                  <small class="knob-hint">Harmonik analog lembut agar vokal tidak steril/dingin.</small>
+                </div>
+
+                <!-- Limiter Ceiling -->
+                <div class="knob-row">
+                  <div class="knob-label-line">
+                    <label>True Peak Ceiling</label>
+                    <span class="val-pill">-1.0 dBFS</span>
+                  </div>
+                  <div class="limiter-status-box">
+                    <span class="led-dot active"></span>
+                    <span>Brickwall Limiter Aktif (Zero Digital Clipping)</span>
+                  </div>
+                </div>
+
+                <!-- Broadcast LUFS Target -->
+                <div class="knob-row" style="margin-top: 14px;">
+                  <div class="knob-label-line">
+                    <label>Target Standar Broadcast</label>
+                    <span class="val-pill">-14 LUFS Integrated</span>
+                  </div>
+                  <small class="knob-hint">Level aman bebas penalti kompresi algoritma YouTube & TikTok.</small>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===================================================================
+             DUAL-TRACK BGM MIXER & INTELLIGENT AUTO-DUCKING
+             =================================================================== -->
+        <div class="studio-section-card bgm-mixer-card">
+          <div class="bgm-header-line">
+            <div class="bgm-left-title">
+              <span class="bgm-icon">🎵</span>
+              <div>
+                <strong>Dual-Track BGM & Intelligent Auto-Ducking</strong>
+                <p class="bgm-subtext">Musik latar otomatis mengecil (-14 dB) saat narator berbicara, dan naik halus saat narator jeda.</p>
+              </div>
+            </div>
+            <label class="switch-toggle" title="Aktifkan Auto-Ducking">
+              <input type="checkbox" id="chkEnableDucking" checked>
+              <span class="slider round"></span>
+            </label>
+          </div>
+
+          <div class="bgm-controls-grid">
+            <!-- BGM Selector -->
+            <div class="form-group" style="margin-bottom: 0;">
+              <label for="bgmTrackSelect">Pilih Musik Latar (BGM):</label>
+              <div style="display: flex; gap: 8px; align-items: center; margin-top: 4px;">
+                <select id="bgmTrackSelect" class="input-field" style="flex: 1;">
+                  <option value="">(Tanpa BGM - Vokal Acapella Murni)</option>
+                  <option value="/audio/bgm/cinematic_warm_pad.mp3" selected>Cinematic Warm Pad (Sinematik Tenang)</option>
+                  <option value="/audio/bgm/ambient_air.mp3">Ambient Air (Atmosfir Halus)</option>
+                </select>
+                <button type="button" class="btn-subtle btn-xs" id="btnUploadCustomBgm" title="Unggah file MP3 musik latar sendiri">
+                  + Upload BGM
+                </button>
+                <input type="file" id="bgmFileInput" accept="audio/*,.mp3,.wav" hidden>
+              </div>
+            </div>
+
+            <!-- BGM Volume Slider -->
+            <div class="form-group" style="margin-bottom: 0;">
+              <div class="label-with-meta">
+                <label for="slBgmVolume">Volume BGM Saat Vokal Diam:</label>
+                <span class="val-badge" id="valBgmVolume">35%</span>
+              </div>
+              <input type="range" id="slBgmVolume" min="0.05" max="0.8" step="0.05" value="0.35" class="speed-slider">
+            </div>
+
+            <!-- Ducking Depth -->
+            <div class="form-group" style="margin-bottom: 0;">
+              <div class="label-with-meta">
+                <label for="slDuckDepth">Kedalaman Ducking (Saat Vokal Masuk):</label>
+                <span class="val-badge" id="valDuckDepth">-14 dB</span>
+              </div>
+              <input type="range" id="slDuckDepth" min="-24" max="-6" step="1" value="-14" class="speed-slider">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===================================================================
+           MODAL FOOTER: EXPORT & ATTACH ACTIONS
+           =================================================================== -->
+      <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+        <!-- Format Selector Choice -->
+        <div class="export-format-selector">
+          <span style="font-size: 13px; font-weight: 600; color: var(--text-secondary);">Format Ekspor:</span>
+          <div class="segmented-control">
+            <button type="button" class="seg-btn active" id="btnFormatWav" data-format="wav" title="Kualitas Lossless Master Tanpa Kompresi (16-bit PCM)">
+              WAV (Master Utuh)
+            </button>
+            <button type="button" class="seg-btn" id="btnFormatMp3" data-format="mp3" title="Kualitas Ringan & Cepat YouTube (320 kbps Broadcast MP3)">
+              MP3 (320 kbps)
+            </button>
+          </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="footer-btn-group" style="display: flex; gap: 8px; align-items: center;">
+          <button type="button" class="btn-subtle" id="btnCloseAudioSuiteFooter">Tutup</button>
+          <button type="button" class="btn-secondary" id="btnAttachAudioToProject">
+            <span>✅ Pasang ke Proyek</span>
+          </button>
+          <button type="button" class="btn-primary" id="btnDownloadMasteredAudio">
+            <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            <span id="btnDownloadMasterText">⬇️ Unduh Audio Master (WAV)</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- =======================================================================
        MODAL: DATABASE MASTER CENTER (FULL CRUD SQLITE)
        ======================================================================= -->
   <div class="modal-overlay" id="dbMasterModal" hidden role="dialog" aria-modal="true" aria-labelledby="modalDbMasterTitle">
@@ -1179,6 +1683,10 @@
         </button>
         <button type="button" class="master-tab-btn" id="tabBtnDbSettings" data-target="masterTabSettings">
           <span>⚙️ Pengaturan Global</span>
+        </button>
+        <button type="button" class="master-tab-btn" id="tabBtnDbAudioPresets" data-target="masterTabAudioPresets">
+          <span>🎚️ Preset Audio Master</span>
+          <span class="tab-badge" id="badgeDbAudioPresetCount">6</span>
         </button>
       </nav>
 
@@ -1413,6 +1921,62 @@
             </form>
           </div>
         </div>
+
+        <!-- TAB 5: PRESET AUDIO MIXING & MASTERING -->
+        <div class="master-tab-pane" id="masterTabAudioPresets" hidden>
+          <div class="add-key-card" style="margin-bottom: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+              <h3 class="section-title" id="presetFormHeading" style="margin-bottom: 0;">+ Tambah Preset Mixing & Mastering Baru</h3>
+              <button type="button" class="btn-subtle btn-xs" id="btnResetDefaultAudioPresets">↺ Pulihkan 6 Preset Sistem Bawaan</button>
+            </div>
+            <form id="audioPresetForm">
+              <input type="hidden" id="editPresetId" value="">
+              <div class="form-row" style="display: flex; gap: 12px; margin-bottom: 12px;">
+                <div class="form-group" style="flex: 1; margin-bottom: 0;">
+                  <label for="presetFormName">Nama Preset *</label>
+                  <input type="text" id="presetFormName" class="input-field" required placeholder="Contoh: Horror Ghost Echo, Epic Battle VO">
+                </div>
+                <div class="form-group" style="flex: 1; margin-bottom: 0;">
+                  <label for="presetFormKey">Kode Unik Preset</label>
+                  <input type="text" id="presetFormKey" class="input-field" placeholder="auto-generate jika kosong">
+                </div>
+              </div>
+              <div class="form-group" style="margin-bottom: 12px;">
+                <label for="presetFormDesc">Deskripsi Karakter Suara</label>
+                <input type="text" id="presetFormDesc" class="input-field" placeholder="Jelaskan karakteristik vokal preset ini...">
+              </div>
+              <div class="form-group" style="margin-bottom: 12px;">
+                <label for="presetFormJson">Parameter DSP (JSON)</label>
+                <textarea id="presetFormJson" class="input-field" rows="4" style="font-family: monospace; font-size: 12px;" placeholder="{ &quot;highPass&quot;: {...}, &quot;eq&quot;: {...}, &quot;compressor&quot;: {...} }"></textarea>
+                <small class="field-hint">Bisa disalin otomatis dari pengaturan Audio Suite atau diedit langsung.</small>
+              </div>
+              <div style="display: flex; gap: 8px;">
+                <button type="submit" class="btn-primary" id="btnSavePresetForm">💾 Simpan Preset ke SQLite</button>
+                <button type="button" class="btn-subtle" id="btnCancelPresetEdit" hidden>Batal</button>
+              </div>
+            </form>
+          </div>
+
+          <div class="key-list-card">
+            <h3 class="section-title" style="margin-bottom: 12px;">Daftar Preset Mixing & Mastering Aktif</h3>
+            <div class="table-responsive">
+              <table class="data-table" id="tableAudioPresets">
+                <thead>
+                  <tr>
+                    <th>Nama Preset</th>
+                    <th>Kategori</th>
+                    <th>Deskripsi Karakter</th>
+                    <th>Tipe</th>
+                    <th>Aksi</th>
+                  </tr>
+                </thead>
+                <tbody id="tbodyAudioPresets">
+                  <!-- Diisi dinamis dari SQLite -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div class="modal-footer">
@@ -1486,6 +2050,7 @@
     </div>
   </div>
 
+  <script src="audioEngine.js?v=1.0"></script>
   <script src="app.js?v=3.1"></script>
 </body>
 </html>
