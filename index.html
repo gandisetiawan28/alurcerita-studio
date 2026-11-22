@@ -1323,243 +1323,349 @@
         </div>
 
         <!-- ===================================================================
-             1-CLICK PRO PRESETS (ALUR CERITA CHANNEL STYLES)
+             AUDIO EFFECT SUITE: MANUAL CHANNEL STRIP RACK & 1-CLICK PRESETS
              =================================================================== -->
-        <div class="studio-section-card">
-          <div class="preset-section-header">
-            <div>
-              <h3 class="preset-title">🌟 Karakter Suara & Preset Khusus Alur Cerita</h3>
-              <p class="preset-subtitle">Pilih 1-klik untuk menerapkan seluruh rantai DSP vokal yang sudah dikalibrasi untuk YouTube.</p>
+        <div class="studio-section-card audio-effects-suite-card">
+          <!-- Mode Switcher & Status Action Bar -->
+          <div class="effects-nav-bar">
+            <div class="effects-mode-tabs" role="tablist">
+              <button type="button" class="effect-mode-tab active" id="tabModeManualRack" role="tab" aria-selected="true">
+                <span class="mode-tab-icon">🎛️</span>
+                <span>Modul Efek Manual (Channel Strip)</span>
+                <span class="pill-chip-badge">Bisa Diatur Sendiri</span>
+              </button>
+              <button type="button" class="effect-mode-tab" id="tabModeQuickPresets" role="tab" aria-selected="false">
+                <span class="mode-tab-icon">⚡</span>
+                <span>Preset Karakter Cepat (1-Klik)</span>
+              </button>
             </div>
-            <div class="preset-header-actions">
-              <select id="customPresetSelect" class="input-field input-xs" style="max-width: 180px;">
-                <option value="">Preset Kustom...</option>
+
+            <div class="effects-meta-actions">
+              <div class="active-preset-indicator" id="activePresetIndicator">
+                <span class="dot-indicator"></span>
+                <span id="activePresetBadgeText">Kustom: Diatur Manual</span>
+              </div>
+              <select id="customPresetSelect" class="input-field input-xs" style="max-width: 170px;" title="Pilih preset yang tersimpan di database">
+                <option value="">-- Preset Database --</option>
               </select>
               <button type="button" class="btn-subtle btn-xs" id="btnSaveCurrentAsPreset" title="Simpan konfigurasi knob saat ini ke preset database">
-                💾 Simpan Preset Baru
+                💾 Simpan Racikan Baru
+              </button>
+              <button type="button" class="btn-subtle btn-xs" id="btnResetToDefaultDsp" title="Kembalikan semua knob ke setelan standar">
+                🔄 Reset
               </button>
             </div>
           </div>
 
-          <!-- The 6 Preset Buttons Grid -->
-          <div class="preset-pills-grid" id="presetPillsGrid">
-            <!-- 1. YouTube Recap Gold -->
-            <button type="button" class="preset-pill-btn active" data-preset="youtube_recap">
-              <div class="pill-top">
-                <span class="pill-icon">👑</span>
-                <strong>YouTube Recap Gold</strong>
-              </div>
-              <span class="pill-desc">Standar emas: renyah, vokal tegas, artikulasi tajam & dinamis rapi.</span>
-            </button>
-
-            <!-- 2. Deep Cinema -->
-            <button type="button" class="preset-pill-btn" data-preset="deep_cinema">
-              <div class="pill-top">
-                <span class="pill-icon">🎬</span>
-                <strong>Deep Cinema Radiophonic</strong>
-              </div>
-              <span class="pill-desc">Suara bioskop berat: resonansi dada tebal, berwibawa & hangat.</span>
-            </button>
-
-            <!-- 3. Crisp Female -->
-            <button type="button" class="preset-pill-btn" data-preset="crisp_female">
-              <div class="pill-top">
-                <span class="pill-icon">✨</span>
-                <strong>Crisp Female Clarifier</strong>
-              </div>
-              <span class="pill-desc">Vokal wanita: anti-desis (de-esser), artikulasi intonasi jernih.</span>
-            </button>
-
-            <!-- 4. Dramatic Trailer -->
-            <button type="button" class="preset-pill-btn" data-preset="dramatic_trailer">
-              <div class="pill-top">
-                <span class="pill-icon">🔥</span>
-                <strong>Dramatic Trailer Voice</strong>
-              </div>
-              <span class="pill-desc">Trailer tegang: kompresi padat, saturasi tebal menembus musik keras.</span>
-            </button>
-
-            <!-- 5. TTS Voice Healer -->
-            <button type="button" class="preset-pill-btn" data-preset="tts_healer">
-              <div class="pill-top">
-                <span class="pill-icon">🩺</span>
-                <strong>TTS Voice Healer</strong>
-              </div>
-              <span class="pill-desc">Penyembuh AI: buang bunyi sengau logam, tambah kehangatan manusia.</span>
-            </button>
-
-            <!-- 6. ASMR Intimate -->
-            <button type="button" class="preset-pill-btn" data-preset="asmr_whisper">
-              <div class="pill-top">
-                <span class="pill-icon">🌙</span>
-                <strong>ASMR Intimate Whisper</strong>
-              </div>
-              <span class="pill-desc">Bisikan dekat mic: lembut, sensitif, cocok narasi horor/misteri.</span>
-            </button>
-          </div>
-        </div>
-
-        <!-- ===================================================================
-             DSP CHANNEL STRIP RACK (DETAILED MANUAL TWEAKS)
-             =================================================================== -->
-        <div class="dsp-rack-collapsible">
-          <button type="button" class="dsp-toggle-header" id="btnToggleDspRack" aria-expanded="true">
-            <span class="dsp-toggle-left">
-              <span style="font-size: 15px;">🎛️</span>
-              <strong>Channel Strip DSP Rack (Equalizer, Compressor, De-Esser, Tube Warmth)</strong>
-              <span class="badge-subtle">Kustomisasi Parameter Presisi</span>
-            </span>
-            <span class="adv-toggle-arrow" id="dspToggleArrow">▲</span>
-          </button>
-
-          <div class="dsp-rack-body" id="dspRackBody">
-            <div class="rack-columns-3">
-              <!-- COLUMN 1: CLEANING & DYNAMICS -->
+          <!-- PANE 1: MANUAL CHANNEL STRIP RACK (OPEN BY DEFAULT) -->
+          <div class="effect-pane" id="paneManualRack">
+            <div class="manual-rack-grid">
+              
+              <!-- MODULE 1: NOISE GATE & LOW-CUT -->
               <div class="rack-module-card">
                 <div class="module-header">
-                  <span class="module-title">1. Pembersihan & Dinamika</span>
-                  <label class="switch-toggle" title="Aktifkan/Nonaktifkan Pembersihan">
+                  <div class="module-title-box">
+                    <span class="mod-num">1</span>
+                    <div>
+                      <strong class="module-title">Pembersih Noise & Gemuruh</strong>
+                      <span class="mod-subtitle">Noise Gate & High-Pass Filter</span>
+                    </div>
+                  </div>
+                  <label class="switch-toggle" title="Aktifkan/Bypass Pembersih Noise">
                     <input type="checkbox" id="chkEnableClean" checked>
                     <span class="slider round"></span>
                   </label>
                 </div>
 
-                <!-- High-Pass Filter -->
-                <div class="knob-row">
-                  <div class="knob-label-line">
-                    <label for="slHighPassFreq">High-Pass Filter (Low-Cut)</label>
-                    <span class="val-pill" id="valHighPassFreq">85 Hz</span>
+                <div class="module-body">
+                  <div class="knob-row">
+                    <div class="knob-label-line">
+                      <label for="slHighPassFreq">High-Pass Filter (Low-Cut)</label>
+                      <span class="val-pill" id="valHighPassFreq">85 Hz</span>
+                    </div>
+                    <input type="range" id="slHighPassFreq" min="30" max="220" step="5" value="85" class="dsp-slider">
+                    <small class="knob-hint">Potong gemuruh getaran meja, AC, dan hentakan nafas di bawah frekuensi ini.</small>
                   </div>
-                  <input type="range" id="slHighPassFreq" min="30" max="200" step="5" value="85" class="dsp-slider">
-                  <small class="knob-hint">Potong gemuruh meja, AC, dan getaran mikrofon di bawah 85Hz.</small>
-                </div>
 
-                <!-- De-Esser -->
-                <div class="knob-row">
-                  <div class="knob-label-line">
-                    <label for="slDeEsserAmount">De-Esser (Reduksi Desis S/T)</label>
-                    <span class="val-pill" id="valDeEsserAmount">-6.0 dB</span>
+                  <div class="knob-row">
+                    <div class="knob-label-line">
+                      <label for="slNoiseGate">Noise Gate Threshold</label>
+                      <span class="val-pill" id="valNoiseGate">-55 dB</span>
+                    </div>
+                    <input type="range" id="slNoiseGate" min="-80" max="-30" step="1" value="-55" class="dsp-slider">
+                    <small class="knob-hint">Meredam total desis mikrofon saat narator sedang jeda berbicara.</small>
                   </div>
-                  <input type="range" id="slDeEsserAmount" min="-18" max="0" step="0.5" value="-6" class="dsp-slider">
-                  <small class="knob-hint">Menjinakkan frekuensi tajam 6.2 kHz tanpa membuat suara sengau.</small>
-                </div>
-
-                <!-- Vocal Compressor Threshold -->
-                <div class="knob-row">
-                  <div class="knob-label-line">
-                    <label for="slCompThreshold">Compressor Threshold</label>
-                    <span class="val-pill" id="valCompThreshold">-18 dB</span>
-                  </div>
-                  <input type="range" id="slCompThreshold" min="-36" max="-6" step="1" value="-18" class="dsp-slider">
-                </div>
-
-                <!-- Vocal Compressor Ratio & Makeup -->
-                <div class="knob-row">
-                  <div class="knob-label-line">
-                    <label for="slCompRatio">Compression Ratio</label>
-                    <span class="val-pill" id="valCompRatio">3.5:1</span>
-                  </div>
-                  <input type="range" id="slCompRatio" min="1.5" max="8.0" step="0.5" value="3.5" class="dsp-slider">
-                </div>
-
-                <div class="knob-row">
-                  <div class="knob-label-line">
-                    <label for="slCompMakeup">Makeup Gain</label>
-                    <span class="val-pill" id="valCompMakeup">+4.0 dB</span>
-                  </div>
-                  <input type="range" id="slCompMakeup" min="0" max="12" step="0.5" value="4.0" class="dsp-slider">
                 </div>
               </div>
 
-              <!-- COLUMN 2: 4-BAND PARAMETRIC EQ -->
+              <!-- MODULE 2: DE-ESSER SIBILANCE REDUCER -->
               <div class="rack-module-card">
                 <div class="module-header">
-                  <span class="module-title">2. 4-Band Parametric EQ</span>
-                  <label class="switch-toggle" title="Aktifkan/Nonaktifkan EQ">
+                  <div class="module-title-box">
+                    <span class="mod-num">2</span>
+                    <div>
+                      <strong class="module-title">De-Esser (Peredam Desis S/T)</strong>
+                      <span class="mod-subtitle">Peredam suara tajam menusuk telinga</span>
+                    </div>
+                  </div>
+                  <label class="switch-toggle" title="Aktifkan/Bypass De-Esser">
+                    <input type="checkbox" id="chkEnableDeEsser" checked>
+                    <span class="slider round"></span>
+                  </label>
+                </div>
+
+                <div class="module-body">
+                  <div class="knob-row">
+                    <div class="knob-label-line">
+                      <label for="slDeEsserAmount">Kekuatan Reduksi Desis</label>
+                      <span class="val-pill" id="valDeEsserAmount">-6.0 dB</span>
+                    </div>
+                    <input type="range" id="slDeEsserAmount" min="-18" max="0" step="0.5" value="-6" class="dsp-slider">
+                    <small class="knob-hint">Menjinakkan pengucapan huruf "S", "C", dan "T" agar nyaman di telinga.</small>
+                  </div>
+
+                  <div class="knob-row">
+                    <div class="knob-label-line">
+                      <label for="slDeEsserFreq">Target Frekuensi Desis</label>
+                      <span class="val-pill" id="valDeEsserFreq">6.2 kHz</span>
+                    </div>
+                    <input type="range" id="slDeEsserFreq" min="4500" max="8500" step="100" value="6200" class="dsp-slider">
+                    <small class="knob-hint">Fokus frekuensi sibilance vokal (6.2 kHz standar emas YouTube).</small>
+                  </div>
+                </div>
+              </div>
+
+              <!-- MODULE 3: 4-BAND PARAMETRIC EQUALIZER -->
+              <div class="rack-module-card rack-module-wide">
+                <div class="module-header">
+                  <div class="module-title-box">
+                    <span class="mod-num">3</span>
+                    <div>
+                      <strong class="module-title">4-Band Parametric Equalizer</strong>
+                      <span class="mod-subtitle">Pewarna karakter tonal & artikulasi vokal</span>
+                    </div>
+                  </div>
+                  <label class="switch-toggle" title="Aktifkan/Bypass Equalizer">
                     <input type="checkbox" id="chkEnableEq" checked>
                     <span class="slider round"></span>
                   </label>
                 </div>
 
-                <!-- Band 1: Low Warmth -->
-                <div class="knob-row">
-                  <div class="knob-label-line">
-                    <label for="slEqLow">Low Warmth (160 Hz)</label>
-                    <span class="val-pill" id="valEqLow">+1.5 dB</span>
+                <div class="module-body eq-4band-grid">
+                  <div class="knob-row">
+                    <div class="knob-label-line">
+                      <label for="slEqLow">Low Warmth (160 Hz)</label>
+                      <span class="val-pill" id="valEqLow">+1.5 dB</span>
+                    </div>
+                    <input type="range" id="slEqLow" min="-8" max="8" step="0.5" value="1.5" class="dsp-slider">
+                    <small class="knob-hint">Resonansi dada vokal tebal.</small>
                   </div>
-                  <input type="range" id="slEqLow" min="-8" max="8" step="0.5" value="1.5" class="dsp-slider">
-                  <small class="knob-hint">Ketebalan resonansi dada narator.</small>
-                </div>
 
-                <!-- Band 2: Mid Mud Dip -->
-                <div class="knob-row">
-                  <div class="knob-label-line">
-                    <label for="slEqMid">Mid Mud Dip (450 Hz)</label>
-                    <span class="val-pill" id="valEqMid">-2.5 dB</span>
+                  <div class="knob-row">
+                    <div class="knob-label-line">
+                      <label for="slEqMid">Mid Clarity (450 Hz)</label>
+                      <span class="val-pill" id="valEqMid">-2.5 dB</span>
+                    </div>
+                    <input type="range" id="slEqMid" min="-10" max="6" step="0.5" value="-2.5" class="dsp-slider">
+                    <small class="knob-hint">Bersihkan suara mendem kardus.</small>
                   </div>
-                  <input type="range" id="slEqMid" min="-10" max="6" step="0.5" value="-2.5" class="dsp-slider">
-                  <small class="knob-hint">Membersihkan bunyi dengung "kardus/ruang kosong".</small>
-                </div>
 
-                <!-- Band 3: Presence Intelligibility -->
-                <div class="knob-row">
-                  <div class="knob-label-line">
-                    <label for="slEqPresence">Presence (3.4 kHz)</label>
-                    <span class="val-pill" id="valEqPresence">+3.0 dB</span>
+                  <div class="knob-row">
+                    <div class="knob-label-line">
+                      <label for="slEqPresence">Presence (3.4 kHz)</label>
+                      <span class="val-pill" id="valEqPresence">+3.0 dB</span>
+                    </div>
+                    <input type="range" id="slEqPresence" min="-6" max="10" step="0.5" value="3.0" class="dsp-slider">
+                    <small class="knob-hint">Kejelasan lafal artikulasi.</small>
                   </div>
-                  <input type="range" id="slEqPresence" min="-6" max="10" step="0.5" value="3.0" class="dsp-slider">
-                  <small class="knob-hint">Kejelasan pengucapan kata dan artikulasi vokal.</small>
-                </div>
 
-                <!-- Band 4: High Air Sheen -->
-                <div class="knob-row">
-                  <div class="knob-label-line">
-                    <label for="slEqHigh">High Air (11 kHz)</label>
-                    <span class="val-pill" id="valEqHigh">+2.5 dB</span>
+                  <div class="knob-row">
+                    <div class="knob-label-line">
+                      <label for="slEqHigh">High Air (11 kHz)</label>
+                      <span class="val-pill" id="valEqHigh">+2.5 dB</span>
+                    </div>
+                    <input type="range" id="slEqHigh" min="-6" max="8" step="0.5" value="2.5" class="dsp-slider">
+                    <small class="knob-hint">Kilau vokal podcast modern.</small>
                   </div>
-                  <input type="range" id="slEqHigh" min="-6" max="8" step="0.5" value="2.5" class="dsp-slider">
-                  <small class="knob-hint">Kilau vokal studio modern ala narasi premium.</small>
                 </div>
               </div>
 
-              <!-- COLUMN 3: ANALOG WARMTH & CEILING -->
+              <!-- MODULE 4: VOCAL COMPRESSOR & DYNAMIC LEVELER -->
               <div class="rack-module-card">
                 <div class="module-header">
-                  <span class="module-title">3. Karakter & Master Limiter</span>
-                  <span class="badge-subtle">-14 LUFS YouTube</span>
+                  <div class="module-title-box">
+                    <span class="mod-num">4</span>
+                    <div>
+                      <strong class="module-title">Vocal Compressor & Leveler</strong>
+                      <span class="mod-subtitle">Pemerata dinamika volume otomatis</span>
+                    </div>
+                  </div>
+                  <label class="switch-toggle" title="Aktifkan/Bypass Compressor">
+                    <input type="checkbox" id="chkEnableComp" checked>
+                    <span class="slider round"></span>
+                  </label>
                 </div>
 
-                <!-- Tube Saturation -->
-                <div class="knob-row">
-                  <div class="knob-label-line">
-                    <label for="slTubeWarmth">Analog Tube Warmth (Tanh)</label>
-                    <span class="val-pill" id="valTubeWarmth">25%</span>
+                <div class="module-body">
+                  <div class="knob-row">
+                    <div class="knob-label-line">
+                      <label for="slCompThreshold">Threshold</label>
+                      <span class="val-pill" id="valCompThreshold">-18 dB</span>
+                    </div>
+                    <input type="range" id="slCompThreshold" min="-36" max="-6" step="1" value="-18" class="dsp-slider">
                   </div>
-                  <input type="range" id="slTubeWarmth" min="0" max="80" step="5" value="25" class="dsp-slider">
-                  <small class="knob-hint">Harmonik analog lembut agar vokal tidak steril/dingin.</small>
-                </div>
 
-                <!-- Limiter Ceiling -->
-                <div class="knob-row">
-                  <div class="knob-label-line">
-                    <label>True Peak Ceiling</label>
-                    <span class="val-pill">-1.0 dBFS</span>
+                  <div class="knob-row">
+                    <div class="knob-label-line">
+                      <label for="slCompRatio">Compression Ratio</label>
+                      <span class="val-pill" id="valCompRatio">3.5:1</span>
+                    </div>
+                    <input type="range" id="slCompRatio" min="1.5" max="8.0" step="0.5" value="3.5" class="dsp-slider">
                   </div>
-                  <div class="limiter-status-box">
-                    <span class="led-dot active"></span>
-                    <span>Brickwall Limiter Aktif (Zero Digital Clipping)</span>
-                  </div>
-                </div>
 
-                <!-- Broadcast LUFS Target -->
-                <div class="knob-row" style="margin-top: 14px;">
-                  <div class="knob-label-line">
-                    <label>Target Standar Broadcast</label>
-                    <span class="val-pill">-14 LUFS Integrated</span>
+                  <div class="knob-row">
+                    <div class="knob-label-line">
+                      <label for="slCompMakeup">Makeup Gain</label>
+                      <span class="val-pill" id="valCompMakeup">+4.0 dB</span>
+                    </div>
+                    <input type="range" id="slCompMakeup" min="0" max="12" step="0.5" value="4.0" class="dsp-slider">
+                    <small class="knob-hint">Angkat vokal agar terdengar padat dan stabil di earphone/HP.</small>
                   </div>
-                  <small class="knob-hint">Level aman bebas penalti kompresi algoritma YouTube & TikTok.</small>
                 </div>
               </div>
+
+              <!-- MODULE 5: ANALOG WARMTH & TUBE SATURATION -->
+              <div class="rack-module-card">
+                <div class="module-header">
+                  <div class="module-title-box">
+                    <span class="mod-num">5</span>
+                    <div>
+                      <strong class="module-title">Analog Warmth & Saturasi</strong>
+                      <span class="mod-subtitle">Kehangatan vokal tabung analog</span>
+                    </div>
+                  </div>
+                  <label class="switch-toggle" title="Aktifkan/Bypass Saturasi">
+                    <input type="checkbox" id="chkEnableWarmth" checked>
+                    <span class="slider round"></span>
+                  </label>
+                </div>
+
+                <div class="module-body">
+                  <div class="knob-row">
+                    <div class="knob-label-line">
+                      <label for="slTubeWarmth">Analog Tube Warmth (Tanh)</label>
+                      <span class="val-pill" id="valTubeWarmth">25%</span>
+                    </div>
+                    <input type="range" id="slTubeWarmth" min="0" max="80" step="5" value="25" class="dsp-slider">
+                    <small class="knob-hint">Harmonik analog lembut agar suara vokal tidak dingin/kering.</small>
+                  </div>
+
+                  <div class="knob-row">
+                    <div class="knob-label-line">
+                      <label for="slStudioAmbience">Studio Room Ambience</label>
+                      <span class="val-pill" id="valStudioAmbience">8%</span>
+                    </div>
+                    <input type="range" id="slStudioAmbience" min="0" max="40" step="2" value="8" class="dsp-slider">
+                    <small class="knob-hint">Akustik studio rekaman kedap suara yang hidup dan sinematik.</small>
+                  </div>
+                </div>
+              </div>
+
+              <!-- MODULE 6: MASTER BRICKWALL LIMITER -->
+              <div class="rack-module-card">
+                <div class="module-header">
+                  <div class="module-title-box">
+                    <span class="mod-num">6</span>
+                    <div>
+                      <strong class="module-title">Master Brickwall Limiter</strong>
+                      <span class="mod-subtitle">Normalisasi Standar Broadcast YouTube</span>
+                    </div>
+                  </div>
+                  <label class="switch-toggle" title="Aktifkan/Bypass Limiter">
+                    <input type="checkbox" id="chkEnableLimiter" checked>
+                    <span class="slider round"></span>
+                  </label>
+                </div>
+
+                <div class="module-body">
+                  <div class="knob-row">
+                    <div class="knob-label-line">
+                      <label for="slLimiterCeiling">True Peak Ceiling</label>
+                      <span class="val-pill" id="valLimiterCeiling">-1.0 dBFS</span>
+                    </div>
+                    <input type="range" id="slLimiterCeiling" min="-3.0" max="0.0" step="0.5" value="-1.0" class="dsp-slider">
+                    <small class="knob-hint">Plafon batas anti-distorsi digital (Zero Digital Clipping).</small>
+                  </div>
+
+                  <div class="limiter-status-box" style="margin-top: 10px;">
+                    <span class="led-dot active"></span>
+                    <span>Target Standar: -14.0 LUFS YouTube & TikTok</span>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- PANE 2: 1-CLICK PRO PRESETS (SWITCHABLE TAB) -->
+          <div class="effect-pane" id="paneQuickPresets" hidden>
+            <div class="preset-pane-intro">
+              <p>Pilih salah satu karakter suara di bawah untuk mengisi semua modul efek secara otomatis. Anda dapat kembali ke tab <strong>"Modul Efek Manual"</strong> kapan saja untuk menyempurnakan knob sesuai selera.</p>
+            </div>
+            <div class="preset-pills-grid" id="presetPillsGrid">
+              <!-- 1. YouTube Recap Gold -->
+              <button type="button" class="preset-pill-btn active" data-preset="youtube_recap">
+                <div class="pill-top">
+                  <span class="pill-icon">👑</span>
+                  <strong>YouTube Recap Gold</strong>
+                </div>
+                <span class="pill-desc">Standar emas: renyah, vokal tegas, artikulasi tajam & dinamis rapi.</span>
+              </button>
+
+              <!-- 2. Deep Cinema -->
+              <button type="button" class="preset-pill-btn" data-preset="deep_cinema">
+                <div class="pill-top">
+                  <span class="pill-icon">🎬</span>
+                  <strong>Deep Cinema Radiophonic</strong>
+                </div>
+                <span class="pill-desc">Suara bioskop berat: resonansi dada tebal, berwibawa & hangat.</span>
+              </button>
+
+              <!-- 3. Crisp Female -->
+              <button type="button" class="preset-pill-btn" data-preset="crisp_female">
+                <div class="pill-top">
+                  <span class="pill-icon">✨</span>
+                  <strong>Crisp Female Clarifier</strong>
+                </div>
+                <span class="pill-desc">Vokal wanita: anti-desis (de-esser), artikulasi intonasi jernih.</span>
+              </button>
+
+              <!-- 4. Dramatic Trailer -->
+              <button type="button" class="preset-pill-btn" data-preset="dramatic_trailer">
+                <div class="pill-top">
+                  <span class="pill-icon">🔥</span>
+                  <strong>Dramatic Trailer Voice</strong>
+                </div>
+                <span class="pill-desc">Trailer tegang: kompresi padat, saturasi tebal menembus musik keras.</span>
+              </button>
+
+              <!-- 5. TTS Voice Healer -->
+              <button type="button" class="preset-pill-btn" data-preset="tts_healer">
+                <div class="pill-top">
+                  <span class="pill-icon">🩺</span>
+                  <strong>TTS Voice Healer</strong>
+                </div>
+                <span class="pill-desc">Penyembuh AI: buang bunyi sengau logam, tambah kehangatan manusia.</span>
+              </button>
+
+              <!-- 6. ASMR Intimate -->
+              <button type="button" class="preset-pill-btn" data-preset="asmr_whisper">
+                <div class="pill-top">
+                  <span class="pill-icon">🌙</span>
+                  <strong>ASMR Intimate Whisper</strong>
+                </div>
+                <span class="pill-desc">Bisikan dekat mic: lembut, sensitif, cocok narasi horor/misteri.</span>
+              </button>
             </div>
           </div>
         </div>

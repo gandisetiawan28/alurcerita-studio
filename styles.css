@@ -3511,86 +3511,196 @@ button:active {
   line-height: 1.35;
 }
 
-/* DSP Channel Strip Rack */
-.dsp-rack-collapsible {
-  background: #FFFFFF;
-  border: 1px solid #E2E8F0;
-  border-radius: 8px;
-  margin-bottom: 16px;
-  overflow: hidden;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+/* Audio Effects Suite (Manual Modular Rack & Presets) */
+.audio-effects-suite-card {
+  padding: 16px 18px;
 }
 
-.dsp-toggle-header {
-  width: 100%;
+.effects-nav-bar {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 16px;
-  background: #F8FAFC;
-  border: none;
   border-bottom: 1px solid #E2E8F0;
-  cursor: pointer;
-  color: #0F172A;
-  transition: background 0.15s ease;
+  padding-bottom: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
-.dsp-toggle-header:hover {
+.effects-mode-tabs {
+  display: inline-flex;
   background: #F1F5F9;
+  border: 1px solid #E2E8F0;
+  border-radius: 6px;
+  padding: 3px;
+  gap: 4px;
 }
 
-.dsp-toggle-left {
+.effect-mode-tab {
+  padding: 6px 13px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #64748B;
+  border-radius: 4px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+}
+
+.effect-mode-tab:hover {
+  color: #0F172A;
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.effect-mode-tab.active {
+  color: #0284C7;
+  background: #FFFFFF;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.pill-chip-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 10px;
+  background: #E0F2FE;
+  color: #0284C7;
+  border: 1px solid #BAE6FD;
+}
+
+.effects-meta-actions {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
+  flex-wrap: wrap;
+}
+
+.active-preset-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
   font-weight: 600;
+  color: #0F172A;
+  background: #F8FAFC;
+  border: 1px solid #CBD5E1;
+  padding: 4px 10px;
+  border-radius: 6px;
 }
 
-.badge-subtle {
-  font-size: 11px;
-  font-weight: 600;
-  background: #E2E8F0;
-  color: #475569;
-  padding: 2px 7px;
-  border-radius: 4px;
+.dot-indicator {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #10B981;
+  box-shadow: 0 0 6px #10B981;
 }
 
-.dsp-rack-body {
-  background: #FAFAFA;
-  padding: 14px;
-}
-
-.rack-columns-3 {
+/* Manual Channel Strip Rack Grid */
+.manual-rack-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 14px;
 }
 
 .rack-module-card {
-  background: #FFFFFF;
+  background: #F8FAFC;
   border: 1px solid #E2E8F0;
-  border-radius: 6px;
-  padding: 12px 14px;
+  border-radius: 8px;
+  padding: 14px 16px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+  transition: border-color 0.15s ease;
+}
+
+.rack-module-card:hover {
+  border-color: #CBD5E1;
+}
+
+.rack-module-wide {
+  grid-column: span 1;
+}
+
+@media (min-width: 900px) {
+  .rack-module-wide {
+    grid-column: span 2;
+  }
 }
 
 .module-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid #F1F5F9;
-  padding-bottom: 6px;
+  border-bottom: 1px solid #E2E8F0;
+  padding-bottom: 8px;
   margin-bottom: 2px;
 }
 
+.module-title-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mod-num {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #EFF6FF;
+  border: 1px solid #BAE6FD;
+  color: #0284C7;
+  font-size: 11px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
 .module-title {
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 700;
   color: #0F172A;
+  display: block;
+}
+
+.mod-subtitle {
+  font-size: 11px;
+  color: #64748B;
+  display: block;
+}
+
+.module-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.eq-4band-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.preset-pane-intro {
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  border-radius: 6px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  font-size: 12.5px;
+  color: #475569;
+  line-height: 1.45;
+}
+
+.preset-pane-intro p {
+  margin: 0;
 }
 
 .knob-row {

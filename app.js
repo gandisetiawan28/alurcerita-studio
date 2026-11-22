@@ -360,21 +360,25 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     btnSaveCurrentAsPreset: document.getElementById('btnSaveCurrentAsPreset'),
     presetPillsGrid: document.getElementById('presetPillsGrid'),
 
-    btnToggleDspRack: document.getElementById('btnToggleDspRack'),
-    dspRackBody: document.getElementById('dspRackBody'),
-    dspToggleArrow: document.getElementById('dspToggleArrow'),
+    tabModeManualRack: document.getElementById('tabModeManualRack'),
+    tabModeQuickPresets: document.getElementById('tabModeQuickPresets'),
+    paneManualRack: document.getElementById('paneManualRack'),
+    paneQuickPresets: document.getElementById('paneQuickPresets'),
+    activePresetIndicator: document.getElementById('activePresetIndicator'),
+    activePresetBadgeText: document.getElementById('activePresetBadgeText'),
+    btnResetToDefaultDsp: document.getElementById('btnResetToDefaultDsp'),
 
     chkEnableClean: document.getElementById('chkEnableClean'),
     slHighPassFreq: document.getElementById('slHighPassFreq'),
     valHighPassFreq: document.getElementById('valHighPassFreq'),
+    slNoiseGate: document.getElementById('slNoiseGate'),
+    valNoiseGate: document.getElementById('valNoiseGate'),
+
+    chkEnableDeEsser: document.getElementById('chkEnableDeEsser'),
     slDeEsserAmount: document.getElementById('slDeEsserAmount'),
     valDeEsserAmount: document.getElementById('valDeEsserAmount'),
-    slCompThreshold: document.getElementById('slCompThreshold'),
-    valCompThreshold: document.getElementById('valCompThreshold'),
-    slCompRatio: document.getElementById('slCompRatio'),
-    valCompRatio: document.getElementById('valCompRatio'),
-    slCompMakeup: document.getElementById('slCompMakeup'),
-    valCompMakeup: document.getElementById('valCompMakeup'),
+    slDeEsserFreq: document.getElementById('slDeEsserFreq'),
+    valDeEsserFreq: document.getElementById('valDeEsserFreq'),
 
     chkEnableEq: document.getElementById('chkEnableEq'),
     slEqLow: document.getElementById('slEqLow'),
@@ -386,8 +390,23 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     slEqHigh: document.getElementById('slEqHigh'),
     valEqHigh: document.getElementById('valEqHigh'),
 
+    chkEnableComp: document.getElementById('chkEnableComp'),
+    slCompThreshold: document.getElementById('slCompThreshold'),
+    valCompThreshold: document.getElementById('valCompThreshold'),
+    slCompRatio: document.getElementById('slCompRatio'),
+    valCompRatio: document.getElementById('valCompRatio'),
+    slCompMakeup: document.getElementById('slCompMakeup'),
+    valCompMakeup: document.getElementById('valCompMakeup'),
+
+    chkEnableWarmth: document.getElementById('chkEnableWarmth'),
     slTubeWarmth: document.getElementById('slTubeWarmth'),
     valTubeWarmth: document.getElementById('valTubeWarmth'),
+    slStudioAmbience: document.getElementById('slStudioAmbience'),
+    valStudioAmbience: document.getElementById('valStudioAmbience'),
+
+    chkEnableLimiter: document.getElementById('chkEnableLimiter'),
+    slLimiterCeiling: document.getElementById('slLimiterCeiling'),
+    valLimiterCeiling: document.getElementById('valLimiterCeiling'),
 
     chkEnableDucking: document.getElementById('chkEnableDucking'),
     bgmTrackSelect: document.getElementById('bgmTrackSelect'),
@@ -3898,6 +3917,20 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     });
   }
 
+  function switchEffectSuiteTab(mode) {
+    const isManual = mode === 'manual';
+    if (elements.tabModeManualRack) {
+      elements.tabModeManualRack.classList.toggle('active', isManual);
+      elements.tabModeManualRack.setAttribute('aria-selected', String(isManual));
+    }
+    if (elements.tabModeQuickPresets) {
+      elements.tabModeQuickPresets.classList.toggle('active', !isManual);
+      elements.tabModeQuickPresets.setAttribute('aria-selected', String(!isManual));
+    }
+    if (elements.paneManualRack) elements.paneManualRack.hidden = !isManual;
+    if (elements.paneQuickPresets) elements.paneQuickPresets.hidden = isManual;
+  }
+
   function applyPresetToEngine(presetKey) {
     if (!presetKey) return;
     state.audioSuite.activePresetKey = presetKey;
@@ -3927,20 +3960,38 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
       if (window.AlurAudioEngine) {
         window.AlurAudioEngine.applySettings(settings);
       }
-      showToast(`Preset "${p ? p.name : presetKey}" diterapkan!`);
+      if (elements.activePresetBadgeText) {
+        elements.activePresetBadgeText.textContent = `Preset: ${p ? p.name : presetKey}`;
+      }
+      showToast(`Preset "${p ? p.name : presetKey}" diterapkan ke seluruh modul!`);
     }
   }
 
   function syncSettingsToUiKnobs(s) {
-    if (s.highPass && elements.slHighPassFreq) {
-      elements.slHighPassFreq.value = s.highPass.frequency || 85;
-      if (elements.valHighPassFreq) elements.valHighPassFreq.textContent = `${s.highPass.frequency || 85} Hz`;
+    if (s.highPass) {
+      if (elements.chkEnableClean) elements.chkEnableClean.checked = s.highPass.enabled !== false;
+      if (elements.slHighPassFreq) {
+        elements.slHighPassFreq.value = s.highPass.frequency || 85;
+        if (elements.valHighPassFreq) elements.valHighPassFreq.textContent = `${s.highPass.frequency || 85} Hz`;
+      }
     }
-    if (s.deEsser && elements.slDeEsserAmount) {
-      elements.slDeEsserAmount.value = s.deEsser.amount !== undefined ? s.deEsser.amount : -6;
-      if (elements.valDeEsserAmount) elements.valDeEsserAmount.textContent = `${s.deEsser.amount || -6} dB`;
+    if (s.noiseGate && elements.slNoiseGate) {
+      elements.slNoiseGate.value = s.noiseGate.threshold !== undefined ? s.noiseGate.threshold : -55;
+      if (elements.valNoiseGate) elements.valNoiseGate.textContent = `${s.noiseGate.threshold || -55} dB`;
+    }
+    if (s.deEsser) {
+      if (elements.chkEnableDeEsser) elements.chkEnableDeEsser.checked = s.deEsser.enabled !== false;
+      if (elements.slDeEsserAmount) {
+        elements.slDeEsserAmount.value = s.deEsser.amount !== undefined ? s.deEsser.amount : -6;
+        if (elements.valDeEsserAmount) elements.valDeEsserAmount.textContent = `${s.deEsser.amount || -6} dB`;
+      }
+      if (elements.slDeEsserFreq) {
+        elements.slDeEsserFreq.value = s.deEsser.frequency || 6200;
+        if (elements.valDeEsserFreq) elements.valDeEsserFreq.textContent = `${((s.deEsser.frequency || 6200) / 1000).toFixed(1)} kHz`;
+      }
     }
     if (s.compressor) {
+      if (elements.chkEnableComp) elements.chkEnableComp.checked = s.compressor.enabled !== false;
       if (elements.slCompThreshold) {
         elements.slCompThreshold.value = s.compressor.threshold || -18;
         if (elements.valCompThreshold) elements.valCompThreshold.textContent = `${s.compressor.threshold || -18} dB`;
@@ -3955,6 +4006,7 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
       }
     }
     if (s.eq) {
+      if (elements.chkEnableEq) elements.chkEnableEq.checked = s.eq.enabled !== false;
       if (elements.slEqLow) {
         elements.slEqLow.value = s.eq.lowShelfGain || 1.5;
         if (elements.valEqLow) elements.valEqLow.textContent = `${s.eq.lowShelfGain >= 0 ? '+' : ''}${s.eq.lowShelfGain || 1.5} dB`;
@@ -3972,9 +4024,23 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
         if (elements.valEqHigh) elements.valEqHigh.textContent = `+${s.eq.highShelfGain || 2.5} dB`;
       }
     }
-    if (s.saturation && elements.slTubeWarmth) {
-      elements.slTubeWarmth.value = s.saturation.warmth || 25;
-      if (elements.valTubeWarmth) elements.valTubeWarmth.textContent = `${s.saturation.warmth || 25}%`;
+    if (s.saturation) {
+      if (elements.chkEnableWarmth) elements.chkEnableWarmth.checked = s.saturation.enabled !== false;
+      if (elements.slTubeWarmth) {
+        elements.slTubeWarmth.value = s.saturation.warmth || 25;
+        if (elements.valTubeWarmth) elements.valTubeWarmth.textContent = `${s.saturation.warmth || 25}%`;
+      }
+    }
+    if (s.ambience && elements.slStudioAmbience) {
+      elements.slStudioAmbience.value = s.ambience.amount !== undefined ? s.ambience.amount : 8;
+      if (elements.valStudioAmbience) elements.valStudioAmbience.textContent = `${s.ambience.amount || 8}%`;
+    }
+    if (s.limiter) {
+      if (elements.chkEnableLimiter) elements.chkEnableLimiter.checked = s.limiter.enabled !== false;
+      if (elements.slLimiterCeiling) {
+        elements.slLimiterCeiling.value = s.limiter.ceiling || -1.0;
+        if (elements.valLimiterCeiling) elements.valLimiterCeiling.textContent = `${(s.limiter.ceiling || -1.0).toFixed(1)} dBFS`;
+      }
     }
     if (s.ducking && elements.slDuckDepth) {
       elements.slDuckDepth.value = s.ducking.duckDb || -14;
@@ -3988,9 +4054,13 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
         enabled: elements.chkEnableClean ? elements.chkEnableClean.checked : true,
         frequency: elements.slHighPassFreq ? parseFloat(elements.slHighPassFreq.value) : 85
       },
-      deEsser: {
+      noiseGate: {
         enabled: elements.chkEnableClean ? elements.chkEnableClean.checked : true,
-        frequency: 6200,
+        threshold: elements.slNoiseGate ? parseFloat(elements.slNoiseGate.value) : -55
+      },
+      deEsser: {
+        enabled: elements.chkEnableDeEsser ? elements.chkEnableDeEsser.checked : true,
+        frequency: elements.slDeEsserFreq ? parseFloat(elements.slDeEsserFreq.value) : 6200,
         amount: elements.slDeEsserAmount ? parseFloat(elements.slDeEsserAmount.value) : -6.0
       },
       eq: {
@@ -4007,7 +4077,7 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
         highShelfGain: elements.slEqHigh ? parseFloat(elements.slEqHigh.value) : 2.5
       },
       compressor: {
-        enabled: elements.chkEnableClean ? elements.chkEnableClean.checked : true,
+        enabled: elements.chkEnableComp ? elements.chkEnableComp.checked : true,
         threshold: elements.slCompThreshold ? parseFloat(elements.slCompThreshold.value) : -18,
         ratio: elements.slCompRatio ? parseFloat(elements.slCompRatio.value) : 3.5,
         attack: 0.015,
@@ -4016,12 +4086,16 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
         makeupGain: elements.slCompMakeup ? parseFloat(elements.slCompMakeup.value) : 4.0
       },
       saturation: {
-        enabled: true,
+        enabled: elements.chkEnableWarmth ? elements.chkEnableWarmth.checked : true,
         warmth: elements.slTubeWarmth ? parseInt(elements.slTubeWarmth.value, 10) : 25
       },
+      ambience: {
+        enabled: elements.chkEnableWarmth ? elements.chkEnableWarmth.checked : true,
+        amount: elements.slStudioAmbience ? parseInt(elements.slStudioAmbience.value, 10) : 8
+      },
       limiter: {
-        enabled: true,
-        ceiling: -1.0,
+        enabled: elements.chkEnableLimiter ? elements.chkEnableLimiter.checked : true,
+        ceiling: elements.slLimiterCeiling ? parseFloat(elements.slLimiterCeiling.value) : -1.0,
         targetLufs: -14
       },
       ducking: {
@@ -4035,12 +4109,14 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     };
   }
 
-  function handleKnobLiveChange() {
+  function handleKnobLiveChange(fromUserInteraction = true) {
     const s = collectCurrentDspSettingsFromUi();
 
     // Update text labels
     if (elements.valHighPassFreq) elements.valHighPassFreq.textContent = `${s.highPass.frequency} Hz`;
+    if (elements.valNoiseGate) elements.valNoiseGate.textContent = `${s.noiseGate.threshold} dB`;
     if (elements.valDeEsserAmount) elements.valDeEsserAmount.textContent = `${s.deEsser.amount} dB`;
+    if (elements.valDeEsserFreq) elements.valDeEsserFreq.textContent = `${((s.deEsser.frequency || 6200) / 1000).toFixed(1)} kHz`;
     if (elements.valCompThreshold) elements.valCompThreshold.textContent = `${s.compressor.threshold} dB`;
     if (elements.valCompRatio) elements.valCompRatio.textContent = `${s.compressor.ratio}:1`;
     if (elements.valCompMakeup) elements.valCompMakeup.textContent = `+${s.compressor.makeupGain} dB`;
@@ -4049,12 +4125,23 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     if (elements.valEqPresence) elements.valEqPresence.textContent = `+${s.eq.presenceGain} dB`;
     if (elements.valEqHigh) elements.valEqHigh.textContent = `+${s.eq.highShelfGain} dB`;
     if (elements.valTubeWarmth) elements.valTubeWarmth.textContent = `${s.saturation.warmth}%`;
+    if (elements.valStudioAmbience) elements.valStudioAmbience.textContent = `${s.ambience.amount}%`;
+    if (elements.valLimiterCeiling) elements.valLimiterCeiling.textContent = `${s.limiter.ceiling.toFixed(1)} dBFS`;
     if (elements.valBgmVolume) elements.valBgmVolume.textContent = `${Math.round(s.bgmVolume * 100)}%`;
     if (elements.valDuckDepth) elements.valDuckDepth.textContent = `${s.ducking.duckDb} dB`;
     if (elements.valVoiceVol) elements.valVoiceVol.textContent = `${Math.round(s.voiceVolume * 100)}%`;
 
     if (window.AlurAudioEngine) {
       window.AlurAudioEngine.applySettings(s);
+    }
+
+    if (fromUserInteraction) {
+      if (elements.activePresetBadgeText) {
+        elements.activePresetBadgeText.textContent = 'Kustom: Diatur Manual';
+      }
+      if (elements.presetPillsGrid) {
+        elements.presetPillsGrid.querySelectorAll('.preset-pill-btn').forEach(b => b.classList.remove('active'));
+      }
     }
   }
 
@@ -4486,27 +4573,34 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     }
     if (elements.btnSaveCurrentAsPreset) elements.btnSaveCurrentAsPreset.addEventListener('click', handleSaveCurrentAsPreset);
 
-    // DSP Rack Collapsible Toggle
-    if (elements.btnToggleDspRack) {
-      elements.btnToggleDspRack.addEventListener('click', () => {
-        const isHidden = elements.dspRackBody ? elements.dspRackBody.hidden : false;
-        if (elements.dspRackBody) elements.dspRackBody.hidden = !isHidden;
-        if (elements.dspToggleArrow) elements.dspToggleArrow.textContent = !isHidden ? '▼' : '▲';
-        elements.btnToggleDspRack.setAttribute('aria-expanded', String(isHidden));
+    // Dual-Mode Effects Suite Tabs
+    if (elements.tabModeManualRack) {
+      elements.tabModeManualRack.addEventListener('click', () => switchEffectSuiteTab('manual'));
+    }
+    if (elements.tabModeQuickPresets) {
+      elements.tabModeQuickPresets.addEventListener('click', () => switchEffectSuiteTab('presets'));
+    }
+    if (elements.btnResetToDefaultDsp) {
+      elements.btnResetToDefaultDsp.addEventListener('click', () => {
+        applyPresetToEngine('youtube_recap');
+        showToast('Efek audio di-reset ke standar YouTube Recap.');
       });
     }
 
-    // Live DSP Knobs & Switches
+    // Live DSP Knobs & Switches (Manual Controls)
     const dspInputs = [
-      elements.chkEnableClean, elements.slHighPassFreq, elements.slDeEsserAmount,
-      elements.slCompThreshold, elements.slCompRatio, elements.slCompMakeup,
+      elements.chkEnableClean, elements.slHighPassFreq, elements.slNoiseGate,
+      elements.chkEnableDeEsser, elements.slDeEsserAmount, elements.slDeEsserFreq,
       elements.chkEnableEq, elements.slEqLow, elements.slEqMid, elements.slEqPresence, elements.slEqHigh,
-      elements.slTubeWarmth, elements.chkEnableDucking, elements.slBgmVolume, elements.slDuckDepth
+      elements.chkEnableComp, elements.slCompThreshold, elements.slCompRatio, elements.slCompMakeup,
+      elements.chkEnableWarmth, elements.slTubeWarmth, elements.slStudioAmbience,
+      elements.chkEnableLimiter, elements.slLimiterCeiling,
+      elements.chkEnableDucking, elements.slBgmVolume, elements.slDuckDepth
     ];
     dspInputs.forEach(input => {
       if (input) {
-        input.addEventListener('input', handleKnobLiveChange);
-        input.addEventListener('change', handleKnobLiveChange);
+        input.addEventListener('input', () => handleKnobLiveChange(true));
+        input.addEventListener('change', () => handleKnobLiveChange(true));
       }
     });
 

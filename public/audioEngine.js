@@ -162,7 +162,7 @@
     getDefaultSettings() {
       return {
         highPass: { enabled: true, frequency: 85 },
-        noiseGate: { enabled: true, threshold: -48, attack: 0.010, release: 0.120 },
+        noiseGate: { enabled: true, threshold: -55, attack: 0.010, release: 0.120 },
         deEsser: { enabled: true, frequency: 6200, threshold: -22, amount: -6.0 },
         eq: {
           enabled: true,
@@ -187,6 +187,7 @@
           makeupGain: 4.0
         },
         saturation: { enabled: true, warmth: 25 },
+        ambience: { enabled: false, amount: 8 },
         limiter: { enabled: true, ceiling: -1.0, targetLufs: -14 },
         ducking: { enabled: true, duckDb: -14, attack: 0.10, release: 0.45 },
         bgmVolume: 0.35,
@@ -412,11 +413,16 @@
       }
       // Saturation
       if (this.saturationNode) {
-        if (this.settings.saturation.enabled && this.settings.saturation.warmth > 0) {
+        if (this.settings.saturation && this.settings.saturation.enabled && this.settings.saturation.warmth > 0) {
           this.saturationNode.curve = makeTanhDistortionCurve(this.settings.saturation.warmth);
         } else {
           this.saturationNode.curve = null;
         }
+      }
+      // Limiter Ceiling
+      if (this.limiterNode) {
+        const ceiling = (this.settings.limiter && this.settings.limiter.ceiling !== undefined) ? this.settings.limiter.ceiling : -1.0;
+        this.limiterNode.threshold.setValueAtTime((this.settings.limiter && this.settings.limiter.enabled) ? ceiling : 0, now);
       }
       // Volumes
       if (this.bgmGainNode) {
