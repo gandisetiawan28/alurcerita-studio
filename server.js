@@ -12,7 +12,7 @@ const cors = require('cors');
 const path = require('node:path');
 const fs = require('node:fs');
 const { spawn, execSync } = require('node:child_process');
-const { ProjectRepo, ApiKeyRepo, TtsRepo, ChannelRepo } = require('./db');
+const { ProjectRepo, ApiKeyRepo, TtsRepo, ChannelRepo, PersonaRepo, TtsVoiceRepo, PromptTemplateRepo, SettingsRepo } = require('./db');
 const { GEMINI_MODELS, runGeminiGeneration, runGeminiTranscreation, testGeminiApiKey } = require('./geminiService');
 
 const app = express();
@@ -114,7 +114,28 @@ app.delete('/api/keys/:id', (req, res) => {
   }
 });
 
-// 5. Test specific stored key
+// 5. Update key info
+app.put('/api/keys/:id', (req, res) => {
+  try {
+    const updated = ApiKeyRepo.update(req.params.id, req.body);
+    if (!updated) return res.status(404).json({ success: false, error: 'Kunci tidak ditemukan.' });
+    res.json({ success: true, data: updated });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 6. Reset key status/cooldown
+app.post('/api/keys/:id/reset', (req, res) => {
+  try {
+    const updated = ApiKeyRepo.resetStatus(req.params.id);
+    res.json({ success: true, data: updated });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 7. Test specific stored key
 app.post('/api/keys/:id/test', async (req, res) => {
   try {
     const keyRecord = ApiKeyRepo.getKeyWithSecret(req.params.id);
@@ -233,6 +254,210 @@ app.post('/api/channels/:id/default', (req, res) => {
   try {
     const channel = ChannelRepo.setDefault(req.params.id);
     res.json({ success: true, data: channel });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Persona / Gaya Tutur CRUD Routes (SQLite Stored)
+// ---------------------------------------------------------------------------
+
+// 1. List all personas
+app.get('/api/personas', (req, res) => {
+  try {
+    const personas = PersonaRepo.getAll();
+    res.json({ success: true, data: personas });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 2. Get single persona
+app.get('/api/personas/:id', (req, res) => {
+  try {
+    const persona = PersonaRepo.getById(req.params.id);
+    if (!persona) return res.status(404).json({ success: false, error: 'Persona tidak ditemukan.' });
+    res.json({ success: true, data: persona });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 3. Create persona
+app.post('/api/personas', (req, res) => {
+  try {
+    const { name, key, description, tone_prompt, is_default } = req.body;
+    if (!name || !tone_prompt) {
+      return res.status(400).json({ success: false, error: 'Nama persona dan instruksi gaya tutur wajib diisi.' });
+    }
+    const created = PersonaRepo.create({ name, key, description, tone_prompt, is_default });
+    res.status(201).json({ success: true, data: created });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 4. Update persona
+app.put('/api/personas/:id', (req, res) => {
+  try {
+    const updated = PersonaRepo.update(req.params.id, req.body);
+    if (!updated) return res.status(404).json({ success: false, error: 'Persona tidak ditemukan.' });
+    res.json({ success: true, data: updated });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 5. Delete persona
+app.delete('/api/personas/:id', (req, res) => {
+  try {
+    PersonaRepo.delete(req.params.id);
+    res.json({ success: true, message: 'Persona berhasil dihapus.' });
+  } catch (error) {
+    res.status(400).json({ success: false, error: error.message });
+  }
+});
+
+// 6. Set persona as default
+app.post('/api/personas/:id/default', (req, res) => {
+  try {
+    const persona = PersonaRepo.setDefault(req.params.id);
+    res.json({ success: true, data: persona });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// TTS Character & Voices CRUD Routes (SQLite Stored)
+// ---------------------------------------------------------------------------
+
+// 1. List all voices (optional filter by model: ?model=kokoro|dia|xtts)
+app.get('/api/tts/voices', (req, res) => {
+  try {
+    const { model } = req.query;
+    const voices = TtsVoiceRepo.getAll(model || null);
+    res.json({ success: true, data: voices });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 2. Create voice
+app.post('/api/tts/voices', (req, res) => {
+  try {
+    const { model, voice_code, display_name, gender, description, is_default } = req.body;
+    if (!model || !voice_code || !display_name) {
+      return res.status(400).json({ success: false, error: 'Model, Kode Suara, dan Nama Tampilan wajib diisi.' });
+    }
+    const created = TtsVoiceRepo.create({ model, voice_code, display_name, gender, description, is_default });
+    res.status(201).json({ success: true, data: created });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 3. Update voice
+app.put('/api/tts/voices/:id', (req, res) => {
+  try {
+    const updated = TtsVoiceRepo.update(req.params.id, req.body);
+    if (!updated) return res.status(404).json({ success: false, error: 'Karakter suara tidak ditemukan.' });
+    res.json({ success: true, data: updated });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 4. Delete voice
+app.delete('/api/tts/voices/:id', (req, res) => {
+  try {
+    TtsVoiceRepo.delete(req.params.id);
+    res.json({ success: true, message: 'Karakter suara berhasil dihapus.' });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 5. Set voice as default
+app.post('/api/tts/voices/:id/default', (req, res) => {
+  try {
+    const updated = TtsVoiceRepo.setDefault(req.params.id);
+    res.json({ success: true, data: updated });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Prompt Templates CRUD Routes (SQLite Stored)
+// ---------------------------------------------------------------------------
+
+// 1. List all prompt templates
+app.get('/api/prompts', (req, res) => {
+  try {
+    const prompts = PromptTemplateRepo.getAll();
+    res.json({ success: true, data: prompts });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 2. Get single prompt template by stage_key
+app.get('/api/prompts/:stageKey', (req, res) => {
+  try {
+    const prompt = PromptTemplateRepo.getByKey(req.params.stageKey);
+    if (!prompt) return res.status(404).json({ success: false, error: 'Template prompt tidak ditemukan.' });
+    res.json({ success: true, data: prompt });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 3. Update prompt template
+app.put('/api/prompts/:stageKey', (req, res) => {
+  try {
+    const { name, description } = req.body;
+    const prompt_content = req.body.prompt_content || req.body.content;
+    if (!prompt_content) {
+      return res.status(400).json({ success: false, error: 'Konten instruksi prompt wajib diisi.' });
+    }
+    const updated = PromptTemplateRepo.update(req.params.stageKey, { name, description, prompt_content });
+    res.json({ success: true, data: updated });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 4. Reset prompt templates to built-in defaults
+app.post('/api/prompts/reset', (req, res) => {
+  try {
+    const reset = PromptTemplateRepo.resetDefaults();
+    res.json({ success: true, message: 'Template prompt berhasil dikembalikan ke standar bawaan.', data: reset });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Global App Settings Routes (SQLite Stored)
+// ---------------------------------------------------------------------------
+
+// 1. Get settings
+app.get('/api/settings', (req, res) => {
+  try {
+    const settings = SettingsRepo.get();
+    res.json({ success: true, data: settings });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 2. Update settings
+app.put('/api/settings', (req, res) => {
+  try {
+    const updated = SettingsRepo.update(req.body);
+    res.json({ success: true, data: updated });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
@@ -728,6 +953,20 @@ app.delete('/api/projects/:id', (req, res) => {
     res.json({ success: true, message: 'Proyek berhasil dihapus.' });
   } catch (error) {
     console.error('Error deleting project:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 6. Clone / Duplicate project
+app.post('/api/projects/:id/clone', (req, res) => {
+  try {
+    const cloned = ProjectRepo.clone(req.params.id);
+    if (!cloned) {
+      return res.status(404).json({ success: false, error: 'Proyek asal tidak ditemukan.' });
+    }
+    res.status(201).json({ success: true, message: 'Proyek berhasil disalin!', data: cloned });
+  } catch (error) {
+    console.error('Error cloning project:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });

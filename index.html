@@ -70,6 +70,12 @@
     </div>
 
     <div class="header-right" id="headerRightBox">
+      <!-- Database Master Center Trigger -->
+      <button type="button" class="btn-subtle header-db-btn" id="btnOpenDbMasterModal" title="Pusat Data Master & Pengaturan CRUD Database SQLite">
+        <span style="font-size: 14px;">🗄️</span>
+        <span>Database Master</span>
+      </button>
+
       <!-- API Key Manager Trigger (Smart Round-Robin) -->
       <button type="button" class="btn-subtle header-key-btn" id="btnOpenKeyModal" title="Kelola Kunci API Gemini (Smart Round-Robin & Auto Failover)">
         <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
@@ -159,6 +165,10 @@
 
       <!-- Home Actions (Home View Only) -->
       <div class="home-header-actions" id="homeHeaderActions" hidden>
+        <button type="button" class="btn-subtle" id="btnOpenDbMasterModalHome" title="Pusat Data Master & Pengaturan CRUD Database SQLite">
+          <span style="font-size: 14px;">🗄️</span>
+          <span>Database Master</span>
+        </button>
         <button type="button" class="btn-primary" id="btnHeaderNewProject">
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
           <span>+ Proyek Baru</span>
@@ -328,11 +338,12 @@
             <small class="field-hint">⚡ AI dibatasi menulis hook/intro maksimal 30 detik (~45–65 kata) untuk menjaga retensi YouTube.</small>
           </div>
           <div class="form-group full-width">
-            <label for="personaStyleSelect">Gaya Tutur / Persona</label>
+            <div class="label-with-meta">
+              <label for="personaStyleSelect">Gaya Tutur / Persona</label>
+              <button type="button" class="btn-subtle btn-xs" id="btnQuickManagePersona" title="Kelola Persona di Database SQLite">⚙️ Kelola</button>
+            </div>
             <select id="personaStyleSelect" class="input-field">
-              <option value="teman_ngopi" selected>Lo-Gue Santai (Teman ngopi, natural, tanpa lelucon garing)</option>
-              <option value="kritis_serius">Kritis & Analitis (Fokus pada tensi cerita & motif karakter)</option>
-              <option value="semi_formal">Semi-Formal Hangat (Cocok untuk ulasan drama & film klasik)</option>
+              <!-- Diisi secara dinamis dari database SQLite (personas) -->
             </select>
           </div>
         </div>
@@ -594,11 +605,7 @@
               <div class="form-group">
                 <label for="inputChannelPersona">Gaya Tutur / Persona</label>
                 <select id="inputChannelPersona" class="input-field">
-                  <option value="teman_ngopi" selected>Lo-Gue Santai (Teman ngopi, natural, tanpa lelucon garing)</option>
-                  <option value="kritis_serius">Kritis & Analitis (Fokus pada tensi cerita & motif karakter)</option>
-                  <option value="semi_formal">Semi-Formal Hangat (Cocok untuk drama & film klasik)</option>
-                  <option value="engaging_storyteller">Engaging Storyteller (Asik, Hangat, Cepat)</option>
-                  <option value="cinematic_intense">Cinematic & Intense (Dramatis, Tegang)</option>
+                  <!-- Diisi secara dinamis dari database SQLite (personas) -->
                 </select>
               </div>
               <div class="form-group">
@@ -1128,6 +1135,279 @@
 
       <div class="modal-footer">
         <button type="button" class="btn-subtle" id="btnCloseTranslateModalFooter">Tutup</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =======================================================================
+       MODAL: DATABASE MASTER CENTER (FULL CRUD SQLITE)
+       ======================================================================= -->
+  <div class="modal-overlay" id="dbMasterModal" hidden role="dialog" aria-modal="true" aria-labelledby="modalDbMasterTitle">
+    <div class="modal-card modal-card-lg" style="max-width: 880px;">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <span class="modal-icon">🗄️</span>
+          <div>
+            <h2 class="modal-title" id="modalDbMasterTitle">Pusat Data Master SQLite</h2>
+            <p class="modal-subtitle">Full CRUD: Persona Narasi, Suara TTS, Template Prompt Multi-Agent, dan Pengaturan Sistem</p>
+          </div>
+        </div>
+        <button type="button" class="modal-close-btn" id="btnCloseDbMasterModal" title="Tutup">✕</button>
+      </div>
+
+      <!-- Segmented Tabs Navigation -->
+      <nav class="master-tabs-bar" role="tablist">
+        <button type="button" class="master-tab-btn active" id="tabBtnDbPersonas" data-target="masterTabPersonas">
+          <span>🎭 Persona Narasi</span>
+          <span class="tab-badge" id="badgeDbPersonaCount">0</span>
+        </button>
+        <button type="button" class="master-tab-btn" id="tabBtnDbVoices" data-target="masterTabVoices">
+          <span>🎙️ Karakter Suara TTS</span>
+          <span class="tab-badge" id="badgeDbVoiceCount">0</span>
+        </button>
+        <button type="button" class="master-tab-btn" id="tabBtnDbPrompts" data-target="masterTabPrompts">
+          <span>📝 Template Prompt AI</span>
+        </button>
+        <button type="button" class="master-tab-btn" id="tabBtnDbSettings" data-target="masterTabSettings">
+          <span>⚙️ Pengaturan Global</span>
+        </button>
+      </nav>
+
+      <div class="modal-body-scrollable">
+        <!-- TAB 1: PERSONA & GAYA TUTUR -->
+        <div class="master-tab-pane" id="masterTabPersonas">
+          <div class="add-key-card" style="margin-bottom: 20px;">
+            <h3 class="section-title" id="personaFormHeading" style="margin-bottom: 12px;">+ Tambah Persona / Gaya Tutur Baru</h3>
+            <form id="personaForm">
+              <input type="hidden" id="personaEditId" value="">
+              <div class="advanced-grid" style="margin-bottom: 12px;">
+                <div class="form-group">
+                  <label for="inputPersonaName">Nama Persona *</label>
+                  <input type="text" id="inputPersonaName" class="input-field" required placeholder="Contoh: Lo-Gue Santai (Teman Ngopi)">
+                </div>
+                <div class="form-group">
+                  <label for="inputPersonaKey">Kode / ID Unik *</label>
+                  <input type="text" id="inputPersonaKey" class="input-field" required placeholder="Contoh: teman_ngopi atau horror_creepy">
+                </div>
+              </div>
+
+              <div class="form-group" style="margin-bottom: 12px;">
+                <label for="inputPersonaDesc">Deskripsi Singkat</label>
+                <input type="text" id="inputPersonaDesc" class="input-field" placeholder="Contoh: Gaya santai, akrab, tanpa lelucon garing. Cocok untuk film populer.">
+              </div>
+
+              <div class="form-group" style="margin-bottom: 14px;">
+                <label for="inputPersonaTone">Instruksi Gaya Tutur (Tone Prompt untuk AI) *</label>
+                <textarea id="inputPersonaTone" class="textarea-field font-mono" rows="3" required placeholder="Tulis instruksi bagaimana AI harus bernarasi (kata sapaan, ritme, tensi, pilihan kata)..."></textarea>
+                <small class="field-hint">Instruksi ini akan disuntikkan langsung ke prompt multi-agent saat menyusun alur cerita.</small>
+              </div>
+
+              <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+                <label class="custom-checkbox" style="margin: 0;">
+                  <input type="checkbox" id="checkPersonaDefault">
+                  <span class="checkbox-box" aria-hidden="true"></span>
+                  <span class="checkbox-label">
+                    <strong>Jadikan Persona Default</strong>
+                  </span>
+                </label>
+                <div style="display: flex; gap: 8px;">
+                  <button type="button" class="btn-subtle" id="btnCancelEditPersona" hidden>Batal Edit</button>
+                  <button type="submit" class="btn-primary" id="btnSubmitPersona">
+                    <span id="btnSubmitPersonaText">+ Simpan Persona</span>
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+
+          <div class="keys-list-section">
+            <div class="keys-list-header">
+              <h3 class="section-title">Daftar Persona di Database (<span id="personaListCount">0</span>)</h3>
+              <span class="keys-status-summary">Tersimpan di SQLite (personas)</span>
+            </div>
+            <div id="personaListContainer" class="keys-list-container">
+              <!-- Rendered via app.js -->
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 2: TTS VOICES / KARAKTER SUARA -->
+        <div class="master-tab-pane" id="masterTabVoices" hidden>
+          <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 16px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <label for="selectVoiceFilterModel" style="font-size: 12px; font-weight: 600; color: #475569;">Filter Model:</label>
+              <select id="selectVoiceFilterModel" class="input-field" style="width: auto; padding: 4px 10px;">
+                <option value="all">Semua Model TTS</option>
+                <option value="kokoro">Kokoro-82M (Cepat & Stabil)</option>
+                <option value="dia">Nari Dia-1.6B (Emosional & Bernyawa)</option>
+                <option value="xtts">Coqui XTTS v2 (Kloning Suara)</option>
+              </select>
+            </div>
+            <span class="val-badge" id="voiceCountBadge">0 Suara Terdaftar</span>
+          </div>
+
+          <div class="add-key-card" style="margin-bottom: 20px;">
+            <h3 class="section-title" id="voiceFormHeading" style="margin-bottom: 12px;">+ Tambah Karakter Suara TTS Baru</h3>
+            <form id="voiceForm">
+              <input type="hidden" id="voiceEditId" value="">
+              <div class="advanced-grid" style="margin-bottom: 12px;">
+                <div class="form-group">
+                  <label for="inputVoiceModel">Model TTS *</label>
+                  <select id="inputVoiceModel" class="input-field" required>
+                    <option value="kokoro">Kokoro-82M</option>
+                    <option value="dia">Nari Dia-1.6B</option>
+                    <option value="xtts">Coqui XTTS v2</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="inputVoiceCode">Kode Suara Internal *</label>
+                  <input type="text" id="inputVoiceCode" class="input-field" required placeholder="Contoh: am_michael, S1, id_male_1">
+                </div>
+              </div>
+
+              <div class="advanced-grid" style="margin-bottom: 12px;">
+                <div class="form-group">
+                  <label for="inputVoiceDisplayName">Nama Tampilan Karakter *</label>
+                  <input type="text" id="inputVoiceDisplayName" class="input-field" required placeholder="Contoh: Michael (Santai & Dalam)">
+                </div>
+                <div class="form-group">
+                  <label for="inputVoiceGender">Gender Karakter</label>
+                  <select id="inputVoiceGender" class="input-field">
+                    <option value="male">Pria (Male)</option>
+                    <option value="female">Wanita (Female)</option>
+                    <option value="neutral">Netral / Multi-Speaker</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="form-group" style="margin-bottom: 14px;">
+                <label for="inputVoiceDesc">Deskripsi Karakter Suara</label>
+                <input type="text" id="inputVoiceDesc" class="input-field" placeholder="Contoh: Suara pria dewasa, artikulatif, intonasi tenang khas narator alur cerita">
+              </div>
+
+              <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+                <label class="custom-checkbox" style="margin: 0;">
+                  <input type="checkbox" id="checkVoiceDefault">
+                  <span class="checkbox-box" aria-hidden="true"></span>
+                  <span class="checkbox-label">
+                    <strong>Jadikan Default untuk Model Ini</strong>
+                  </span>
+                </label>
+                <div style="display: flex; gap: 8px;">
+                  <button type="button" class="btn-subtle" id="btnCancelEditVoice" hidden>Batal Edit</button>
+                  <button type="submit" class="btn-primary" id="btnSubmitVoice">
+                    <span id="btnSubmitVoiceText">+ Simpan Karakter Suara</span>
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+
+          <div class="keys-list-section">
+            <div id="voiceListContainer" class="keys-list-container">
+              <!-- Rendered via app.js -->
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 3: PROMPT TEMPLATES AI -->
+        <div class="master-tab-pane" id="masterTabPrompts" hidden>
+          <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 14px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <label for="selectPromptStageKey" style="font-size: 12px; font-weight: 600; color: #475569;">Pilih Tahapan AI:</label>
+              <select id="selectPromptStageKey" class="input-field" style="width: auto; padding: 4px 10px; font-weight: 600;">
+                <option value="stage1_story">Tahap 1: Lead Scriptwriter & Hook (30 Detik)</option>
+                <option value="stage2_analysis">Tahap 2: Film Analyst Agent (Bedah Makna)</option>
+                <option value="stage3_synthesis">Tahap 3: Synthesizer & Arahan Visual</option>
+                <option value="transcreate">Tahap 4: Transkreasi Anti-Duplikat Global</option>
+              </select>
+            </div>
+            <button type="button" class="btn-subtle btn-xs danger" id="btnResetPromptsToDefault" title="Kembalikan semua prompt ke pengaturan awal bawaan sistem">
+              🔄 Reset ke Bawaan
+            </button>
+          </div>
+
+          <form id="promptTemplateForm">
+            <div class="form-group" style="margin-bottom: 10px;">
+              <label for="inputPromptName">Nama Tahap / Judul Template</label>
+              <input type="text" id="inputPromptName" class="input-field" required>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 12px;">
+              <label for="inputPromptDesc">Deskripsi Peran Agent</label>
+              <input type="text" id="inputPromptDesc" class="input-field">
+            </div>
+
+            <div class="form-group" style="margin-bottom: 12px;">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+                <label for="inputPromptContent">Isi Instruksi Prompt (System Instructions) *</label>
+                <small style="color: #64748B; font-size: 11px;">Placeholder: {{channelName}}, {{movieTitle}}, {{releaseYear}}, {{openingHook}}, {{outroBridge}}, {{personaPrompt}}</small>
+              </div>
+              <textarea id="inputPromptContent" class="textarea-field font-mono" rows="13" required style="font-size: 12px; line-height: 1.5;"></textarea>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 8px;">
+              <button type="submit" class="btn-primary" id="btnSavePromptTemplate">
+                <span>💾 Simpan Perubahan Prompt ke Database</span>
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- TAB 4: PENGATURAN GLOBAL -->
+        <div class="master-tab-pane" id="masterTabSettings" hidden>
+          <div class="add-key-card">
+            <h3 class="section-title" style="margin-bottom: 14px;">⚙️ Konfigurasi Global AlurCerita Studio</h3>
+            <form id="appSettingsForm">
+              <div class="advanced-grid" style="margin-bottom: 14px;">
+                <div class="form-group">
+                  <label for="settingWpm">Estimasi Kecepatan Suara (WPM) *</label>
+                  <input type="number" id="settingWpm" class="input-field" min="80" max="250" value="140" required>
+                  <small class="field-hint">Standar narator alur cerita: 130–150 kata per menit.</small>
+                </div>
+                <div class="form-group">
+                  <label for="settingHookMaxSeconds">Batas Maksimal Hook / Intro (Detik) *</label>
+                  <input type="number" id="settingHookMaxSeconds" class="input-field" min="15" max="60" value="30" required>
+                  <small class="field-hint">Batas durasi membaca hook pembuka agar retensi penonton YouTube optimal.</small>
+                </div>
+              </div>
+
+              <div class="advanced-grid" style="margin-bottom: 18px;">
+                <div class="form-group">
+                  <label for="settingGeminiModel">Model Gemini Bawaan</label>
+                  <select id="settingGeminiModel" class="input-field">
+                    <option value="auto">⚡ Auto-Fallback Pintar (Otomatis jika Busy/Limit)</option>
+                    <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+                    <option value="gemini-2.5-flash-lite">Gemini 2.5 Flash Lite</option>
+                    <option value="gemini-3-flash">Gemini 3 Flash</option>
+                    <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash Lite</option>
+                    <option value="gemini-3.6-flash">Gemini 3.6 Flash</option>
+                    <option value="gemini-3.5-flash-lite">Gemini 3.5 Flash Lite</option>
+                    <option value="gemini-3.8-flash">Gemini 3.8 Flash</option>
+                    <option value="gemini-4-hydrogen">Gemini 4 Hydrogen</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="settingDefaultLang">Bahasa Utama Sistem</label>
+                  <select id="settingDefaultLang" class="input-field">
+                    <option value="id">🇮🇩 Bahasa Indonesia</option>
+                    <option value="en-US">🇺🇸 English (US)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style="display: flex; justify-content: flex-end;">
+                <button type="submit" class="btn-primary" id="btnSaveAppSettings">
+                  <span>💾 Simpan Pengaturan Global</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-subtle" id="btnCloseDbMasterModalFooter">Selesai</button>
       </div>
     </div>
   </div>

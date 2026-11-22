@@ -239,6 +239,10 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     currentProjectId: 1,
     projectsList: [],
     channelsList: [],
+    personas: [],
+    ttsVoices: [],
+    promptTemplates: [],
+    appSettings: { default_wpm: 140, max_hook_seconds: 30, default_gemini_model: 'auto', default_language: 'id' },
     editorialSentences: [],
     apiKeys: [],
     ttsConfig: {
@@ -412,6 +416,73 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     channelCountDisplay: document.getElementById('channelCountDisplay'),
     channelStatusSummary: document.getElementById('channelStatusSummary'),
     channelListContainer: document.getElementById('channelListContainer'),
+
+    // Database Master Center Modal Elements
+    btnOpenDbMasterModal: document.getElementById('btnOpenDbMasterModal'),
+    btnOpenDbMasterModalHome: document.getElementById('btnOpenDbMasterModalHome'),
+    btnQuickManagePersona: document.getElementById('btnQuickManagePersona'),
+    dbMasterModal: document.getElementById('dbMasterModal'),
+    btnCloseDbMasterModal: document.getElementById('btnCloseDbMasterModal'),
+    btnCloseDbMasterModalFooter: document.getElementById('btnCloseDbMasterModalFooter'),
+    tabBtnDbPersonas: document.getElementById('tabBtnDbPersonas'),
+    tabBtnDbVoices: document.getElementById('tabBtnDbVoices'),
+    tabBtnDbPrompts: document.getElementById('tabBtnDbPrompts'),
+    tabBtnDbSettings: document.getElementById('tabBtnDbSettings'),
+    masterTabPersonas: document.getElementById('masterTabPersonas'),
+    masterTabVoices: document.getElementById('masterTabVoices'),
+    masterTabPrompts: document.getElementById('masterTabPrompts'),
+    masterTabSettings: document.getElementById('masterTabSettings'),
+    badgeDbPersonaCount: document.getElementById('badgeDbPersonaCount'),
+    badgeDbVoiceCount: document.getElementById('badgeDbVoiceCount'),
+    personaListCount: document.getElementById('personaListCount'),
+    voiceCountBadge: document.getElementById('voiceCountBadge'),
+
+    // Persona Form
+    personaForm: document.getElementById('personaForm'),
+    personaEditId: document.getElementById('personaEditId'),
+    personaFormHeading: document.getElementById('personaFormHeading'),
+    inputPersonaName: document.getElementById('inputPersonaName'),
+    inputPersonaKey: document.getElementById('inputPersonaKey'),
+    inputPersonaDesc: document.getElementById('inputPersonaDesc'),
+    inputPersonaTone: document.getElementById('inputPersonaTone'),
+    checkPersonaDefault: document.getElementById('checkPersonaDefault'),
+    btnCancelEditPersona: document.getElementById('btnCancelEditPersona'),
+    btnSubmitPersona: document.getElementById('btnSubmitPersona'),
+    btnSubmitPersonaText: document.getElementById('btnSubmitPersonaText'),
+    personaListContainer: document.getElementById('personaListContainer'),
+
+    // Voice Form
+    selectVoiceFilterModel: document.getElementById('selectVoiceFilterModel'),
+    voiceForm: document.getElementById('voiceForm'),
+    voiceEditId: document.getElementById('voiceEditId'),
+    voiceFormHeading: document.getElementById('voiceFormHeading'),
+    inputVoiceModel: document.getElementById('inputVoiceModel'),
+    inputVoiceCode: document.getElementById('inputVoiceCode'),
+    inputVoiceDisplayName: document.getElementById('inputVoiceDisplayName'),
+    inputVoiceGender: document.getElementById('inputVoiceGender'),
+    inputVoiceDesc: document.getElementById('inputVoiceDesc'),
+    checkVoiceDefault: document.getElementById('checkVoiceDefault'),
+    btnCancelEditVoice: document.getElementById('btnCancelEditVoice'),
+    btnSubmitVoice: document.getElementById('btnSubmitVoice'),
+    btnSubmitVoiceText: document.getElementById('btnSubmitVoiceText'),
+    voiceListContainer: document.getElementById('voiceListContainer'),
+
+    // Prompts Form
+    selectPromptStageKey: document.getElementById('selectPromptStageKey'),
+    btnResetPromptsToDefault: document.getElementById('btnResetPromptsToDefault'),
+    promptTemplateForm: document.getElementById('promptTemplateForm'),
+    inputPromptName: document.getElementById('inputPromptName'),
+    inputPromptDesc: document.getElementById('inputPromptDesc'),
+    inputPromptContent: document.getElementById('inputPromptContent'),
+    btnSavePromptTemplate: document.getElementById('btnSavePromptTemplate'),
+
+    // App Settings Form
+    appSettingsForm: document.getElementById('appSettingsForm'),
+    settingWpm: document.getElementById('settingWpm'),
+    settingHookMaxSeconds: document.getElementById('settingHookMaxSeconds'),
+    settingGeminiModel: document.getElementById('settingGeminiModel'),
+    settingDefaultLang: document.getElementById('settingDefaultLang'),
+    btnSaveAppSettings: document.getElementById('btnSaveAppSettings'),
 
     // Studio Header & Metrics
     channelPresetSelect: document.getElementById('channelPresetSelect'),
@@ -674,6 +745,7 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
           <div class="project-card-bottom">
             <span class="project-updated">Update: ${updatedDate}</span>
             <div class="project-actions">
+              <button type="button" class="btn-card-action btn-clone-project" data-id="${p.id}" title="Duplikat Proyek Film Ini">📋 Duplikat</button>
               <button type="button" class="btn-card-action danger btn-delete-project" data-id="${p.id}" title="Hapus Proyek dari SQLite">Hapus</button>
               <button type="button" class="btn-card-action primary btn-open-project" data-id="${p.id}">Buka di Studio</button>
             </div>
@@ -687,6 +759,13 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         openProjectById(btn.dataset.id);
+      });
+    });
+
+    elements.projectsGrid.querySelectorAll('.btn-clone-project').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        cloneProjectById(btn.dataset.id);
       });
     });
 
@@ -827,6 +906,24 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
       }
     } catch (err) {
       showToast("Gagal menghapus proyek.");
+    }
+  }
+
+  // --- SQLite Backend Integration: Clone / Duplicate Project ---
+  async function cloneProjectById(projectId) {
+    try {
+      showToast("Menduplikasi proyek film...");
+      const res = await fetch(`/api/projects/${projectId}/clone`, { method: 'POST' });
+      const json = await res.json();
+      if (json.success && json.data) {
+        showToast(`Proyek berhasil diduplikat: "${json.data.title}"`);
+        await fetchProjectsList();
+      } else {
+        showToast(json.error || "Gagal menduplikat proyek.", "error");
+      }
+    } catch (err) {
+      console.error('Error cloning project:', err);
+      showToast("Gagal menghubungi server untuk duplikasi proyek.", "error");
     }
   }
 
@@ -986,12 +1083,17 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
       return;
     }
 
-    const personaLabels = {
-      'teman_ngopi': 'Lo-Gue Santai',
-      'kritis_serius': 'Kritis & Analitis',
-      'semi_formal': 'Semi-Formal Hangat',
-      'engaging_storyteller': 'Engaging Storyteller',
-      'cinematic_intense': 'Cinematic Intense'
+    const getPersonaLabel = (key) => {
+      const p = state.personas && state.personas.find(item => item.key === key);
+      if (p) return p.name;
+      const fallbackLabels = {
+        'teman_ngopi': 'Lo-Gue Santai',
+        'kritis_serius': 'Kritis & Analitis',
+        'semi_formal': 'Semi-Formal Hangat',
+        'engaging_storyteller': 'Engaging Storyteller',
+        'cinematic_intense': 'Cinematic Intense'
+      };
+      return fallbackLabels[key] || key;
     };
 
     const langFlags = {
@@ -1301,6 +1403,11 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
             <button type="button" class="btn-key-action btn-test" data-action="test" data-id="${k.id}" title="Uji koneksi kunci ke Gemini API">
               Tes Kunci
             </button>
+            ${(k.status !== 'valid' || k.error_count > 0) ? `
+              <button type="button" class="btn-key-action btn-test" data-action="reset" data-id="${k.id}" title="Reset status error dan cooldown kunci ini">
+                Reset
+              </button>
+            ` : ''}
             <button type="button" class="btn-key-action" data-action="toggle" data-id="${k.id}" data-active="${k.is_active}">
               ${k.is_active ? 'Matikan' : 'Aktifkan'}
             </button>
@@ -1319,6 +1426,8 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
         const id = btn.dataset.id;
         if (action === 'test') {
           await handleTestKey(id, btn);
+        } else if (action === 'reset') {
+          await handleResetKeyStatus(id);
         } else if (action === 'toggle') {
           const currentActive = btn.dataset.active === '1' || btn.dataset.active === 'true';
           await handleToggleKey(id, !currentActive);
@@ -1527,9 +1636,11 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     if (!elements.ttsSourceText || !elements.ttsTextMetrics) return;
     const text = elements.ttsSourceText.value.trim();
     const words = text ? (text.match(/\S+/g) || []).length : 0;
-    // Average speech rate ~140 words per minute
-    const estSec = Math.round(words / 2.3);
-    const estMnt = Math.round(words / 140);
+    // Speech rate from SQLite appSettings
+    const wpm = (state.appSettings && state.appSettings.default_wpm) || 140;
+    const wordsPerSec = wpm / 60;
+    const estSec = Math.round(words / wordsPerSec);
+    const estMnt = Math.round(words / wpm);
     const durationLabel = estSec < 60 ? `~${estSec} detik` : `~${estMnt} menit`;
     elements.ttsTextMetrics.textContent = `${words.toLocaleString('id-ID')} kata • ${durationLabel}`;
   }
@@ -1695,7 +1806,17 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
 
   function populateTtsVoiceOptions(model, preferredVoice = null) {
     if (!elements.ttsVoiceSelect) return;
-    const voices = TTS_VOICE_CATALOG[model] || TTS_VOICE_CATALOG.kokoro;
+    let voices = [];
+    if (state.ttsVoices && state.ttsVoices.length > 0) {
+      voices = state.ttsVoices.filter(v => v.model === model).map(v => ({
+        id: v.voice_code,
+        name: v.display_name,
+        default: Boolean(v.is_default)
+      }));
+    }
+    if (voices.length === 0) {
+      voices = TTS_VOICE_CATALOG[model] || TTS_VOICE_CATALOG.kokoro;
+    }
     elements.ttsVoiceSelect.innerHTML = '';
 
     let matchFound = false;
@@ -2334,7 +2455,8 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
   function updateScriptMetrics() {
     const rawText = state.currentScriptMarkdown;
     const words = countWords(rawText);
-    const durationMin = Math.ceil(words / 140);
+    const wpm = (state.appSettings && state.appSettings.default_wpm) || 140;
+    const durationMin = Math.ceil(words / wpm);
 
     elements.metricWordCount.textContent = words.toLocaleString('id-ID');
     elements.metricDuration.textContent = `~${durationMin} mnt`;
@@ -2634,6 +2756,540 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     }
   }
 
+  // =========================================================================
+  // --- DATABASE MASTER CENTER (Full CRUD: Persona, Suara, Prompts, Settings) ---
+  // =========================================================================
+
+  function openDbMasterModal(initialTab = 'masterTabPersonas') {
+    if (elements.dbMasterModal) {
+      elements.dbMasterModal.hidden = false;
+      switchMasterTab(initialTab);
+    }
+  }
+
+  function closeDbMasterModal() {
+    if (elements.dbMasterModal) {
+      elements.dbMasterModal.hidden = true;
+      resetPersonaForm();
+      resetVoiceForm();
+    }
+  }
+
+  function switchMasterTab(targetTabId) {
+    const tabs = [
+      { btn: elements.tabBtnDbPersonas, pane: elements.masterTabPersonas, id: 'masterTabPersonas' },
+      { btn: elements.tabBtnDbVoices, pane: elements.masterTabVoices, id: 'masterTabVoices' },
+      { btn: elements.tabBtnDbPrompts, pane: elements.masterTabPrompts, id: 'masterTabPrompts' },
+      { btn: elements.tabBtnDbSettings, pane: elements.masterTabSettings, id: 'masterTabSettings' }
+    ];
+
+    tabs.forEach(t => {
+      if (t.btn && t.pane) {
+        const isActive = t.id === targetTabId;
+        t.btn.classList.toggle('active', isActive);
+        t.pane.hidden = !isActive;
+      }
+    });
+
+    if (targetTabId === 'masterTabPersonas') {
+      fetchPersonasList();
+    } else if (targetTabId === 'masterTabVoices') {
+      fetchTtsVoicesList();
+    } else if (targetTabId === 'masterTabPrompts') {
+      fetchPromptTemplatesList();
+    } else if (targetTabId === 'masterTabSettings') {
+      fetchAppSettings();
+    }
+  }
+
+  // --- 1. PERSONAS / GAYA TUTUR CRUD ---
+  async function fetchPersonasList() {
+    try {
+      const res = await fetch('/api/personas');
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data)) {
+        state.personas = json.data;
+
+        // Badge counters
+        if (elements.badgeDbPersonaCount) elements.badgeDbPersonaCount.textContent = state.personas.length;
+        if (elements.personaListCount) elements.personaListCount.textContent = state.personas.length;
+
+        // Populate Studio persona dropdown
+        if (elements.personaStyleSelect) {
+          const cur = elements.personaStyleSelect.value;
+          elements.personaStyleSelect.innerHTML = state.personas.map(p => `
+            <option value="${escapeHtml(p.key)}" ${p.is_default ? 'data-default="true"' : ''}>
+              ${escapeHtml(p.name)}
+            </option>
+          `).join('');
+
+          if (state.personas.some(p => p.key === cur)) {
+            elements.personaStyleSelect.value = cur;
+          } else {
+            const def = state.personas.find(p => p.is_default) || state.personas[0];
+            if (def) elements.personaStyleSelect.value = def.key;
+          }
+        }
+
+        // Populate Channel modal persona dropdown
+        if (elements.inputChannelPersona) {
+          const curChannelPersona = elements.inputChannelPersona.value;
+          elements.inputChannelPersona.innerHTML = state.personas.map(p => `
+            <option value="${escapeHtml(p.key)}">
+              ${escapeHtml(p.name)}
+            </option>
+          `).join('');
+          if (curChannelPersona && state.personas.some(p => p.key === curChannelPersona)) {
+            elements.inputChannelPersona.value = curChannelPersona;
+          }
+        }
+
+        renderPersonasList();
+      }
+    } catch (err) {
+      console.warn('Gagal memuat persona dari database:', err);
+    }
+  }
+
+  function renderPersonasList() {
+    if (!elements.personaListContainer) return;
+    const list = state.personas || [];
+
+    if (list.length === 0) {
+      elements.personaListContainer.innerHTML = `
+        <div class="keys-empty-box">
+          <p>Belum ada persona gaya tutur narasi tersimpan di database.</p>
+        </div>
+      `;
+      return;
+    }
+
+    elements.personaListContainer.innerHTML = list.map(p => `
+      <div class="key-item-row" style="align-items: flex-start; padding: 12px; border-radius: 8px; margin-bottom: 8px; border: 1px solid #E2E8F0; background: #FFF;">
+        <div style="flex: 1; min-width: 0; margin-right: 12px;">
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap;">
+            <strong style="color: #0F172A; font-size: 14px;">${escapeHtml(p.name)}</strong>
+            <span class="val-badge font-mono" style="font-size: 11px;">${escapeHtml(p.key)}</span>
+            ${p.is_default ? '<span class="status-badge success" style="font-size: 11px;">Default</span>' : ''}
+          </div>
+          ${p.description ? `<p style="margin: 0 0 6px 0; font-size: 12px; color: #64748B;">${escapeHtml(p.description)}</p>` : ''}
+          <div style="font-size: 11px; color: #334155; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 4px; padding: 6px 8px; font-family: monospace; white-space: pre-wrap; max-height: 80px; overflow-y: auto;">${escapeHtml(p.tone_prompt)}</div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 4px; align-items: flex-end;">
+          ${!p.is_default ? `<button type="button" class="btn-subtle btn-xs btn-default-persona" data-id="${p.id}" title="Set sebagai default persona">Set Default</button>` : ''}
+          <div style="display: flex; gap: 4px;">
+            <button type="button" class="btn-subtle btn-xs btn-edit-persona" data-id="${p.id}" title="Edit Persona">Edit</button>
+            <button type="button" class="btn-subtle btn-xs danger btn-delete-persona" data-id="${p.id}" title="Hapus Persona">Hapus</button>
+          </div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function startEditPersona(id) {
+    const p = state.personas.find(item => String(item.id) === String(id));
+    if (!p) return;
+
+    if (elements.personaEditId) elements.personaEditId.value = p.id;
+    if (elements.inputPersonaName) elements.inputPersonaName.value = p.name;
+    if (elements.inputPersonaKey) elements.inputPersonaKey.value = p.key;
+    if (elements.inputPersonaDesc) elements.inputPersonaDesc.value = p.description || '';
+    if (elements.inputPersonaTone) elements.inputPersonaTone.value = p.tone_prompt || '';
+    if (elements.checkPersonaDefault) elements.checkPersonaDefault.checked = Boolean(p.is_default);
+
+    if (elements.personaFormHeading) elements.personaFormHeading.textContent = `✏️ Edit Persona: ${p.name}`;
+    if (elements.btnSubmitPersonaText) elements.btnSubmitPersonaText.textContent = 'Perbarui Persona';
+    if (elements.btnCancelEditPersona) elements.btnCancelEditPersona.hidden = false;
+
+    if (elements.inputPersonaName) elements.inputPersonaName.focus();
+  }
+
+  function resetPersonaForm() {
+    if (elements.personaForm) elements.personaForm.reset();
+    if (elements.personaEditId) elements.personaEditId.value = '';
+    if (elements.personaFormHeading) elements.personaFormHeading.textContent = '+ Tambah Persona / Gaya Tutur Baru';
+    if (elements.btnSubmitPersonaText) elements.btnSubmitPersonaText.textContent = '+ Simpan Persona';
+    if (elements.btnCancelEditPersona) elements.btnCancelEditPersona.hidden = true;
+    if (elements.checkPersonaDefault) elements.checkPersonaDefault.checked = false;
+  }
+
+  async function handleSavePersonaSubmit(e) {
+    e.preventDefault();
+    const editId = elements.personaEditId?.value;
+    const payload = {
+      name: elements.inputPersonaName?.value.trim(),
+      key: elements.inputPersonaKey?.value.trim(),
+      description: elements.inputPersonaDesc?.value.trim(),
+      tone_prompt: elements.inputPersonaTone?.value.trim(),
+      is_default: elements.checkPersonaDefault?.checked ? 1 : 0
+    };
+
+    if (!payload.name || !payload.key || !payload.tone_prompt) {
+      showToast('Nama, kode unik, dan tone prompt wajib diisi!', 'error');
+      return;
+    }
+
+    try {
+      const url = editId ? `/api/personas/${editId}` : '/api/personas';
+      const method = editId ? 'PUT' : 'POST';
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const json = await res.json();
+      if (json.success) {
+        showToast(editId ? 'Persona berhasil diperbarui!' : 'Persona baru berhasil disimpan!');
+        resetPersonaForm();
+        await fetchPersonasList();
+      } else {
+        showToast(json.error || 'Gagal menyimpan persona.', 'error');
+      }
+    } catch (err) {
+      console.error(err);
+      showToast('Gagal menghubungi server.', 'error');
+    }
+  }
+
+  async function handleDeletePersona(id) {
+    const p = state.personas.find(item => String(item.id) === String(id));
+    const name = p ? p.name : 'ini';
+    if (!confirm(`Hapus persona "${name}" dari database SQLite?`)) return;
+
+    try {
+      const res = await fetch(`/api/personas/${id}`, { method: 'DELETE' });
+      const json = await res.json();
+      if (json.success) {
+        showToast(`Persona "${name}" berhasil dihapus.`);
+        resetPersonaForm();
+        await fetchPersonasList();
+      } else {
+        showToast(json.error || 'Gagal menghapus persona.', 'error');
+      }
+    } catch (err) {
+      console.error(err);
+      showToast('Gagal menghapus persona.', 'error');
+    }
+  }
+
+  async function handleSetDefaultPersona(id) {
+    try {
+      const res = await fetch(`/api/personas/${id}/default`, { method: 'POST' });
+      const json = await res.json();
+      if (json.success) {
+        showToast('Persona default berhasil diubah!');
+        await fetchPersonasList();
+      } else {
+        showToast(json.error || 'Gagal mengubah default persona.', 'error');
+      }
+    } catch (err) {
+      console.error(err);
+      showToast('Gagal mengubah default persona.', 'error');
+    }
+  }
+
+  // --- 2. KARAKTER SUARA TTS CRUD ---
+  async function fetchTtsVoicesList() {
+    try {
+      const res = await fetch('/api/tts/voices');
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data)) {
+        state.ttsVoices = json.data;
+
+        if (elements.badgeDbVoiceCount) elements.badgeDbVoiceCount.textContent = state.ttsVoices.length;
+        if (elements.voiceCountBadge) elements.voiceCountBadge.textContent = `${state.ttsVoices.length} Suara Terdaftar`;
+
+        renderTtsVoicesList();
+        populateTtsVoiceOptions(elements.ttsModelSelect ? elements.ttsModelSelect.value : 'kokoro');
+      }
+    } catch (err) {
+      console.warn('Gagal memuat suara TTS dari database:', err);
+    }
+  }
+
+  function renderTtsVoicesList() {
+    if (!elements.voiceListContainer) return;
+    const filter = elements.selectVoiceFilterModel?.value || 'all';
+    let list = state.ttsVoices || [];
+    if (filter !== 'all') {
+      list = list.filter(v => v.model === filter);
+    }
+
+    if (list.length === 0) {
+      elements.voiceListContainer.innerHTML = `
+        <div class="keys-empty-box">
+          <p>Belum ada karakter suara untuk model yang dipilih.</p>
+        </div>
+      `;
+      return;
+    }
+
+    const modelNames = {
+      kokoro: 'Kokoro-82M',
+      dia: 'Nari Dia-1.6B',
+      xtts: 'Coqui XTTS v2'
+    };
+
+    elements.voiceListContainer.innerHTML = list.map(v => `
+      <div class="key-item-row" style="align-items: center; padding: 10px 12px; border-radius: 8px; margin-bottom: 8px; border: 1px solid #E2E8F0; background: #FFF;">
+        <div style="flex: 1; min-width: 0; margin-right: 12px;">
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap;">
+            <span class="status-badge info" style="font-size: 11px;">${modelNames[v.model] || v.model}</span>
+            <strong style="color: #0F172A; font-size: 13px;">${escapeHtml(v.display_name)}</strong>
+            <span class="val-badge font-mono" style="font-size: 11px;">${escapeHtml(v.voice_code)}</span>
+            <span class="val-badge" style="font-size: 10px;">${v.gender === 'female' ? '♀ Wanita' : v.gender === 'male' ? '♂ Pria' : '⚡ Neutral'}</span>
+            ${v.is_default ? '<span class="status-badge success" style="font-size: 11px;">Default</span>' : ''}
+          </div>
+          ${v.description ? `<p style="margin: 0; font-size: 12px; color: #64748B;">${escapeHtml(v.description)}</p>` : ''}
+        </div>
+        <div style="display: flex; gap: 4px; align-items: center;">
+          ${!v.is_default ? `<button type="button" class="btn-subtle btn-xs btn-default-voice" data-id="${v.id}" title="Set sebagai default suara model ini">Set Default</button>` : ''}
+          <button type="button" class="btn-subtle btn-xs btn-edit-voice" data-id="${v.id}" title="Edit Suara">Edit</button>
+          <button type="button" class="btn-subtle btn-xs danger btn-delete-voice" data-id="${v.id}" title="Hapus Suara">Hapus</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function startEditVoice(id) {
+    const v = state.ttsVoices.find(item => String(item.id) === String(id));
+    if (!v) return;
+
+    if (elements.voiceEditId) elements.voiceEditId.value = v.id;
+    if (elements.inputVoiceModel) elements.inputVoiceModel.value = v.model;
+    if (elements.inputVoiceCode) elements.inputVoiceCode.value = v.voice_code;
+    if (elements.inputVoiceDisplayName) elements.inputVoiceDisplayName.value = v.display_name;
+    if (elements.inputVoiceGender) elements.inputVoiceGender.value = v.gender || 'neutral';
+    if (elements.inputVoiceDesc) elements.inputVoiceDesc.value = v.description || '';
+    if (elements.checkVoiceDefault) elements.checkVoiceDefault.checked = Boolean(v.is_default);
+
+    if (elements.voiceFormHeading) elements.voiceFormHeading.textContent = `✏️ Edit Karakter Suara: ${v.display_name}`;
+    if (elements.btnSubmitVoiceText) elements.btnSubmitVoiceText.textContent = 'Perbarui Suara';
+    if (elements.btnCancelEditVoice) elements.btnCancelEditVoice.hidden = false;
+
+    if (elements.inputVoiceDisplayName) elements.inputVoiceDisplayName.focus();
+  }
+
+  function resetVoiceForm() {
+    if (elements.voiceForm) elements.voiceForm.reset();
+    if (elements.voiceEditId) elements.voiceEditId.value = '';
+    if (elements.voiceFormHeading) elements.voiceFormHeading.textContent = '+ Tambah Karakter Suara TTS Baru';
+    if (elements.btnSubmitVoiceText) elements.btnSubmitVoiceText.textContent = '+ Simpan Karakter Suara';
+    if (elements.btnCancelEditVoice) elements.btnCancelEditVoice.hidden = true;
+    if (elements.checkVoiceDefault) elements.checkVoiceDefault.checked = false;
+  }
+
+  async function handleSaveVoiceSubmit(e) {
+    e.preventDefault();
+    const editId = elements.voiceEditId?.value;
+    const payload = {
+      model: elements.inputVoiceModel?.value,
+      voice_code: elements.inputVoiceCode?.value.trim(),
+      display_name: elements.inputVoiceDisplayName?.value.trim(),
+      gender: elements.inputVoiceGender?.value || 'neutral',
+      description: elements.inputVoiceDesc?.value.trim(),
+      is_default: elements.checkVoiceDefault?.checked ? 1 : 0
+    };
+
+    if (!payload.model || !payload.voice_code || !payload.display_name) {
+      showToast('Model, kode suara, dan nama tampilan wajib diisi!', 'error');
+      return;
+    }
+
+    try {
+      const url = editId ? `/api/tts/voices/${editId}` : '/api/tts/voices';
+      const method = editId ? 'PUT' : 'POST';
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const json = await res.json();
+      if (json.success) {
+        showToast(editId ? 'Karakter suara berhasil diperbarui!' : 'Karakter suara baru berhasil disimpan!');
+        resetVoiceForm();
+        await fetchTtsVoicesList();
+      } else {
+        showToast(json.error || 'Gagal menyimpan suara.', 'error');
+      }
+    } catch (err) {
+      console.error(err);
+      showToast('Gagal menghubungi server.', 'error');
+    }
+  }
+
+  async function handleDeleteVoice(id) {
+    const v = state.ttsVoices.find(item => String(item.id) === String(id));
+    const name = v ? v.display_name : 'ini';
+    if (!confirm(`Hapus karakter suara "${name}" dari database SQLite?`)) return;
+
+    try {
+      const res = await fetch(`/api/tts/voices/${id}`, { method: 'DELETE' });
+      const json = await res.json();
+      if (json.success) {
+        showToast(`Karakter suara "${name}" berhasil dihapus.`);
+        resetVoiceForm();
+        await fetchTtsVoicesList();
+      } else {
+        showToast(json.error || 'Gagal menghapus suara.', 'error');
+      }
+    } catch (err) {
+      console.error(err);
+      showToast('Gagal menghapus suara.', 'error');
+    }
+  }
+
+  async function handleSetDefaultVoice(id) {
+    try {
+      const res = await fetch(`/api/tts/voices/${id}/default`, { method: 'POST' });
+      const json = await res.json();
+      if (json.success) {
+        showToast('Suara default model ini berhasil diubah!');
+        await fetchTtsVoicesList();
+      } else {
+        showToast(json.error || 'Gagal mengubah default suara.', 'error');
+      }
+    } catch (err) {
+      console.error(err);
+      showToast('Gagal mengubah default suara.', 'error');
+    }
+  }
+
+  // --- 3. PROMPT TEMPLATES CRUD ---
+  async function fetchPromptTemplatesList() {
+    try {
+      const res = await fetch('/api/prompts');
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data)) {
+        state.promptTemplates = json.data;
+        loadSelectedPromptTemplate();
+      }
+    } catch (err) {
+      console.warn('Gagal memuat prompt templates dari database:', err);
+    }
+  }
+
+  function loadSelectedPromptTemplate() {
+    if (!elements.selectPromptStageKey) return;
+    const stageKey = elements.selectPromptStageKey.value;
+    const tpl = state.promptTemplates?.find(t => t.stage_key === stageKey);
+    if (tpl) {
+      if (elements.inputPromptName) elements.inputPromptName.value = tpl.name || '';
+      if (elements.inputPromptDesc) elements.inputPromptDesc.value = tpl.description || '';
+      if (elements.inputPromptContent) elements.inputPromptContent.value = tpl.prompt_content || tpl.content || '';
+    } else {
+      if (elements.inputPromptName) elements.inputPromptName.value = '';
+      if (elements.inputPromptDesc) elements.inputPromptDesc.value = '';
+      if (elements.inputPromptContent) elements.inputPromptContent.value = '';
+    }
+  }
+
+  async function handleSavePromptTemplateSubmit(e) {
+    e.preventDefault();
+    const stageKey = elements.selectPromptStageKey?.value;
+    if (!stageKey) return;
+
+    const payload = {
+      name: elements.inputPromptName?.value.trim(),
+      description: elements.inputPromptDesc?.value.trim(),
+      prompt_content: elements.inputPromptContent?.value.trim(),
+      content: elements.inputPromptContent?.value.trim()
+    };
+
+    if (!payload.name || !payload.prompt_content) {
+      showToast('Nama dan isi prompt template wajib diisi!', 'error');
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/prompts/${stageKey}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const json = await res.json();
+      if (json.success) {
+        showToast(`Template "${payload.name}" berhasil disimpan ke SQLite!`);
+        await fetchPromptTemplatesList();
+      } else {
+        showToast(json.error || 'Gagal menyimpan template prompt.', 'error');
+      }
+    } catch (err) {
+      console.error(err);
+      showToast('Gagal menghubungi server.', 'error');
+    }
+  }
+
+  async function handleResetPromptsToDefault() {
+    if (!confirm('Apakah Anda yakin ingin me-reset SEMUA template prompt ke versi bawaan sistem? Perubahan kustom Anda akan ditimpa.')) {
+      return;
+    }
+    try {
+      const res = await fetch('/api/prompts/reset', { method: 'POST' });
+      const json = await res.json();
+      if (json.success) {
+        showToast('Template prompt berhasil dikembalikan ke bawaan sistem!');
+        await fetchPromptTemplatesList();
+      } else {
+        showToast(json.error || 'Gagal mereset template prompt.', 'error');
+      }
+    } catch (err) {
+      console.error(err);
+      showToast('Gagal menghubungi server.', 'error');
+    }
+  }
+
+  // --- 4. APP SETTINGS GLOBAL CRUD ---
+  async function fetchAppSettings() {
+    try {
+      const res = await fetch('/api/settings');
+      const json = await res.json();
+      if (json.success && json.data) {
+        state.appSettings = json.data;
+
+        if (elements.settingWpm) elements.settingWpm.value = state.appSettings.default_wpm || 140;
+        if (elements.settingHookMaxSeconds) elements.settingHookMaxSeconds.value = state.appSettings.max_hook_seconds || 30;
+        if (elements.settingGeminiModel) elements.settingGeminiModel.value = state.appSettings.default_gemini_model || 'auto';
+        if (elements.settingDefaultLang) elements.settingDefaultLang.value = state.appSettings.default_language || 'id';
+
+        updateScriptMetrics();
+        updateTtsTextMetrics();
+      }
+    } catch (err) {
+      console.warn('Gagal memuat pengaturan aplikasi dari database:', err);
+    }
+  }
+
+  async function handleSaveAppSettingsSubmit(e) {
+    e.preventDefault();
+    const payload = {
+      default_wpm: parseInt(elements.settingWpm?.value, 10) || 140,
+      max_hook_seconds: parseInt(elements.settingHookMaxSeconds?.value, 10) || 30,
+      default_gemini_model: elements.settingGeminiModel?.value || 'auto',
+      default_language: elements.settingDefaultLang?.value || 'id'
+    };
+
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const json = await res.json();
+      if (json.success && json.data) {
+        state.appSettings = json.data;
+        showToast('Pengaturan global berhasil disimpan ke database SQLite!');
+        updateScriptMetrics();
+        updateTtsTextMetrics();
+      } else {
+        showToast(json.error || 'Gagal menyimpan pengaturan.', 'error');
+      }
+    } catch (err) {
+      console.error(err);
+      showToast('Gagal menghubungi server.', 'error');
+    }
+  }
+
   // --- Event Listeners Initialization ---
   function initEvents() {
     // Top Navigation Tabs
@@ -2902,6 +3558,74 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     if (elements.movieTitle) elements.movieTitle.addEventListener('input', updateStudioHeaderTitle);
     if (elements.movieYear) elements.movieYear.addEventListener('input', updateStudioHeaderTitle);
 
+    // Database Master Center Modal
+    if (elements.btnOpenDbMasterModal) elements.btnOpenDbMasterModal.addEventListener('click', () => openDbMasterModal('masterTabPersonas'));
+    if (elements.btnOpenDbMasterModalHome) elements.btnOpenDbMasterModalHome.addEventListener('click', () => openDbMasterModal('masterTabPersonas'));
+    if (elements.btnQuickManagePersona) elements.btnQuickManagePersona.addEventListener('click', () => openDbMasterModal('masterTabPersonas'));
+    if (elements.btnCloseDbMasterModal) elements.btnCloseDbMasterModal.addEventListener('click', closeDbMasterModal);
+    if (elements.btnCloseDbMasterModalFooter) elements.btnCloseDbMasterModalFooter.addEventListener('click', closeDbMasterModal);
+
+    // Master Modal Tabs
+    if (elements.tabBtnDbPersonas) elements.tabBtnDbPersonas.addEventListener('click', () => switchMasterTab('masterTabPersonas'));
+    if (elements.tabBtnDbVoices) elements.tabBtnDbVoices.addEventListener('click', () => switchMasterTab('masterTabVoices'));
+    if (elements.tabBtnDbPrompts) elements.tabBtnDbPrompts.addEventListener('click', () => switchMasterTab('masterTabPrompts'));
+    if (elements.tabBtnDbSettings) elements.tabBtnDbSettings.addEventListener('click', () => switchMasterTab('masterTabSettings'));
+
+    // Personas CRUD listeners
+    if (elements.personaForm) elements.personaForm.addEventListener('submit', handleSavePersonaSubmit);
+    if (elements.btnCancelEditPersona) elements.btnCancelEditPersona.addEventListener('click', resetPersonaForm);
+    if (elements.personaListContainer) {
+      elements.personaListContainer.addEventListener('click', (e) => {
+        const editBtn = e.target.closest('.btn-edit-persona');
+        if (editBtn) {
+          startEditPersona(editBtn.dataset.id);
+          return;
+        }
+        const defBtn = e.target.closest('.btn-default-persona');
+        if (defBtn) {
+          handleSetDefaultPersona(defBtn.dataset.id);
+          return;
+        }
+        const delBtn = e.target.closest('.btn-delete-persona');
+        if (delBtn) {
+          handleDeletePersona(delBtn.dataset.id);
+          return;
+        }
+      });
+    }
+
+    // TTS Voices CRUD listeners
+    if (elements.voiceForm) elements.voiceForm.addEventListener('submit', handleSaveVoiceSubmit);
+    if (elements.btnCancelEditVoice) elements.btnCancelEditVoice.addEventListener('click', resetVoiceForm);
+    if (elements.selectVoiceFilterModel) elements.selectVoiceFilterModel.addEventListener('change', renderTtsVoicesList);
+    if (elements.voiceListContainer) {
+      elements.voiceListContainer.addEventListener('click', (e) => {
+        const editBtn = e.target.closest('.btn-edit-voice');
+        if (editBtn) {
+          startEditVoice(editBtn.dataset.id);
+          return;
+        }
+        const defBtn = e.target.closest('.btn-default-voice');
+        if (defBtn) {
+          handleSetDefaultVoice(defBtn.dataset.id);
+          return;
+        }
+        const delBtn = e.target.closest('.btn-delete-voice');
+        if (delBtn) {
+          handleDeleteVoice(delBtn.dataset.id);
+          return;
+        }
+      });
+    }
+
+    // Prompts CRUD listeners
+    if (elements.selectPromptStageKey) elements.selectPromptStageKey.addEventListener('change', loadSelectedPromptTemplate);
+    if (elements.promptTemplateForm) elements.promptTemplateForm.addEventListener('submit', handleSavePromptTemplateSubmit);
+    if (elements.btnResetPromptsToDefault) elements.btnResetPromptsToDefault.addEventListener('click', handleResetPromptsToDefault);
+
+    // App Settings listeners
+    if (elements.appSettingsForm) elements.appSettingsForm.addEventListener('submit', handleSaveAppSettingsSubmit);
+
     // Source tab switching
     elements.tabButtons.forEach(btn => {
       btn.addEventListener('click', () => switchSourceTab(btn.dataset.source));
@@ -3107,6 +3831,7 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
         if (elements.newProjectModal && !elements.newProjectModal.hidden) closeNewProjectModal();
         if (elements.channelModal && !elements.channelModal.hidden) closeChannelModal();
         if (elements.apiKeyModal && !elements.apiKeyModal.hidden) closeApiKeyModal();
+        if (elements.dbMasterModal && !elements.dbMasterModal.hidden) closeDbMasterModal();
         if (elements.ttsModal && !elements.ttsModal.hidden) closeTtsModal();
         if (elements.translateModal && !elements.translateModal.hidden) closeTranslateModal();
       }
@@ -3158,6 +3883,10 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
       elements.scriptRawEditor.style.display = 'none';
     }
 
+    await fetchAppSettings(); // Load global app settings from SQLite
+    await fetchPersonasList(); // Load personas from SQLite
+    await fetchTtsVoicesList(); // Load TTS voices library from SQLite
+    await fetchPromptTemplatesList(); // Load AI prompt templates from SQLite
     await fetchChannelsList(); // Load registered channels from SQLite
     fetchApiKeysList(); // Load registered API keys from SQLite
     fetchTtsSettings(); // Load TTS & Colab configuration from SQLite

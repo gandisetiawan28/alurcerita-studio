@@ -18,7 +18,7 @@
  */
 
 const { GoogleGenerativeAI } = require('@google/generative-ai');
-const { ApiKeyRepo } = require('./db');
+const { ApiKeyRepo, PersonaRepo, PromptTemplateRepo, SettingsRepo } = require('./db');
 
 // Katalog Resmi 8 Model Gemini (Wajib Tidak Ada Yang Lain)
 const GEMINI_MODELS = [
@@ -187,13 +187,35 @@ async function runGeminiGeneration(data) {
     .map(([key, text], idx) => `=== SUMBER ${idx + 1} (${key.toUpperCase()}) ===\n${text.trim()}`)
     .join('\n\n');
 
+  // Ambil Persona & Tone Instruction dari Database SQLite
+  const personaRecord = PersonaRepo.getByKey(personaStyle) || PersonaRepo.getByKey('teman_ngopi');
+  const personaPrompt = personaRecord ? personaRecord.tone_prompt : 'Persona: Santai layaknya teman ngopi, pakai "Lo-Gue", alami dan asik.';
+
   // -------------------------------------------------------------------------
   // STAGE 1: Lead Scriptwriter Agent (Chronological Merger + Visual Cues)
   // -------------------------------------------------------------------------
-  const stage1Prompt = `
+  const stage1Template = PromptTemplateRepo.getByKey('stage1_story');
+  let stage1Prompt = '';
+  if (stage1Template && stage1Template.prompt_content) {
+    stage1Prompt = stage1Template.prompt_content
+      .replace(/{{channelName}}/g, channelName)
+      .replace(/{{movieTitle}}/g, movieTitle)
+      .replace(/{{releaseYear}}/g, movieYear || 'Tidak disebutkan')
+      .replace(/{{movieDirector}}/g, movieDirector || 'Tidak disebutkan')
+      .replace(/{{synopsis}}/g, movieDescription || 'Tidak ada sinopsis ringkas.')
+      .replace(/{{openingHook}}/g, openingHook)
+      .replace(/{{outroBridge}}/g, outroBridge)
+      .replace(/{{personaPrompt}}/g, personaPrompt);
+    stage1Prompt += `\n\nData Sumber Narasi:\n${sourceTexts}\n\n${enforceVisualCues ? 'Catatan Tambahan: WAJIB menyisipkan tag (Visual: ...) di setiap adegan penting.' : ''}
+
+ATURAN MUTLAK ANTI-SPOILER:
+- DILARANG KERAS membocorkan spoiler, plot twist, rahasia/kebohongan karakter, atau akhir cerita di bagian Opening/Hook atau di Part-part awal cerita!
+- DILARANG menggunakan gaya narasi pembocor masa depan ("foreshadowing spoiler"), contoh terlarang: "Tapi nanti kita tahu nih kalau dia ini sebenarnya banyak bohongnya", "Yang nantinya bakal mati", atau "Ternyata dia penjahatnya".
+- Alur cerita WAJIB dituturkan secara KRONOLOGIS MURNI (Linear Storytelling). Rahasia atau kedok karakter HANYA BOLEH diungkapkan ketika alur adegan film tersebut memang sudah sampai di titik pengungkapan resminya. Biarkan penonton menikmati ketegangan cerita langkah demi langkah tanpa spoiler awal!`;
+  } else {
+    stage1Prompt = `
 Anda adalah Lead Scriptwriter profesional untuk channel YouTube alur cerita film "${channelName}".
-Persona Anda: Tenang, santai, berwibawa tapi asik, menggunakan bahasa "Lo-Gue" layaknya teman ngopi yang jago cerita.
-Hindari: Sarkasme berlebihan, celetukan konyol yang memutus suasana, bahasa baku/kaku, slang kasar berlebihan.
+${personaPrompt}
 
 Informasi Film:
 - Judul: ${movieTitle}
@@ -214,11 +236,14 @@ Tugas Utama:
    - (Visual: [Adegan pembuka yang dramatis/memikat])
    - Sapaan "${openingHook}!" langsung dilanjutkan 1-2 kalimat pertanyaan retoris atau paradoks premis film yang memancing rasa penasaran audiens.
    - Ditutup langsung dengan kalimat outro bridge: "${outroBridge}!"
-2. Gabungkan semua sumber di atas menjadi 1 naskah alur cerita utuh, runut, dan tanpa plot hole (linear storytelling).
-3. Gunakan sumber dengan detail paling kaya untuk setiap adegan. Jika ada bagian terputus di satu sumber, sambungkan dengan sumber lain.
-4. Jelaskan motivasi karakter (Why), bukan cuma aksinya saja.
-5. ${enforceVisualCues ? 'WAJIB menyisipkan tag (Visual: [Deskripsi adegan detail untuk editor]) di setiap perpindahan adegan atau perubahan tensi suasana.' : ''}
-6. Bagi cerita ke dalam pembagian babak yang teratur:
+2. ATURAN KERAS: DILARANG SPOILER DI AWAL / HOOK / PART AWAL (ANTI-SPOILER):
+   - DILARANG KERAS membocorkan spoiler, plot twist, rahasia/kebohongan karakter, atau akhir cerita di Hook/Opening maupun di Part-Part awal (contoh terlarang: "Tapi nanti kita tahu nih kalau dia ini sebenarnya banyak bohongnya", "Yang nantinya bakal mati", "Ternyata dia pelakunya").
+   - Ceritakan alur secara KRONOLOGIS MURNI (Linear Storytelling). Rahasia karakter HANYA boleh diungkap saat adegan film tersebut benar-benar sampai di titik pengungkapannya.
+3. Gabungkan semua sumber di atas menjadi 1 naskah alur cerita utuh, runut, dan tanpa plot hole (linear storytelling).
+4. Gunakan sumber dengan detail paling kaya untuk setiap adegan. Jika ada bagian terputus di satu sumber, sambungkan dengan sumber lain.
+5. Jelaskan motivasi karakter (Why), bukan cuma aksinya saja.
+6. ${enforceVisualCues ? 'WAJIB menyisipkan tag (Visual: [Deskripsi adegan detail untuk editor]) di setiap perpindahan adegan atau perubahan tensi suasana.' : ''}
+7. Bagi cerita ke dalam pembagian babak yang teratur:
    - # ${movieTitle.toUpperCase()}
    - **Genre**: Drama / Action / Misteri
    - **Channel**: ${channelName}
@@ -229,6 +254,7 @@ Tugas Utama:
      - (lanjutkan sampai babak final)
    - ## [KESIMPULAN & CLOSING]
 `;
+  }
 
   console.log(`🤖 Menjalankan Stage 1 (Lead Scriptwriter Agent) [Target Model: ${preferredModel}]...`);
   const stage1Result = await callGeminiSmartStage(stage1Prompt, 'Stage 1 (Lead Scriptwriter)', preferredModel);
@@ -256,7 +282,15 @@ Tugas Utama:
   // -------------------------------------------------------------------------
   // STAGE 2: Film Analyst Agent (Deep Insights without Cringe Jargon)
   // -------------------------------------------------------------------------
-  const stage2Prompt = `
+  const stage2Template = PromptTemplateRepo.getByKey('stage2_analysis');
+  let stage2Prompt = '';
+  if (stage2Template && stage2Template.prompt_content) {
+    stage2Prompt = stage2Template.prompt_content
+      .replace(/{{channelName}}/g, channelName)
+      .replace(/{{openingHook}}/g, openingHook.replace(/^Halo\s+/i, ''));
+    stage2Prompt += `\n\nBahan Naskah Cerita yang Dianalisis:\n${narrativeScript.slice(0, 15000)}`;
+  } else {
+    stage2Prompt = `
 Anda adalah Storyteller & Analis Film untuk channel "${channelName}".
 Aturan Utama:
 1. DILARANG keras pakai salam pembuka atau kata "Halo". Langsung masuk ke pokok pembahasan analisis.
@@ -278,6 +312,7 @@ Struktur yang wajib dihasilkan:
 Bahan Naskah Cerita yang Dianalisis:
 ${narrativeScript.slice(0, 15000)}
 `;
+  }
 
   console.log('🧠 Menjalankan Stage 2 (Film Analyst Agent)...');
   const stage2Result = await callGeminiSmartStage(stage2Prompt, 'Stage 2 (Film Analyst)', preferredModel);
@@ -288,7 +323,15 @@ ${narrativeScript.slice(0, 15000)}
   // -------------------------------------------------------------------------
   // STAGE 3: Synthesizer Agent (Seamless Merge with Emotional Bridge)
   // -------------------------------------------------------------------------
-  const stage3Prompt = `
+  const audienceCall = openingHook.replace(/^Halo\s+/i, '') || 'Nakama';
+  const stage3Template = PromptTemplateRepo.getByKey('stage3_synthesis');
+  let stage3Prompt = '';
+  if (stage3Template && stage3Template.prompt_content) {
+    stage3Prompt = stage3Template.prompt_content
+      .replace(/{{audienceName}}/g, audienceCall);
+    stage3Prompt += `\n\nINPUT 1 (NARASI CERITA):\n${narrativeScript}\n\nINPUT 2 (ANALISIS FILM):\n${analysisOutput}\n\nHasilkan naskah final utuh dalam format Markdown yang rapi:`;
+  } else {
+    stage3Prompt = `
 Tugas Anda: Satukan Narasi Cerita dan Analisis Film di bawah ini menjadi satu naskah alur cerita utuh yang mengalir sempurna tanpa celah.
 
 Aturan Penempatan:
@@ -296,10 +339,10 @@ Sisipkan teks ANALISIS tepat sebelum bagian "## [KESIMPULAN & CLOSING]" dari NAR
 
 Instruksi Jembatan Emosi:
 Sebelum masuk ke segmen analisis, buat 1 paragraf singkat yang "menjemput" emosi penonton setelah selesai menonton alur filmnya.
-Contoh: "Gimana, ${openingHook.replace(/^Halo\s+/i, '')}? Ceritanya gokil dan nendang banget kan? Tapi tunggu dulu, sebenernya ada hal yang lebih dalam yang mungkin lu lewatin pas lagi asyik nonton..."
+Contoh: "Gimana, ${audienceCall}? Ceritanya gokil dan nendang banget kan? Tapi tunggu dulu, sebenernya ada hal yang lebih dalam yang mungkin lu lewatin pas lagi asyik nonton..."
 
 Gaya Bahasa:
-Tetap gunakan kata "Gua", panggil penonton dengan "${openingHook.replace(/^Halo\s+/i, '')}", santai dan natural.
+Tetap gunakan kata "Gua", panggil penonton dengan "${audienceCall}", santai dan natural.
 
 INPUT 1 (NARASI CERITA):
 ${narrativeScript}
@@ -309,6 +352,7 @@ ${analysisOutput}
 
 Hasilkan naskah final utuh dalam format Markdown yang rapi:
 `;
+  }
 
   console.log('✨ Menjalankan Stage 3 (Synthesizer Agent)...');
   const stage3Result = await callGeminiSmartStage(stage3Prompt, 'Stage 3 (Synthesizer)', preferredModel);

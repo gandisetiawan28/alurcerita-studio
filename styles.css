@@ -2890,3 +2890,67 @@ button:active {
   gap: 6px;
   padding-top: 4px;
 }
+
+/* Database Master Center Modal Styles */
+.header-db-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #F8FAFC;
+  color: #334155;
+  font-weight: 600;
+  border: 1px solid #CBD5E1;
+}
+
+.header-db-btn:hover {
+  background: #E2E8F0;
+  color: #0F172A;
+}
+
+.master-tabs-bar {
+  display: flex;
+  background: #F8FAFC;
+  border-bottom: 1px solid #E2E8F0;
+  padding: 0 16px;
+  gap: 4px;
+  overflow-x: auto;
+}
+
+.master-tab-btn {
+  font-size: 13px;
+  font-weight: 500;
+  color: #64748B;
+  padding: 11px 16px;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  background: transparent;
+  border-top: none;
+  border-left: none;
+  border-right: none;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s ease-out;
+}
+
+.master-tab-btn:hover {
+  color: #0F172A;
+}
+
+.master-tab-btn.active {
+  color: var(--accent-primary);
+  font-weight: 700;
+  background: #FFFFFF;
+  border-bottom-color: var(--accent-primary);
+}
+
+.btn-clone-project {
+  color: #0284C7;
+  border-color: #BAE6FD;
+}
+
+.btn-clone-project:hover {
+  background: #F0F9FF;
+  color: #0369A1;
+}

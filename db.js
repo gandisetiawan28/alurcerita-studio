@@ -93,6 +93,52 @@ db.exec(`
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
   );
+
+  CREATE TABLE IF NOT EXISTS personas (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    key TEXT UNIQUE NOT NULL,
+    name TEXT NOT NULL,
+    description TEXT,
+    tone_prompt TEXT NOT NULL,
+    is_default INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS tts_voices (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    model TEXT NOT NULL,
+    voice_code TEXT NOT NULL,
+    display_name TEXT NOT NULL,
+    gender TEXT DEFAULT 'neutral',
+    description TEXT,
+    is_default INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(model, voice_code)
+  );
+
+  CREATE TABLE IF NOT EXISTS prompt_templates (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    stage_key TEXT UNIQUE NOT NULL,
+    name TEXT NOT NULL,
+    description TEXT,
+    prompt_content TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS app_settings (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    default_wpm INTEGER DEFAULT 140,
+    max_hook_seconds INTEGER DEFAULT 30,
+    default_gemini_model TEXT DEFAULT 'auto',
+    default_language TEXT DEFAULT 'id',
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  INSERT OR IGNORE INTO app_settings (id, default_wpm, max_hook_seconds, default_gemini_model, default_language)
+  VALUES (1, 140, 30, 'auto', 'id');
 `);
 
 // Migration for existing databases: ensure release_year & director columns exist
@@ -304,6 +350,30 @@ const ProjectRepo = {
     const stmt = db.prepare(`DELETE FROM projects WHERE id = ?`);
     const result = stmt.run(Number(id));
     return result.changes > 0;
+  },
+
+  // Clone / duplicate project
+  clone(id) {
+    const original = this.getById(id);
+    if (!original) return null;
+
+    const clonedTitle = `${original.title} (Salinan)`;
+    return this.create({
+      title: clonedTitle,
+      release_year: original.release_year,
+      director: original.director,
+      director_year: original.director_year,
+      synopsis: original.synopsis,
+      channel_name: original.channel_name,
+      opening_hook: original.opening_hook,
+      outro_bridge: original.outro_bridge,
+      persona_style: original.persona_style,
+      include_analysis: original.include_analysis,
+      enforce_visual_cues: original.enforce_visual_cues,
+      script_markdown: original.script_markdown,
+      word_count: original.word_count,
+      sources: original.sources || {}
+    });
   }
 };
 
@@ -483,6 +553,35 @@ const ApiKeyRepo = {
   countActive() {
     const stmt = db.prepare(`SELECT COUNT(*) as count FROM api_keys WHERE is_active = 1`);
     return stmt.get().count;
+  },
+
+  update(id, data) {
+    const stmt = db.prepare(`
+      UPDATE api_keys SET
+        label = COALESCE(?, label),
+        is_active = COALESCE(?, is_active),
+        status = COALESCE(?, status)
+      WHERE id = ?
+    `);
+    stmt.run(
+      data.label !== undefined ? data.label : null,
+      data.is_active !== undefined ? (data.is_active ? 1 : 0) : null,
+      data.status !== undefined ? data.status : null,
+      Number(id)
+    );
+    return this.getById(id);
+  },
+
+  resetStatus(id) {
+    const stmt = db.prepare(`
+      UPDATE api_keys SET
+        status = 'active',
+        cooldown_until = NULL,
+        error_count = 0
+      WHERE id = ?
+    `);
+    stmt.run(Number(id));
+    return this.getById(id);
   }
 };
 
@@ -609,6 +708,345 @@ const ChannelRepo = {
   }
 };
 
+// Repository for Persona & Gaya Tutur Scriptwriting
+const PersonaRepo = {
+  getAll() {
+    const stmt = db.prepare(`SELECT * FROM personas ORDER BY is_default DESC, id ASC`);
+    return stmt.all();
+  },
+  getById(id) {
+    const stmt = db.prepare(`SELECT * FROM personas WHERE id = ?`);
+    return stmt.get(Number(id));
+  },
+  getByKey(key) {
+    if (!key) return null;
+    const stmt = db.prepare(`SELECT * FROM personas WHERE key = ?`);
+    return stmt.get(String(key));
+  },
+  create(data) {
+    const now = new Date().toISOString();
+    const isDefault = data.is_default ? 1 : 0;
+    if (isDefault) {
+      db.prepare(`UPDATE personas SET is_default = 0`).run();
+    }
+    const safeKey = (data.key || data.name).trim().toLowerCase().replace(/[^a-z0-9_]/g, '_');
+    const stmt = db.prepare(`
+      INSERT INTO personas (key, name, description, tone_prompt, is_default, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `);
+    const res = stmt.run(
+      safeKey,
+      data.name.trim(),
+      data.description || '',
+      data.tone_prompt.trim(),
+      isDefault,
+      now,
+      now
+    );
+    return this.getById(res.lastInsertRowid);
+  },
+  update(id, data) {
+    const now = new Date().toISOString();
+    if (data.is_default) {
+      db.prepare(`UPDATE personas SET is_default = 0`).run();
+    }
+    const stmt = db.prepare(`
+      UPDATE personas SET
+        key = COALESCE(?, key),
+        name = COALESCE(?, name),
+        description = COALESCE(?, description),
+        tone_prompt = COALESCE(?, tone_prompt),
+        is_default = COALESCE(?, is_default),
+        updated_at = ?
+      WHERE id = ?
+    `);
+    stmt.run(
+      data.key ? data.key.trim().toLowerCase().replace(/[^a-z0-9_]/g, '_') : null,
+      data.name ? data.name.trim() : null,
+      data.description !== undefined ? data.description : null,
+      data.tone_prompt ? data.tone_prompt.trim() : null,
+      data.is_default !== undefined ? (data.is_default ? 1 : 0) : null,
+      now,
+      Number(id)
+    );
+    return this.getById(id);
+  },
+  delete(id) {
+    const count = db.prepare(`SELECT COUNT(*) as count FROM personas`).get().count;
+    if (count <= 1) {
+      throw new Error('Minimal harus ada 1 persona gaya tutur di database.');
+    }
+    const stmt = db.prepare(`DELETE FROM personas WHERE id = ?`);
+    const res = stmt.run(Number(id));
+    return res.changes > 0;
+  },
+  setDefault(id) {
+    db.prepare(`UPDATE personas SET is_default = 0`).run();
+    db.prepare(`UPDATE personas SET is_default = 1 WHERE id = ?`).run(Number(id));
+    return this.getById(id);
+  }
+};
+
+// Repository for TTS Voices & Character Presets
+const TtsVoiceRepo = {
+  getAll(model = null) {
+    if (model) {
+      const stmt = db.prepare(`SELECT * FROM tts_voices WHERE model = ? ORDER BY is_default DESC, id ASC`);
+      return stmt.all(model);
+    }
+    const stmt = db.prepare(`SELECT * FROM tts_voices ORDER BY model ASC, is_default DESC, id ASC`);
+    return stmt.all();
+  },
+  getById(id) {
+    const stmt = db.prepare(`SELECT * FROM tts_voices WHERE id = ?`);
+    return stmt.get(Number(id));
+  },
+  create(data) {
+    const now = new Date().toISOString();
+    const isDefault = data.is_default ? 1 : 0;
+    if (isDefault) {
+      db.prepare(`UPDATE tts_voices SET is_default = 0 WHERE model = ?`).run(data.model);
+    }
+    const stmt = db.prepare(`
+      INSERT INTO tts_voices (model, voice_code, display_name, gender, description, is_default, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    const res = stmt.run(
+      data.model.trim().toLowerCase(),
+      data.voice_code.trim(),
+      data.display_name.trim(),
+      data.gender || 'neutral',
+      data.description || '',
+      isDefault,
+      now,
+      now
+    );
+    return this.getById(res.lastInsertRowid);
+  },
+  update(id, data) {
+    const now = new Date().toISOString();
+    const curr = this.getById(id);
+    if (!curr) return null;
+    if (data.is_default) {
+      db.prepare(`UPDATE tts_voices SET is_default = 0 WHERE model = ?`).run(curr.model);
+    }
+    const stmt = db.prepare(`
+      UPDATE tts_voices SET
+        model = COALESCE(?, model),
+        voice_code = COALESCE(?, voice_code),
+        display_name = COALESCE(?, display_name),
+        gender = COALESCE(?, gender),
+        description = COALESCE(?, description),
+        is_default = COALESCE(?, is_default),
+        updated_at = ?
+      WHERE id = ?
+    `);
+    stmt.run(
+      data.model ? data.model.trim().toLowerCase() : null,
+      data.voice_code ? data.voice_code.trim() : null,
+      data.display_name ? data.display_name.trim() : null,
+      data.gender !== undefined ? data.gender : null,
+      data.description !== undefined ? data.description : null,
+      data.is_default !== undefined ? (data.is_default ? 1 : 0) : null,
+      now,
+      Number(id)
+    );
+    return this.getById(id);
+  },
+  delete(id) {
+    const stmt = db.prepare(`DELETE FROM tts_voices WHERE id = ?`);
+    const res = stmt.run(Number(id));
+    return res.changes > 0;
+  },
+  setDefault(id) {
+    const curr = this.getById(id);
+    if (!curr) return null;
+    db.prepare(`UPDATE tts_voices SET is_default = 0 WHERE model = ?`).run(curr.model);
+    db.prepare(`UPDATE tts_voices SET is_default = 1 WHERE id = ?`).run(Number(id));
+    return this.getById(id);
+  }
+};
+
+// Repository for AI Prompt Templates (Stage 1, Stage 2, Stage 3, Transcreation)
+const DEFAULT_PROMPT_TEMPLATES = {
+  stage1_story: {
+    name: 'Tahap 1: Lead Scriptwriter Agent',
+    description: 'Menyusun alur cerita 3-babak yang mengalir, visual cue arahan editor, hook pembuka maksimal 30 detik, dan DILARANG spoiler di awal.',
+    prompt_content: `Anda adalah Lead Scriptwriter profesional untuk channel YouTube alur cerita film "{{channelName}}".
+Tugas Anda adalah menulis naskah alur cerita lengkap, detail, dan mendalam berdasarkan referensi transkrip film yang diberikan.
+
+PANDUAN & ATURAN UTAMA:
+1. INFORMASI FILM:
+   - Judul: {{movieTitle}}
+   - Tahun Rilis: {{releaseYear}}
+   - Sutradara: {{movieDirector}}
+   - Sinopsis: {{synopsis}}
+
+2. HOOK & OPENING (MAKSIMAL 30 DETIK / ~60-70 KATA):
+   - Wajib buka dengan sapaan khas: "{{openingHook}}".
+   - Hook harus memancing rasa penasaran penonton dalam 30 detik pertama tanpa bertele-tele.
+   - Akhiri opening dengan kalimat jembatan: "{{outroBridge}}".
+
+3. ATURAN KERAS: DILARANG SPOILER DI AWAL / HOOK / PART AWAL (ANTI-SPOILER):
+   - DILARANG KERAS membocorkan plot twist, akhir cerita, pengkhianatan, atau rahasia karakter di HOOK/OPENING maupun di PART-PART AWAL cerita!
+   - DILARANG menggunakan gaya narasi pembocor masa depan ("foreshadowing spoiler"), seperti contoh terlarang ini:
+     * DILARANG: "Tapi nanti kita tahu nih kalau dia ini sebenarnya banyak bohongnya / jahat..."
+     * DILARANG: "Yang nantinya bakal mati terbunuh..."
+     * DILARANG: "Siapa sangka sosok ramah ini ternyata adalah dalang pembunuhan..."
+     * DILARANG: "Tanpa disadari ini adalah akhir perjalanan hidupnya..."
+   - Ceritakan secara KRONOLOGIS MURNI (Linear Storytelling):
+     * Biarkan penonton melihat dan merasakan peristiwa bersama sang tokoh secara bertahap (in the moment).
+     * Jika seorang karakter berbohong atau menyembunyikan identitasnya, perlakukan dia sesuai apa yang tampak di adegan tersebut. Rahasia atau kejahatannya HANYA BOLEH diungkapkan ketika adegan film itu sendiri telah sampai di momen pengungkapan (the reveal moment).
+     * Bagian Opening (Hook 30 detik) HANYA boleh menyorot premis awal, tensi pembuka, dan pertanyaan pemancing rasa penasaran, BUKAN membocorkan nasib atau twist film.
+
+4. GAYA TUTUR & PERSONA:
+{{personaPrompt}}
+
+5. ARAHAN VISUAL (B-ROLL CUES):
+   - Wajib sertakan arahan visual untuk editor video dalam format tag kurung: (Visual: Deskripsi adegan, ekspresi tokoh, atau b-roll)
+   - Berikan arahan visual di awal adegan penting.
+
+6. STRUKTUR NASKAH:
+   ## [OPENING]
+   (Visual: Pembuka film)
+   ... teks opening maksimal 30 detik (bebas spoiler) ...
+
+   ## [BODY STORY]
+   ### PART 1: ...
+   (Visual: ...)
+   ...
+   ### PART 2: ...
+   (Visual: ...)
+   ...
+   ### PART 3: ...
+   (Visual: ...)
+   ...
+
+   ## [KESIMPULAN & CLOSING]
+   (Visual: Outro penutup)
+   ... ajakan like, komentar, dan subscribe ke channel {{channelName}} ...`
+  },
+  stage2_analysis: {
+    name: 'Tahap 2: Film Analyst Agent',
+    description: 'Membedah makna filosofis, hikmah moral, dan perkembangan karakter film.',
+    prompt_content: `Anda adalah Storyteller & Analis Film untuk channel "{{channelName}}".
+Aturan Utama:
+1. DILARANG keras pakai salam pembuka atau kata "Halo". Langsung masuk ke pokok pembahasan analisis.
+2. DILARANG pakai istilah asing klise seperti "Chef’s kiss", "Stakes", "Arc", atau "Vibe". Pakai bahasa Indonesia sehari-hari yang mudah dipahami penonton umum.
+3. Transisi antar paragraf harus mengalir mulus ("Ngomong-ngomong soal itu...", "Bukan cuma itu...", "Nah, yang menariknya...").
+4. Persona: Santai, kritis, pakai kata "Gua-Lu", panggil audiens dengan "{{openingHook}}".
+
+Struktur yang wajib dihasilkan:
+## [BEDAH ANALISIS & PESAN FILM]
+### 1. KENAPA FILM INI SERU BANGET?
+(Jelaskan genre, tensi, dan kenapa orang awam bakal betah nonton dari awal sampai akhir)
+
+### 2. BEDAH RENCANA & PESAN MORAL FILM
+(Bahas apakah masalah dari awal terjawab di akhir. Apakah ada hikmah atau pesan mendalam soal kehidupan/keadilan)
+
+### 3. ANALISIS SIFAT & PERKEMBANGAN KARAKTER
+(Jelaskan motivasi dan kerapuhan tokoh utama, serta bagaimana sifat mereka bertransformasi sepanjang film)`
+  },
+  stage3_synthesis: {
+    name: 'Tahap 3: Synthesizer & Quality Agent',
+    description: 'Menggabungkan narasi cerita dan bedah analisis dengan jembatan emosi yang mulus.',
+    prompt_content: `Tugas Anda: Satukan Narasi Cerita dan Analisis Film di bawah ini menjadi satu naskah alur cerita utuh yang mengalir sempurna tanpa celah.
+
+Aturan Penempatan:
+Sisipkan teks ANALISIS tepat sebelum bagian "## [KESIMPULAN & CLOSING]" dari NARASI CERITA.
+
+Instruksi Jembatan Emosi:
+Sebelum masuk ke segmen analisis, buat 1 paragraf singkat yang "menjemput" emosi penonton setelah selesai menonton alur filmnya.
+Contoh: "Gimana, {{audienceName}}? Ceritanya gokil dan nendang banget kan? Tapi tunggu dulu, sebenernya ada hal yang lebih dalam yang mungkin lu lewatin pas lagi asyik nonton..."
+
+Gaya Bahasa:
+Tetap gunakan kata "Gua", panggil penonton dengan "{{audienceName}}", santai dan natural.`
+  },
+  transcreate: {
+    name: 'Tahap 4: Anti-Duplicate Transcreation (Global)',
+    description: 'Transkreasi naskah ke bahasa tujuan internasional tanpa terdeteksi konten duplikat.',
+    prompt_content: `Anda adalah Master Script Transcreator & Cultural Localization Specialist.
+Tugas Anda adalah melakukan TRANSKREASI (bukan sekadar terjemahan kata-demi-kata) dari naskah alur cerita film ini ke bahasa: {{targetLanguage}}.
+
+TARGET UTAMA (LOLOS FILTER DUPLIKASI KONTEN / DUPLICATE CONTENT):
+1. DILARANG menerjemahkan secara harafiah atau literal word-for-word.
+2. BANGUN KEMBALI setiap kalimat dengan struktur kalimat, metafora, idiom, dan ritme penceritaan khas penutur asli bahasa target.
+3. Hook pembuka (maksimal 30 detik) harus sangat memikat dan disesuaikan dengan selera penonton bahasa target.
+4. Tag arahan visual (Visual: ...) tetap dipertahankan dan diterjemahkan agar memudahkan editor video internasional.`
+  }
+};
+
+const PromptTemplateRepo = {
+  getAll() {
+    const stmt = db.prepare(`SELECT * FROM prompt_templates ORDER BY id ASC`);
+    return stmt.all();
+  },
+  getByKey(stageKey) {
+    const stmt = db.prepare(`SELECT * FROM prompt_templates WHERE stage_key = ?`);
+    return stmt.get(String(stageKey));
+  },
+  update(stageKey, data) {
+    const now = new Date().toISOString();
+    const stmt = db.prepare(`
+      UPDATE prompt_templates SET
+        name = COALESCE(?, name),
+        description = COALESCE(?, description),
+        prompt_content = COALESCE(?, prompt_content),
+        updated_at = ?
+      WHERE stage_key = ?
+    `);
+    stmt.run(
+      data.name ? data.name.trim() : null,
+      data.description !== undefined ? data.description : null,
+      data.prompt_content ? data.prompt_content.trim() : null,
+      now,
+      String(stageKey)
+    );
+    return this.getByKey(stageKey);
+  },
+  resetDefaults() {
+    const now = new Date().toISOString();
+    for (const [key, item] of Object.entries(DEFAULT_PROMPT_TEMPLATES)) {
+      const exists = this.getByKey(key);
+      if (exists) {
+        this.update(key, item);
+      } else {
+        db.prepare(`
+          INSERT INTO prompt_templates (stage_key, name, description, prompt_content, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?)
+        `).run(key, item.name, item.description, item.prompt_content, now, now);
+      }
+    }
+    return this.getAll();
+  }
+};
+
+// Repository for Global App Settings
+const SettingsRepo = {
+  get() {
+    const stmt = db.prepare(`SELECT * FROM app_settings WHERE id = 1`);
+    return stmt.get() || { id: 1, default_wpm: 140, max_hook_seconds: 30, default_gemini_model: 'auto', default_language: 'id' };
+  },
+  update(data) {
+    const stmt = db.prepare(`
+      UPDATE app_settings SET
+        default_wpm = COALESCE(?, default_wpm),
+        max_hook_seconds = COALESCE(?, max_hook_seconds),
+        default_gemini_model = COALESCE(?, default_gemini_model),
+        default_language = COALESCE(?, default_language),
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = 1
+    `);
+    stmt.run(
+      data.default_wpm !== undefined ? Number(data.default_wpm) : null,
+      data.max_hook_seconds !== undefined ? Number(data.max_hook_seconds) : null,
+      data.default_gemini_model ? String(data.default_gemini_model).trim() : null,
+      data.default_language ? String(data.default_language).trim() : null
+    );
+    return this.get();
+  }
+};
+
 // Seed sample project if database is empty
 (function seedInitialData() {
   const countStmt = db.prepare(`SELECT COUNT(*) as count FROM projects`);
@@ -693,6 +1131,94 @@ const ChannelRepo = {
       console.error('Key migration error:', e);
     }
   }
+
+  // Seed Personas if empty
+  const personaCount = db.prepare(`SELECT COUNT(*) as count FROM personas`).get().count;
+  if (personaCount === 0) {
+    PersonaRepo.create({
+      key: 'teman_ngopi',
+      name: 'Lo-Gue Santai (Teman Ngopi)',
+      description: 'Gaya santai, akrab, natural seperti teman nongkrong di warkop/kafe tanpa lelucon garing.',
+      tone_prompt: 'Gaya Tutur: Santai seperti teman nongkrong di warkop/kafe. Gunakan kata sapaan "Lu" dan "Gua". Hindari lelucon garing atau slang berlebihan yang canggung. Alur cerita disampaikan mengalir, ekspresif, dan membuat penonton penasaran tanpa terkesan membaca skrip kaku.',
+      is_default: 1
+    });
+    PersonaRepo.create({
+      key: 'kritis_serius',
+      name: 'Kritis & Analitis',
+      description: 'Fokus pada tensi cerita, motif karakter, dan konsekuensi psikologis.',
+      tone_prompt: 'Gaya Tutur: Kritis, berbobot, dan analitis. Soroti motif psikologis karakter, twist plot, dan konsekuensi tindakan tokoh. Gunakan bahasa semi-formal yang tajam dan berwibawa.',
+      is_default: 0
+    });
+    PersonaRepo.create({
+      key: 'semi_formal',
+      name: 'Semi-Formal Hangat',
+      description: 'Estetis dan berkelas, sangat cocok untuk drama emosional, biopik, atau film klasik.',
+      tone_prompt: 'Gaya Tutur: Semi-formal, hangat, dan menghormati karya film. Cocok untuk film klasik, biopik, atau drama emosional. Bahasan runtut, pemilihan kata estetis dan berkelas.',
+      is_default: 0
+    });
+    PersonaRepo.create({
+      key: 'engaging_storyteller',
+      name: 'Engaging Storyteller',
+      description: 'Ritme cepat, dinamis, berenergi tinggi dengan pertanyaan retoris pemantik rasa penasaran.',
+      tone_prompt: 'Gaya Tutur: Cepat, dinamis, berenergi tinggi, dan interaktif. Sering melempar pertanyaan retoris pemancing rasa penasaran audiens. Ritme narasi cepat dan memikat.',
+      is_default: 0
+    });
+    PersonaRepo.create({
+      key: 'cinematic_intense',
+      name: 'Cinematic & Intense',
+      description: 'Dramatis, tegang, dan mencekam. Menekankan ketegangan atmosfer thriller/horor/aksi.',
+      tone_prompt: 'Gaya Tutur: Dramatis, mencekam, dan mendalam. Beri penekanan pada ketegangan adegan, atmosfer horor/thriller, dan emosi yang meledak-ledak.',
+      is_default: 0
+    });
+    console.log('🎭 Berhasil inisialisasi persona gaya tutur default di SQLite.');
+  }
+
+  // Seed TTS Voices if empty
+  const voiceCount = db.prepare(`SELECT COUNT(*) as count FROM tts_voices`).get().count;
+  if (voiceCount === 0) {
+    // Kokoro-82M Voices
+    TtsVoiceRepo.create({ model: 'kokoro', voice_code: 'am_michael', display_name: 'Michael (Santai & Dalam)', gender: 'male', description: 'Suara pria narator alur cerita favorit, intonasi tenang dan artikulatif', is_default: 1 });
+    TtsVoiceRepo.create({ model: 'kokoro', voice_code: 'am_adam', display_name: 'Adam (Hangat & Ramah)', gender: 'male', description: 'Suara pria ramah, tempo natural', is_default: 0 });
+    TtsVoiceRepo.create({ model: 'kokoro', voice_code: 'af_bella', display_name: 'Bella (Ekspresif & Jelas)', gender: 'female', description: 'Suara wanita ekspresif dan jernih', is_default: 0 });
+    TtsVoiceRepo.create({ model: 'kokoro', voice_code: 'af_nicole', display_name: 'Nicole (Lembut & Elegan)', gender: 'female', description: 'Suara wanita lembut, cocok untuk drama', is_default: 0 });
+    TtsVoiceRepo.create({ model: 'kokoro', voice_code: 'bf_alice', display_name: 'Alice (Aksen British)', gender: 'female', description: 'Suara aksen British elegan', is_default: 0 });
+    TtsVoiceRepo.create({ model: 'kokoro', voice_code: 'bm_george', display_name: 'George (Aksen British Berat)', gender: 'male', description: 'Suara pria berwibawa aksen British', is_default: 0 });
+
+    // Nari Dia-1.6B Speakers
+    TtsVoiceRepo.create({ model: 'dia', voice_code: 'S1', display_name: '[S1] Narator Utama (Penuh Emosi & Bernyawa)', gender: 'male', description: 'Speaker 1 Dia-1.6B: Intonasi dinamis penuh emosi', is_default: 1 });
+    TtsVoiceRepo.create({ model: 'dia', voice_code: 'S2', display_name: '[S2] Karakter Pendukung (Santai & Dinamis)', gender: 'female', description: 'Speaker 2 Dia-1.6B: Karakter kedua santai', is_default: 0 });
+    TtsVoiceRepo.create({ model: 'dia', voice_code: 'multi', display_name: 'Multi-Speaker [S1] + [S2] (Dialog Percakapan)', gender: 'neutral', description: 'Dialog dinamis multi-speaker otomatis', is_default: 0 });
+    TtsVoiceRepo.create({ model: 'dia', voice_code: 'cinematic', display_name: 'Sinematik (Mendukung Tawa, Desah, Bisikan)', gender: 'neutral', description: 'Ekspresif sinematik dengan tawa & desah', is_default: 0 });
+
+    // Coqui XTTS v2 Voices
+    TtsVoiceRepo.create({ model: 'xtts', voice_code: 'id_male_1', display_name: 'Narator Indonesia (Pria Dewasa)', gender: 'male', description: 'Suara narator khas YouTube alur cerita Indonesia', is_default: 1 });
+    TtsVoiceRepo.create({ model: 'xtts', voice_code: 'id_female_1', display_name: 'Narator Indonesia (Wanita Hangat)', gender: 'female', description: 'Suara wanita bahasa Indonesia ramah', is_default: 0 });
+    TtsVoiceRepo.create({ model: 'xtts', voice_code: 'en_male_narrator', display_name: 'Movie Narrator (English Deep)', gender: 'male', description: 'Suara bahasa Inggris berat ala bioskop', is_default: 0 });
+
+    console.log('🎙️ Berhasil inisialisasi karakter suara TTS default di SQLite.');
+  }
+
+  // Seed Prompt Templates if empty
+  const promptCount = db.prepare(`SELECT COUNT(*) as count FROM prompt_templates`).get().count;
+  if (promptCount === 0) {
+    PromptTemplateRepo.resetDefaults();
+    console.log('📝 Berhasil inisialisasi template prompt AI multi-agent di SQLite.');
+  } else {
+    // Sync Stage 1 Prompt Template with Anti-Spoiler instructions if not yet updated
+    try {
+      const stage1Row = db.prepare(`SELECT prompt_content FROM prompt_templates WHERE stage_key = 'stage1_story'`).get();
+      if (stage1Row && !stage1Row.prompt_content.includes('ANTI-SPOILER')) {
+        PromptTemplateRepo.update('stage1_story', {
+          name: DEFAULT_PROMPT_TEMPLATES.stage1_story.name,
+          description: DEFAULT_PROMPT_TEMPLATES.stage1_story.description,
+          prompt_content: DEFAULT_PROMPT_TEMPLATES.stage1_story.prompt_content
+        });
+        console.log('🛡️ Berhasil sinkronisasi aturan Anti-Spoiler ke template prompt Stage 1 di SQLite.');
+      }
+    } catch (e) {
+      console.warn('Sync anti-spoiler prompt warning:', e.message);
+    }
+  }
 })();
 
 module.exports = {
@@ -700,5 +1226,9 @@ module.exports = {
   ProjectRepo,
   ApiKeyRepo,
   ChannelRepo,
-  TtsRepo
+  TtsRepo,
+  PersonaRepo,
+  TtsVoiceRepo,
+  PromptTemplateRepo,
+  SettingsRepo
 };
