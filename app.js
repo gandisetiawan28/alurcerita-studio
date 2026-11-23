@@ -599,6 +599,8 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     boxPasteSrtArea: document.getElementById('boxPasteSrtArea'),
     aiCutSrtTextArea: document.getElementById('aiCutSrtTextArea'),
     aiCutFocusHint: document.getElementById('aiCutFocusHint'),
+    aiCutMaxDuration: document.getElementById('aiCutMaxDuration'),
+    aiCutDurationBanner: document.getElementById('aiCutDurationBanner'),
     aiCutMaxClips: document.getElementById('aiCutMaxClips'),
     inputCustomMaxClips: document.getElementById('inputCustomMaxClips'),
     btnRunAiSrtAnalysis: document.getElementById('btnRunAiSrtAnalysis'),
@@ -5831,9 +5833,11 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     if (state.aiCutSelectedMedia) {
       formData.append('mediaId', state.aiCutSelectedMedia.id);
     }
+    const maxDurationSeconds = elements.aiCutMaxDuration ? parseFloat(elements.aiCutMaxDuration.value) || 5.0 : 5.0;
     formData.append('movieTitle', movieTitle);
     formData.append('focusHint', focusHint);
     formData.append('maxClips', maxClips);
+    formData.append('maxDurationSeconds', maxDurationSeconds);
 
     if (elements.btnRunAiSrtAnalysis) elements.btnRunAiSrtAnalysis.disabled = true;
     if (elements.aiCutAnalysisProgress) elements.aiCutAnalysisProgress.hidden = false;
@@ -5933,8 +5937,10 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
       const card = document.createElement('div');
       card.className = `ai-scene-item ${isSelected ? 'selected' : ''}`;
 
-      // Enforce < 3s display
-      const durSec = Math.max(0.5, Math.min(2.85, Math.round((parseFloat(scene.end_seconds) - parseFloat(scene.start_seconds)) * 100) / 100));
+      // Enforce duration display according to chosen duration limit
+      const isStrict = elements.aiCutMaxDuration && elements.aiCutMaxDuration.value === '3';
+      const maxCap = isStrict ? 2.85 : 4.85;
+      const durSec = Math.max(0.5, Math.min(maxCap, Math.round((parseFloat(scene.end_seconds) - parseFloat(scene.start_seconds)) * 100) / 100));
       const roleBadge = scene.narrative_role ? `<span class="badge badge-subtle" style="font-size: 10px;">${escapeHtml(scene.narrative_role)}</span>` : '';
 
       card.innerHTML = `
@@ -5945,7 +5951,7 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
             <strong class="scene-title-text">${escapeHtml(scene.title || `Adegan ${index + 1}`)}</strong>
             ${roleBadge}
           </div>
-          <span class="scene-timecode-chip">${scene.start_time} - ${scene.end_time} (⏱️ ${durSec}s • &lt; 3s)</span>
+          <span class="scene-timecode-chip">${scene.start_time} - ${scene.end_time} (⏱️ ${durSec}s • &lt; ${isStrict ? '3s' : '5s'})</span>
         </div>
 
         <div class="scene-dialogue-box">
@@ -6048,6 +6054,7 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
           scenes: selectedScenes,
           muteAudio: !keepAudio,
           mirror,
+          maxDurationSeconds: elements.aiCutMaxDuration ? parseFloat(elements.aiCutMaxDuration.value) || 5.0 : 5.0,
           projectId: state.currentProjectId || 0
         })
       });
@@ -6356,6 +6363,18 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     }
     if (elements.btnExtractEmbeddedSubs) {
       elements.btnExtractEmbeddedSubs.addEventListener('click', extractEmbeddedSubsFromVideo);
+    }
+    if (elements.aiCutMaxDuration && elements.aiCutDurationBanner) {
+      elements.aiCutMaxDuration.addEventListener('change', (e) => {
+        if (e.target.value === '3') {
+          elements.aiCutDurationBanner.innerHTML = '⚡ Standar Fair-Use: Durasi setiap cut scene wajib di bawah 3 detik (Maksimal 2.85s)';
+        } else {
+          elements.aiCutDurationBanner.innerHTML = '🎬 Standar Fair-Use: Durasi setiap cut scene 4 - 5 detik (Dialog utuh & dramatis)';
+        }
+        if (state.aiCuratedScenes && state.aiCuratedScenes.length > 0) {
+          renderAiScenesList();
+        }
+      });
     }
     if (elements.aiCutMaxClips && elements.inputCustomMaxClips) {
       elements.aiCutMaxClips.addEventListener('change', (e) => {

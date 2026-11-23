@@ -683,7 +683,8 @@ async function analyzeSrtForCutScenes({
   movieTitle = 'Film',
   channelPersona = 'alur_cerita',
   focusHint = '',
-  maxClips = 10,
+  maxClips = 'all',
+  maxDurationSeconds = 5.0,
   preferredModel = 'auto'
 }) {
   if (!srtEntries || srtEntries.length === 0) {
@@ -694,6 +695,11 @@ async function analyzeSrtForCutScenes({
   const condensedDialog = srtEntries.slice(0, 3500).map((item, idx) => 
     `[#${idx + 1}] ${item.startTime} -> ${item.endTime} (${item.duration}s) | ${item.text}`
   ).join('\n');
+
+  const maxDuration = parseFloat(maxDurationSeconds) || 5.0;
+  const isStrict3s = maxDuration <= 3.0;
+  const upperLimit = isStrict3s ? 2.85 : 4.85;
+  const minLimit = isStrict3s ? 1.5 : 2.5;
 
   let clipInstruction = '';
   const parsedMax = parseInt(maxClips, 10);
@@ -709,15 +715,14 @@ ${clipInstruction}
 
 ${focusHint ? `FOKUS KHUSUS PEMILIHAN DARI PENGGUNA:\n"${focusHint}"\n` : ''}
 
-KRITERIA WAJIB & ATURAN MUTLAK PEMILIHAN CUT SCENE:
-1. ATURAN DURASI MUTLAK: DURASI SETIAP SCENE TIDAK BOLEH LEBIH DARI 3 DETIK! WAJIB DI BAWAH 3 DETIK (DURASI MAKSIMAL 2.0 HINGGA 2.85 DETIK, DILARANG MENCAPAI ATAU MELEBIHI 3.0 DETIK).
-   - Rumus wajib: (end_seconds - start_seconds) <= 2.85 detik.
-   - Jika dialog asli di subtitle lebih panjang dari 3 detik, Anda WAJIB memotong dan mengambil HANYA kata kunci atau punchline terpentingnya saja (misal 2.0s - 2.8s) agar durasinya tetap DI BAWAH 3 DETIK.
-   - Ini adalah aturan wajib Fair-Use YouTube agar channel alur cerita bebas 100% dari klaim hak cipta (Content ID).
+KRITERIA WAJIB & ATURAN DURASI PEMILIHAN CUT SCENE:
+1. ATURAN DURASI SCENE: DURASI SETIAP SCENE HARUS BERKISAR ANTARA ${minLimit} HINGGA ${upperLimit} DETIK (DURASI MAKSIMAL ${upperLimit} DETIK, DILARANG MENCAPAI ATAU MELEBIHI ${maxDuration} DETIK).
+   - Rumus wajib: (end_seconds - start_seconds) <= ${upperLimit} detik.
+   - Ambil bagian dialog, punchline, atau kalimat penentu cerita yang utuh dan dramatis dengan durasi presisi ${minLimit}s s/d ${upperLimit}s agar aman untuk Fair-Use YouTube.
 2. PUNCHLINE & PLOT TWIST: Dialog pengungkapan rahasia, momen kejutan, atau kata-kata penentu cerita.
 3. MOMEN EMOSIONAL / DILEMA: Kalimat penuh ketakutan, keputusasaan, kemarahan, atau pengakuan mendalam tokoh.
 4. KATA KUNCI PERISTIWA (EVENT TRIGGER): Titik balik wabah, keputusan berbahaya, atau ancaman monster/musuh.
-5. BUFFER WAKTU CEPAT: Sesuaikan start_seconds dan end_seconds secara presisi sehingga durasi total klip berkisar 1.5 s/d 2.85 detik (TIDAK BOLEH LEBIH DARI 3 DETIK).
+5. BUFFER WAKTU CEPAT: Sesuaikan start_seconds dan end_seconds secara presisi sehingga durasi total klip berkisar ${minLimit} s/d ${upperLimit} detik.
 
 SUBTITLE & TIMECODE FILM (${movieTitle}):
 ${condensedDialog}
@@ -725,15 +730,15 @@ ${condensedDialog}
 FORMAT OUTPUT WAJIB:
 Hasilkan HANYA JSON VALID murni (tanpa format markdown tambahan seperti \`\`\`json):
 {
-  "summary": "Ringkasan kurasi: mengapa adegan-adegan ini dipilih untuk memperkuat alur cerita film ini (seluruh klip dipastikan berdurasi di bawah 3 detik)",
+  "summary": "Ringkasan kurasi: mengapa adegan-adegan ini dipilih untuk memperkuat alur cerita film ini (seluruh klip dipastikan berdurasi maksimal ${upperLimit} detik)",
   "scenes": [
     {
       "clip_number": 1,
       "title": "Judul Adegan Singkat & Padat",
       "start_time": "00:03:14.500",
-      "end_time": "00:03:17.300",
+      "end_time": "00:03:18.500",
       "start_seconds": 194.5,
-      "end_seconds": 197.3,
+      "end_seconds": 198.5,
       "dialogue": "Teks dialog atau potongan kalimat kunci dalam film",
       "dialogue_translated": "Terjemahan dialog bahasa Indonesia",
       "narrative_role": "Hook Pembuka / Titik Balik / Momen Emosional / Klimaks",
@@ -743,7 +748,7 @@ Hasilkan HANYA JSON VALID murni (tanpa format markdown tambahan seperti \`\`\`js
 }
 `;
 
-  console.log(`🤖 [AI Cut Scene Engine] Menganalisis subtitle untuk "${movieTitle}" (${srtEntries.length} baris, wajib < 3 detik)...`);
+  console.log(`🤖 [AI Cut Scene Engine] Menganalisis subtitle untuk "${movieTitle}" (${srtEntries.length} baris, target durasi: ${minLimit}s - ${upperLimit}s)...`);
   const result = await callGeminiSmartStage(prompt, `AI Cut Scene Detector (${movieTitle})`, preferredModel);
 
   if (!result || !result.text) {
@@ -768,18 +773,18 @@ Hasilkan HANYA JSON VALID murni (tanpa format markdown tambahan seperti \`\`\`js
     }
   }
 
-  // Enforce strict durasi klip < 3 detik di level data
+  // Enforce durasi klip sesuai target batas upperLimit di level data
   const rawScenes = Array.isArray(parsedJson.scenes) ? parsedJson.scenes : [];
   const sanitizedScenes = rawScenes.map((sc, idx) => {
     let startSec = Math.max(0, parseFloat(sc.start_seconds) || 0);
-    let endSec = parseFloat(sc.end_seconds) || (startSec + 2.8);
+    let endSec = parseFloat(sc.end_seconds) || (startSec + upperLimit);
     let diff = endSec - startSec;
 
-    // Strict enforcement: Tidak boleh >= 3.0 detik, wajib di bawah 3 detik (max 2.85s)
-    if (diff >= 3.0 || diff <= 0.3) {
-      endSec = Math.round((startSec + Math.min(2.85, Math.max(1.2, diff))) * 100) / 100;
-      if (endSec - startSec >= 3.0) {
-        endSec = Math.round((startSec + 2.85) * 100) / 100;
+    // Strict enforcement batas durasi scene
+    if (diff > upperLimit || diff < 0.5) {
+      endSec = Math.round((startSec + Math.min(upperLimit, Math.max(minLimit, diff))) * 100) / 100;
+      if (endSec - startSec > upperLimit) {
+        endSec = Math.round((startSec + upperLimit) * 100) / 100;
       }
     }
 

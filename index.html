@@ -1536,8 +1536,8 @@
                 <div>
                   <h3 class="pane-card-title">AI Smart Cut Scene (SRT & Dialog)</h3>
                   <p class="pane-card-desc">Gemini menganalisis seluruh dialog subtitle film untuk mendeteksi adegan kunci dan memotongnya otomatis.</p>
-                  <div style="display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; padding: 3px 8px; background: #FEF3C7; border: 1px solid #FCD34D; border-radius: 4px; font-size: 11px; font-weight: 700; color: #92400E;">
-                    ⚡ Standar Fair-Use: Durasi setiap cut scene wajib di bawah 3 detik (Maksimal 2.85s)
+                  <div id="aiCutDurationBanner" style="display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; padding: 3px 8px; background: #FEF3C7; border: 1px solid #FCD34D; border-radius: 4px; font-size: 11px; font-weight: 700; color: #92400E;">
+                    🎬 Standar Fair-Use: Durasi setiap cut scene 4 - 5 detik (Dialog utuh & dramatis)
                   </div>
                 </div>
               </div>
@@ -1594,6 +1594,14 @@
                 <div class="option-row" style="margin-top: 6px;">
                   <label for="aiCutFocusHint" class="form-label" style="font-size: 11.5px;">Fokus Adegan Khusus (Opsional):</label>
                   <input type="text" id="aiCutFocusHint" placeholder="Contoh: Fokus ke dialog ketakutan Brian, vaksin, dan adegan horor" class="form-input form-input-sm">
+                </div>
+
+                <div style="display: flex; gap: 8px; align-items: center; justify-content: space-between; margin-top: 6px;">
+                  <label for="aiCutMaxDuration" style="font-size: 11.5px; font-weight: 600; color: #475569;">Batas Durasi Adegan:</label>
+                  <select id="aiCutMaxDuration" class="form-select form-select-xs" style="width: 175px;">
+                    <option value="5" selected>⏱️ 4 - 5 Detik (Dialog Utuh)</option>
+                    <option value="3">⚡ &lt; 3 Detik (Strict Anti-Copyright)</option>
+                  </select>
                 </div>
 
                 <div style="display: flex; gap: 8px; align-items: center; justify-content: space-between; margin-top: 6px;">
@@ -3013,6 +3021,6 @@
   </div>
 
   <script src="audioEngine.js?v=1.1"></script>
-  <script src="app.js?v=3.4"></script>
+  <script src="app.js?v=3.5"></script>
 </body>
 </html>

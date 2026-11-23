@@ -1839,6 +1839,7 @@ app.post('/api/media/ai-analyze-srt', uploadMedia.single('file'), async (req, re
     const movieTitle = req.body.movieTitle || 'Film';
     const focusHint = req.body.focusHint || '';
     const maxClips = req.body.maxClips || 'all';
+    const maxDurationSeconds = parseFloat(req.body.maxDurationSeconds) || 5.0;
     const preferredModel = req.body.preferredModel || 'auto';
 
     if (req.file) {
@@ -1894,6 +1895,7 @@ app.post('/api/media/ai-analyze-srt', uploadMedia.single('file'), async (req, re
       movieTitle,
       focusHint,
       maxClips,
+      maxDurationSeconds,
       preferredModel
     });
 
@@ -1947,12 +1949,13 @@ app.post('/api/media/ai-batch-cut', async (req, res) => {
       const startSec = Math.max(0, parseFloat(sc.start_seconds) || 0);
       let endSec = parseFloat(sc.end_seconds) || (startSec + 2.8);
       
-      // SYARAT MUTLAK: Durasi scene cut-scene TIDAK BOLEH LEBIH DARI 3 DETIK (wajib di bawah 3 detik)
-      const MAX_SCENE_DURATION = 2.85; // Maksimal 2.85 detik (< 3s)
-      if ((endSec - startSec) >= 3.0) {
-        endSec = Math.round((startSec + MAX_SCENE_DURATION) * 100) / 100;
+      // Batas durasi cut-scene (default: hingga 4.85 detik, atau 2.85 detik jika mode ketat dipilih)
+      const maxAllowed = Math.max(2.85, Math.min(6.0, parseFloat(req.body.maxDurationSeconds) || 5.0));
+      const upperCap = maxAllowed <= 3.0 ? 2.85 : 4.85;
+      if ((endSec - startSec) > upperCap) {
+        endSec = Math.round((startSec + upperCap) * 100) / 100;
       } else if ((endSec - startSec) < 0.5) {
-        endSec = Math.round((startSec + 1.5) * 100) / 100;
+        endSec = Math.round((startSec + 2.0) * 100) / 100;
       }
       const duration = Math.round((endSec - startSec) * 100) / 100;
 
