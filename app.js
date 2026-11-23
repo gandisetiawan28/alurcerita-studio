@@ -306,6 +306,9 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     btnOpenAudioSuiteModal: document.getElementById('btnOpenAudioSuiteModal'),
     audioSuiteActiveDot: document.getElementById('audioSuiteActiveDot'),
     audioSuiteModal: document.getElementById('audioSuiteModal'),
+    btnToggleAudioDock: document.getElementById('btnToggleAudioDock'),
+    audioDockDot: document.getElementById('audioDockDot'),
+    audioDockTogglePill: document.getElementById('audioDockTogglePill'),
     btnCloseAudioSuiteModal: document.getElementById('btnCloseAudioSuiteModal'),
     btnCloseAudioSuiteFooter: document.getElementById('btnCloseAudioSuiteFooter'),
     btnOpenTtsInAudioSuite: document.getElementById('btnOpenTtsInAudioSuite'),
@@ -321,8 +324,11 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     recLiveBadge: document.getElementById('recLiveBadge'),
     recTimerDisplay: document.getElementById('recTimerDisplay'),
     recStatusLabel: document.getElementById('recStatusLabel'),
+    recAppendHint: document.getElementById('recAppendHint'),
     btnStartRecord: document.getElementById('btnStartRecord'),
     btnStartRecordText: document.getElementById('btnStartRecordText'),
+    btnRestartRecord: document.getElementById('btnRestartRecord'),
+    btnUndoAppendRecord: document.getElementById('btnUndoAppendRecord'),
     btnPauseResumeRecord: document.getElementById('btnPauseResumeRecord'),
     btnPauseResumeIcon: document.getElementById('btnPauseResumeIcon'),
     btnPauseResumeText: document.getElementById('btnPauseResumeText'),
@@ -339,6 +345,7 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     audioTrackStatusDot: document.getElementById('audioTrackStatusDot'),
     audioActiveTrackLabel: document.getElementById('audioActiveTrackLabel'),
     audioActiveFormatBadge: document.getElementById('audioActiveFormatBadge'),
+    btnDeckAppendRecord: document.getElementById('btnDeckAppendRecord'),
     btnAuditionRaw: document.getElementById('btnAuditionRaw'),
     btnAuditionMaster: document.getElementById('btnAuditionMaster'),
 
@@ -3545,6 +3552,21 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     if (!elements.audioSuiteModal) return;
     elements.audioSuiteModal.hidden = false;
 
+    // Update Dock Toggle UI state to ON
+    if (elements.btnToggleAudioDock) {
+      elements.btnToggleAudioDock.classList.add('active');
+      elements.btnToggleAudioDock.setAttribute('aria-pressed', 'true');
+    }
+    if (elements.audioDockTogglePill) {
+      elements.audioDockTogglePill.textContent = 'ON';
+    }
+    if (elements.audioSuiteActiveDot) {
+      elements.audioSuiteActiveDot.classList.add('active');
+    }
+
+    // Auto adapt visualizer canvases to dock width
+    resizeAudioCanvases();
+
     // Load available Presets from SQLite
     await fetchAudioPresetsList();
 
@@ -3562,6 +3584,8 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
       await loadAudioTrackFromUrl(options.autoLoadTtsUrl, options.autoLoadFilename || 'Voiceover Proyek');
       // Auto select TTS Voice Healer preset
       applyPresetToEngine('tts_healer');
+    } else if (window.AlurAudioEngine && window.AlurAudioEngine.voiceBuffer) {
+      updateAudioTrackDisplay(state.audioSuite.loadedTrackName, 'Loaded');
     }
 
     startAudioVisualizerLoop();
@@ -3577,6 +3601,48 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     }
     stopAudioVisualizerLoop();
     elements.audioSuiteModal.hidden = true;
+
+    // Update Dock Toggle UI state to OFF
+    if (elements.btnToggleAudioDock) {
+      elements.btnToggleAudioDock.classList.remove('active');
+      elements.btnToggleAudioDock.setAttribute('aria-pressed', 'false');
+    }
+    if (elements.audioDockTogglePill) {
+      elements.audioDockTogglePill.textContent = 'OFF';
+    }
+    if (elements.audioSuiteActiveDot) {
+      elements.audioSuiteActiveDot.classList.remove('active');
+    }
+  }
+
+  function toggleAudioDock(forceState = null) {
+    if (!elements.audioSuiteModal) return;
+    const isCurrentlyHidden = elements.audioSuiteModal.hidden;
+    const shouldOpen = (forceState !== null) ? Boolean(forceState) : isCurrentlyHidden;
+
+    if (shouldOpen) {
+      openAudioSuiteModal();
+    } else {
+      closeAudioSuiteModal();
+    }
+  }
+
+  function resizeAudioCanvases() {
+    if (elements.audioWaveformCanvas && elements.audioWaveformCanvas.parentElement) {
+      const w = elements.audioWaveformCanvas.parentElement.clientWidth;
+      if (w > 50) {
+        elements.audioWaveformCanvas.width = w;
+        if (window.AlurAudioEngine && window.AlurAudioEngine.voiceBuffer) {
+          window.AlurAudioEngine.drawWaveform(elements.audioWaveformCanvas, window.AlurAudioEngine.getCurrentTime());
+        }
+      }
+    }
+    if (elements.recOscilloscopeCanvas && elements.recOscilloscopeCanvas.parentElement) {
+      const w = elements.recOscilloscopeCanvas.parentElement.clientWidth;
+      if (w > 50) {
+        elements.recOscilloscopeCanvas.width = w;
+      }
+    }
   }
 
   function switchAudioSourceTab(targetTabId) {
@@ -3619,10 +3685,27 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     if (elements.waveformEmptyState) elements.waveformEmptyState.hidden = true;
 
     if (window.AlurAudioEngine && window.AlurAudioEngine.voiceBuffer) {
+      const dur = window.AlurAudioEngine.voiceBuffer.duration;
       if (elements.audioTimeTotal) {
-        elements.audioTimeTotal.textContent = formatAudioSeconds(window.AlurAudioEngine.voiceBuffer.duration);
+        elements.audioTimeTotal.textContent = formatAudioSeconds(dur);
       }
       window.AlurAudioEngine.drawWaveform(elements.audioWaveformCanvas, 0);
+
+      // Show quick append button on deck if audio is loaded
+      if (elements.btnDeckAppendRecord) elements.btnDeckAppendRecord.hidden = false;
+
+      // Update Recording UI to Append State so user knows they can continue recording seamlessly!
+      if (elements.btnStartRecordText) elements.btnStartRecordText.textContent = 'Lanjutkan Rekam (Sambung Audio)';
+      if (elements.recAppendHint) elements.recAppendHint.hidden = false;
+      if (elements.btnRestartRecord) elements.btnRestartRecord.hidden = false;
+      if (elements.recTimerDisplay) elements.recTimerDisplay.textContent = formatAudioSeconds(dur);
+      if (elements.recStatusLabel) elements.recStatusLabel.textContent = `Track aktif (${formatAudioSeconds(dur)}). Klik "Lanjutkan Rekam" untuk menyambung audio baru ke akhir track tanpa menimpa.`;
+    } else {
+      if (elements.btnDeckAppendRecord) elements.btnDeckAppendRecord.hidden = true;
+      if (elements.btnStartRecordText) elements.btnStartRecordText.textContent = 'Mulai Merekam Mic';
+      if (elements.recAppendHint) elements.recAppendHint.hidden = true;
+      if (elements.btnRestartRecord) elements.btnRestartRecord.hidden = true;
+      if (elements.btnUndoAppendRecord) elements.btnUndoAppendRecord.hidden = true;
     }
   }
 
@@ -3688,10 +3771,15 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
   }
 
   // --- RECORDING CONTROLS ---
-  async function handleStartRecording() {
+  async function handleStartRecording(forceAppend = null) {
     if (!window.AlurAudioEngine) return;
     try {
+      const hasExistingAudio = Boolean(window.AlurAudioEngine.voiceBuffer);
+      const isAppend = (forceAppend !== null) ? Boolean(forceAppend) : hasExistingAudio;
+
       if (elements.btnStartRecord) elements.btnStartRecord.hidden = true;
+      if (elements.btnRestartRecord) elements.btnRestartRecord.hidden = true;
+      if (elements.btnUndoAppendRecord) elements.btnUndoAppendRecord.hidden = true;
       if (elements.btnPauseResumeRecord) {
         elements.btnPauseResumeRecord.hidden = false;
         elements.btnPauseResumeText.textContent = 'Jeda';
@@ -3699,13 +3787,17 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
       }
       if (elements.btnStopRecord) elements.btnStopRecord.hidden = false;
       if (elements.recLiveBadge) elements.recLiveBadge.hidden = false;
-      if (elements.recStatusLabel) elements.recStatusLabel.textContent = 'Sedang merekam... Bicaralah dengan artikulasi jelas.';
+      if (elements.recStatusLabel) {
+        elements.recStatusLabel.textContent = isAppend
+          ? 'Sedang merekam sambungan narasi... Bicaralah dengan artikulasi jelas.'
+          : 'Sedang merekam narasi... Bicaralah dengan artikulasi jelas.';
+      }
 
       await window.AlurAudioEngine.startRecording((seconds) => {
         if (elements.recTimerDisplay) {
           elements.recTimerDisplay.textContent = formatAudioSeconds(seconds);
         }
-      });
+      }, isAppend);
     } catch (err) {
       console.error(err);
       showToast(`Akses mikrofon ditolak: ${err.message}`, 'error');
@@ -3740,9 +3832,15 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
       if (res && res.buffer) {
         state.audioSuite.loadedTrackName = `🎙️ Rekaman Mic (${formatAudioSeconds(res.duration)})`;
         updateAudioTrackDisplay(state.audioSuite.loadedTrackName, 'WAV 48kHz');
-        // Auto apply YouTube Recap Gold
-        applyPresetToEngine('youtube_recap');
-        showToast('Rekaman mic berhasil dimuat ke DSP Rack!');
+
+        if (res.isAppended) {
+          if (elements.btnUndoAppendRecord) elements.btnUndoAppendRecord.hidden = false;
+          showToast(`Rekaman berhasil disambungkan! Total durasi sekarang: ${formatAudioSeconds(res.duration)}.`);
+        } else {
+          // Auto apply YouTube Recap Gold
+          applyPresetToEngine('youtube_recap');
+          showToast('Rekaman mic berhasil dimuat ke DSP Rack!');
+        }
       }
     } catch (err) {
       console.error(err);
@@ -3751,13 +3849,78 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     }
   }
 
+  function handleRestartRecord() {
+    if (!window.AlurAudioEngine) return;
+    if (!confirm('Apakah Anda yakin ingin menghapus rekaman saat ini dan mulai rekam baru dari awal (00:00)?')) {
+      return;
+    }
+    window.AlurAudioEngine.stop();
+    window.AlurAudioEngine.voiceBuffer = null;
+    window.AlurAudioEngine.previousVoiceBuffer = null;
+    state.audioSuite.loadedTrackName = null;
+
+    if (elements.audioActiveTrackLabel) elements.audioActiveTrackLabel.textContent = 'Belum ada audio dimuat';
+    if (elements.audioActiveFormatBadge) elements.audioActiveFormatBadge.textContent = '-';
+    if (elements.audioTrackStatusDot) elements.audioTrackStatusDot.classList.remove('active');
+    if (elements.waveformEmptyState) elements.waveformEmptyState.hidden = false;
+    if (elements.audioTimeTotal) elements.audioTimeTotal.textContent = '00:00';
+    if (elements.audioTimeCurrent) elements.audioTimeCurrent.textContent = '00:00';
+    if (elements.btnDeckAppendRecord) elements.btnDeckAppendRecord.hidden = true;
+
+    if (elements.audioWaveformCanvas) {
+      const ctx = elements.audioWaveformCanvas.getContext('2d');
+      ctx.clearRect(0, 0, elements.audioWaveformCanvas.width, elements.audioWaveformCanvas.height);
+    }
+
+    resetRecordUi();
+    showToast('Rekaman direset. Anda dapat mulai merekam dari awal.', 'info');
+  }
+
+  function handleUndoAppendRecord() {
+    if (!window.AlurAudioEngine) return;
+    const prevBuffer = window.AlurAudioEngine.undoAppendRecording();
+    if (prevBuffer) {
+      state.audioSuite.loadedTrackName = `🎙️ Rekaman Mic (${formatAudioSeconds(prevBuffer.duration)})`;
+      updateAudioTrackDisplay(state.audioSuite.loadedTrackName, 'WAV 48kHz');
+      if (elements.btnUndoAppendRecord) elements.btnUndoAppendRecord.hidden = true;
+      resetRecordUi();
+      showToast(`Sambungan rekaman terakhir dibatalkan. Durasi kembali ke ${formatAudioSeconds(prevBuffer.duration)}.`);
+    } else {
+      showToast('Tidak ada rekaman sebelumnya yang dapat di-undo.', 'warning');
+    }
+  }
+
+  function handleDeckAppendRecord() {
+    switchAudioSourceTab('audioSourceTabMic');
+    if (elements.audioSourceTabMic) {
+      elements.audioSourceTabMic.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+    if (window.AlurAudioEngine && !window.AlurAudioEngine.isRecording) {
+      handleStartRecording(true);
+    }
+  }
+
   function resetRecordUi() {
     if (elements.btnStartRecord) elements.btnStartRecord.hidden = false;
     if (elements.btnPauseResumeRecord) elements.btnPauseResumeRecord.hidden = true;
     if (elements.btnStopRecord) elements.btnStopRecord.hidden = true;
     if (elements.recLiveBadge) elements.recLiveBadge.hidden = true;
-    if (elements.recTimerDisplay) elements.recTimerDisplay.textContent = '00:00';
-    if (elements.recStatusLabel) elements.recStatusLabel.textContent = 'Mikrofon siap. Klik tombol merah untuk merekam narasi utuh.';
+
+    if (window.AlurAudioEngine && window.AlurAudioEngine.voiceBuffer) {
+      const dur = window.AlurAudioEngine.voiceBuffer.duration;
+      if (elements.btnStartRecordText) elements.btnStartRecordText.textContent = 'Lanjutkan Rekam (Sambung Audio)';
+      if (elements.recAppendHint) elements.recAppendHint.hidden = false;
+      if (elements.btnRestartRecord) elements.btnRestartRecord.hidden = false;
+      if (elements.recTimerDisplay) elements.recTimerDisplay.textContent = formatAudioSeconds(dur);
+      if (elements.recStatusLabel) elements.recStatusLabel.textContent = `Rekaman tersimpan (${formatAudioSeconds(dur)}). Klik tombol untuk melanjutkan/menyambung rekaman tanpa menimpa.`;
+    } else {
+      if (elements.btnStartRecordText) elements.btnStartRecordText.textContent = 'Mulai Merekam Mic';
+      if (elements.recAppendHint) elements.recAppendHint.hidden = true;
+      if (elements.btnRestartRecord) elements.btnRestartRecord.hidden = true;
+      if (elements.btnUndoAppendRecord) elements.btnUndoAppendRecord.hidden = true;
+      if (elements.recTimerDisplay) elements.recTimerDisplay.textContent = '00:00';
+      if (elements.recStatusLabel) elements.recStatusLabel.textContent = 'Mikrofon siap. Klik tombol merah untuk merekam narasi utuh.';
+    }
   }
 
   // --- FILE UPLOAD ---
@@ -4499,10 +4662,12 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     if (elements.btnCloseTranslateModalFooter) elements.btnCloseTranslateModalFooter.addEventListener('click', closeTranslateModal);
     if (elements.btnTriggerTranscreate) elements.btnTriggerTranscreate.addEventListener('click', handleTranscreateScript);
 
-    // Audio Mixing & Mastering Suite Modal
-    if (elements.btnOpenAudioSuiteModal) elements.btnOpenAudioSuiteModal.addEventListener('click', () => openAudioSuiteModal());
+    // Audio Mixing & Mastering Suite Dock / Side Panel
+    if (elements.btnToggleAudioDock) elements.btnToggleAudioDock.addEventListener('click', () => toggleAudioDock());
+    if (elements.btnOpenAudioSuiteModal) elements.btnOpenAudioSuiteModal.addEventListener('click', () => toggleAudioDock());
     if (elements.btnCloseAudioSuiteModal) elements.btnCloseAudioSuiteModal.addEventListener('click', closeAudioSuiteModal);
     if (elements.btnCloseAudioSuiteFooter) elements.btnCloseAudioSuiteFooter.addEventListener('click', closeAudioSuiteModal);
+    window.addEventListener('resize', resizeAudioCanvases);
     if (elements.btnOpenTtsInAudioSuite) {
       elements.btnOpenTtsInAudioSuite.addEventListener('click', () => {
         const audioUrl = elements.btnDownloadTtsWav ? elements.btnDownloadTtsWav.href : '';
@@ -4518,9 +4683,12 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     if (elements.tabBtnAudioTts) elements.tabBtnAudioTts.addEventListener('click', () => switchAudioSourceTab('audioSourceTabTts'));
 
     // Recording Actions
-    if (elements.btnStartRecord) elements.btnStartRecord.addEventListener('click', handleStartRecording);
+    if (elements.btnStartRecord) elements.btnStartRecord.addEventListener('click', () => handleStartRecording());
     if (elements.btnPauseResumeRecord) elements.btnPauseResumeRecord.addEventListener('click', handlePauseResumeRecording);
     if (elements.btnStopRecord) elements.btnStopRecord.addEventListener('click', handleStopRecording);
+    if (elements.btnRestartRecord) elements.btnRestartRecord.addEventListener('click', handleRestartRecord);
+    if (elements.btnUndoAppendRecord) elements.btnUndoAppendRecord.addEventListener('click', handleUndoAppendRecord);
+    if (elements.btnDeckAppendRecord) elements.btnDeckAppendRecord.addEventListener('click', handleDeckAppendRecord);
 
     // Audio File Dropzone & Browse
     if (elements.btnBrowseAudioFile) elements.btnBrowseAudioFile.addEventListener('click', () => elements.audioFileInput && elements.audioFileInput.click());

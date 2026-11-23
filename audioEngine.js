@@ -154,8 +154,11 @@
       this.recordingStream = null;
       this.recordingTimer = null;
       this.recordingSeconds = 0;
+      this.recordingBaseSeconds = 0;
       this.isRecording = false;
       this.isRecordingPaused = false;
+      this.isAppendRecording = false;
+      this.previousVoiceBuffer = null;
       this.recordAnalyserNode = null;
     }
 
@@ -807,11 +810,21 @@
     }
 
     // -------------------------------------------------------------------------
-    // Live Microphone Recording Suite
+    // Live Microphone Recording Suite (Supports Pause, Stop, & Append Continuity)
     // -------------------------------------------------------------------------
-    async startRecording(onTickCallback) {
+    async startRecording(onTickCallback, appendMode = false) {
       this.initContext();
       if (this.isRecording) return;
+
+      this.isAppendRecording = Boolean(appendMode && this.voiceBuffer);
+      if (this.isAppendRecording) {
+        this.previousVoiceBuffer = this.voiceBuffer;
+        this.recordingBaseSeconds = Math.round(this.voiceBuffer.duration);
+        this.recordingSeconds = this.recordingBaseSeconds;
+      } else {
+        this.recordingBaseSeconds = 0;
+        this.recordingSeconds = 0;
+      }
 
       this.recordingStream = await navigator.mediaDevices.getUserMedia({
         audio: {
@@ -849,7 +862,11 @@
       this.mediaRecorder.start(200); // 200ms slice
       this.isRecording = true;
       this.isRecordingPaused = false;
-      this.recordingSeconds = 0;
+
+      // Initial tick callback
+      if (typeof onTickCallback === 'function') {
+        onTickCallback(this.recordingSeconds);
+      }
 
       this.recordingTimer = setInterval(() => {
         if (!this.isRecordingPaused) {
@@ -896,20 +913,68 @@
             const rawBlob = new Blob(this.recordedChunks, { type: mimeType });
             const arrayBuffer = await rawBlob.arrayBuffer();
 
-            // Decode into AudioBuffer
-            this.voiceBuffer = await this.ctx.decodeAudioData(arrayBuffer);
+            // Decode newly recorded audio into AudioBuffer
+            const newlyRecordedBuffer = await this.ctx.decodeAudioData(arrayBuffer);
+
+            // If append mode is active, seamlessly concatenate without overwriting!
+            if (this.isAppendRecording && this.previousVoiceBuffer) {
+              this.voiceBuffer = await this.concatAudioBuffers(this.previousVoiceBuffer, newlyRecordedBuffer);
+            } else {
+              this.voiceBuffer = newlyRecordedBuffer;
+            }
+
             resolve({
               blob: rawBlob,
               buffer: this.voiceBuffer,
-              duration: this.voiceBuffer.duration
+              duration: this.voiceBuffer.duration,
+              isAppended: this.isAppendRecording
             });
           } catch (err) {
             reject(err);
           }
         };
 
-        this.mediaRecorder.stop();
+        try {
+          this.mediaRecorder.stop();
+        } catch (e) {
+          console.warn('MediaRecorder stop warning:', e);
+        }
       });
+    }
+
+    async concatAudioBuffers(buffer1, buffer2) {
+      if (!buffer1) return buffer2;
+      if (!buffer2) return buffer1;
+
+      const sampleRate = buffer1.sampleRate || 48000;
+      const numChannels = Math.max(buffer1.numberOfChannels, buffer2.numberOfChannels);
+      const totalDuration = buffer1.duration + buffer2.duration;
+      const totalLength = Math.ceil(totalDuration * sampleRate);
+
+      const OfflineCtx = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+      const offlineCtx = new OfflineCtx(numChannels, totalLength, sampleRate);
+
+      // Source 1 (Existing audio)
+      const src1 = offlineCtx.createBufferSource();
+      src1.buffer = buffer1;
+      src1.connect(offlineCtx.destination);
+      src1.start(0);
+
+      // Source 2 (Newly recorded take, starts right when buffer1 ends)
+      const src2 = offlineCtx.createBufferSource();
+      src2.buffer = buffer2;
+      src2.connect(offlineCtx.destination);
+      src2.start(buffer1.duration);
+
+      return await offlineCtx.startRendering();
+    }
+
+    undoAppendRecording() {
+      if (!this.previousVoiceBuffer) return null;
+      this.voiceBuffer = this.previousVoiceBuffer;
+      this.previousVoiceBuffer = null;
+      this.isAppendRecording = false;
+      return this.voiceBuffer;
     }
 
     // -------------------------------------------------------------------------
