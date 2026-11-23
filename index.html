@@ -1647,7 +1647,7 @@
                   <span>Opsi Pemotongan Video Klip</span>
                 </div>
 
-                <div class="options-compact-row">
+                <div class="options-compact-row" style="display: flex; flex-wrap: wrap; gap: 8px;">
                   <label class="toggle-compact" title="Pertahankan suara dialog film asli agar penonton mendengar kalimat ikonik film">
                     <input type="checkbox" id="checkAiKeepDialogAudio" checked>
                     <span>Sertakan Suara Dialog Asli</span>
@@ -1655,6 +1655,14 @@
                   <label class="toggle-compact" title="Balik video horizontal untuk mengurangi deteksi visual Content ID">
                     <input type="checkbox" id="checkAiMirrorCut">
                     <span>Mirror Visual</span>
+                  </label>
+                  <label class="toggle-compact" title="Lebihkan waktu ±0.5 detik sebelum dan sesudah adegan agar audio dialog tidak terpotong">
+                    <input type="checkbox" id="checkAiAudioPadding" checked>
+                    <span>Buffer Audio Dialog (±0.5s)</span>
+                  </label>
+                  <label class="toggle-compact" title="Terapkan fade-in dan fade-out audio halus 80ms agar potongan musik/suara tidak berbunyi klik kasar">
+                    <input type="checkbox" id="checkAiAudioFade" checked>
+                    <span>Audio Smooth (Anti-Klik)</span>
                   </label>
                 </div>
 
@@ -3022,6 +3030,6 @@
   </div>
 
   <script src="audioEngine.js?v=1.1"></script>
-  <script src="app.js?v=3.6"></script>
+  <script src="app.js?v=3.7"></script>
 </body>
 </html>

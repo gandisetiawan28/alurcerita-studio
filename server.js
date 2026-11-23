@@ -1915,7 +1915,18 @@ app.post('/api/media/ai-analyze-srt', uploadMedia.single('file'), async (req, re
 // 9. Batch Cut Video Scenes via FFmpeg
 app.post('/api/media/ai-batch-cut', async (req, res) => {
   try {
-    const { mediaId, videoPath, scenes, muteAudio = false, mirror = false, speed = 1.0, projectId = 0 } = req.body;
+    const { 
+      mediaId, 
+      videoPath, 
+      scenes, 
+      muteAudio = false, 
+      mirror = false, 
+      speed = 1.0, 
+      projectId = 0,
+      audioPadding = true,
+      audioFade = true,
+      paddingSeconds = 0.5
+    } = req.body;
 
     if (!Array.isArray(scenes) || scenes.length === 0) {
       return res.status(400).json({ success: false, error: 'Daftar adegan yang akan dipotong tidak boleh kosong.' });
@@ -1947,17 +1958,43 @@ app.post('/api/media/ai-batch-cut', async (req, res) => {
 
     for (let i = 0; i < scenes.length; i++) {
       const sc = scenes[i];
-      const startSec = Math.max(0, parseFloat(sc.start_seconds) || 0);
-      let endSec = parseFloat(sc.end_seconds) || (startSec + 2.8);
+      const rawStart = Math.max(0, parseFloat(sc.start_seconds) || 0);
+      let rawEnd = parseFloat(sc.end_seconds) || (rawStart + 2.8);
+      if (rawEnd <= rawStart) rawEnd = rawStart + 2.0;
       
       // Batas durasi cut-scene (default: hingga 4.85 detik, atau 2.85 detik jika mode ketat dipilih)
       const maxAllowed = Math.max(2.85, Math.min(6.0, parseFloat(req.body.maxDurationSeconds) || 5.0));
       const upperCap = maxAllowed <= 3.0 ? 2.85 : 4.85;
-      if ((endSec - startSec) > upperCap) {
-        endSec = Math.round((startSec + upperCap) * 100) / 100;
-      } else if ((endSec - startSec) < 0.5) {
-        endSec = Math.round((startSec + 2.0) * 100) / 100;
+
+      let startSec = rawStart;
+      let endSec = rawEnd;
+
+      // Smart Padding (Buffer Audio Dialog ±0.5s sebelum dan sesudah)
+      if (audioPadding) {
+        const pad = Math.max(0.1, Math.min(1.0, parseFloat(paddingSeconds) || 0.5));
+        const rawDur = rawEnd - rawStart;
+        if (rawDur >= upperCap) {
+          const excess = rawDur - upperCap;
+          startSec = Math.max(0, rawStart + (excess / 2));
+          endSec = startSec + upperCap;
+        } else {
+          const availablePad = upperCap - rawDur;
+          const padBefore = Math.min(pad, availablePad / 2);
+          const padAfter = Math.min(pad, availablePad - padBefore);
+          startSec = Math.max(0, rawStart - padBefore);
+          endSec = rawEnd + padAfter;
+          if ((endSec - startSec) > upperCap) endSec = startSec + upperCap;
+        }
+      } else {
+        if ((endSec - startSec) > upperCap) {
+          endSec = Math.round((startSec + upperCap) * 100) / 100;
+        } else if ((endSec - startSec) < 0.5) {
+          endSec = Math.round((startSec + 2.0) * 100) / 100;
+        }
       }
+
+      startSec = Math.round(startSec * 100) / 100;
+      endSec = Math.round(endSec * 100) / 100;
       const duration = Math.round((endSec - startSec) * 100) / 100;
 
       const cleanTitle = (sc.title || `Clip_${i+1}`).replace(/[^a-zA-Z0-9_\-\.]/g, '_').substring(0, 30);
@@ -1993,15 +2030,26 @@ app.post('/api/media/ai-batch-cut', async (req, res) => {
       if (muteAudio) {
         args.push('-an');
       } else {
+        let audioFilters = [];
         if (speed && speed !== 1.0) {
-          args.push('-filter:a', `atempo=${speed.toFixed(2)}`);
+          audioFilters.push(`atempo=${speed.toFixed(2)}`);
+        }
+        if (audioFade && duration >= 0.5) {
+          // Micro audio fade-in & fade-out (0.08s = 80ms) to prevent pop/click noise
+          const fadeDur = Math.min(0.08, duration / 8);
+          const fadeOutStart = Math.max(0, duration - fadeDur);
+          audioFilters.push(`afade=t=in:ss=0:d=${fadeDur.toFixed(3)}`);
+          audioFilters.push(`afade=t=out:st=${fadeOutStart.toFixed(3)}:d=${fadeDur.toFixed(3)}`);
+        }
+        if (audioFilters.length > 0) {
+          args.push('-af', audioFilters.join(','));
         }
         args.push('-c:a', 'aac', '-b:a', '192k');
       }
 
       args.push(outputPath);
 
-      console.log(`[FFmpeg Batch Cut #${i+1}] Memotong: ${startSec}s -> ${endSec}s (${duration}s) ke ${outFilename}`);
+      console.log(`[FFmpeg Batch Cut #${i+1}] Memotong: ${startSec}s -> ${endSec}s (${duration}s, pad: ${audioPadding}, fade: ${audioFade}) ke ${outFilename}`);
 
       await new Promise((resolve) => {
         const proc = spawn('ffmpeg', args, { windowsHide: true });

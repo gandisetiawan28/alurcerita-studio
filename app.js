@@ -610,6 +610,8 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     boxAiBatchCutControls: document.getElementById('boxAiBatchCutControls'),
     checkAiKeepDialogAudio: document.getElementById('checkAiKeepDialogAudio'),
     checkAiMirrorCut: document.getElementById('checkAiMirrorCut'),
+    checkAiAudioPadding: document.getElementById('checkAiAudioPadding'),
+    checkAiAudioFade: document.getElementById('checkAiAudioFade'),
     btnExecuteAiBatchCut: document.getElementById('btnExecuteAiBatchCut'),
     btnExecuteAiBatchCutText: document.getElementById('btnExecuteAiBatchCutText'),
     aiSelectedCountDisplay: document.getElementById('aiSelectedCountDisplay'),
@@ -5991,7 +5993,7 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
   }
 
   let aiCutPreviewTimer = null;
-  // Preview specific scene on video player with automatic cut stop
+  // Preview specific scene on video player with automatic cut stop & audio padding
   function previewAiScene(scene) {
     if (!elements.aiCutPreviewVideo) return;
     if (!state.aiCutSelectedMedia) {
@@ -6013,8 +6015,35 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     const maxLimit = elements.aiCutMaxDuration ? parseFloat(elements.aiCutMaxDuration.value) || 5.0 : 5.0;
     const upperCap = maxLimit <= 3.0 ? 2.85 : 4.85;
 
-    const startSec = Math.max(0, parseFloat(scene.start_seconds) || 0);
-    const endSec = Math.min(startSec + upperCap, Math.max(startSec + 0.5, parseFloat(scene.end_seconds) || (startSec + upperCap)));
+    const rawStart = Math.max(0, parseFloat(scene.start_seconds) || 0);
+    let rawEnd = parseFloat(scene.end_seconds) || (rawStart + upperCap);
+    if (rawEnd <= rawStart) rawEnd = rawStart + 2.0;
+
+    let startSec = rawStart;
+    let endSec = rawEnd;
+
+    const usePadding = elements.checkAiAudioPadding ? elements.checkAiAudioPadding.checked : true;
+    if (usePadding) {
+      const pad = 0.5;
+      const rawDur = rawEnd - rawStart;
+      if (rawDur >= upperCap) {
+        const excess = rawDur - upperCap;
+        startSec = Math.max(0, rawStart + (excess / 2));
+        endSec = startSec + upperCap;
+      } else {
+        const availablePad = upperCap - rawDur;
+        const padBefore = Math.min(pad, availablePad / 2);
+        const padAfter = Math.min(pad, availablePad - padBefore);
+        startSec = Math.max(0, rawStart - padBefore);
+        endSec = rawEnd + padAfter;
+        if ((endSec - startSec) > upperCap) endSec = startSec + upperCap;
+      }
+    } else {
+      if ((endSec - startSec) > upperCap) endSec = startSec + upperCap;
+    }
+
+    startSec = Math.round(startSec * 100) / 100;
+    endSec = Math.round(endSec * 100) / 100;
     const clipDurationMs = (endSec - startSec) * 1000;
     const durDisplay = Math.round((endSec - startSec) * 10) / 10;
 
@@ -6026,9 +6055,9 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
       elements.badgeAiPlayerMode.className = 'badge badge-subtle';
     }
     if (elements.badgeAiPlayerTimecode) {
-      elements.badgeAiPlayerTimecode.textContent = `${scene.start_time} (${durDisplay}s • < ${Math.ceil(upperCap)}s)`;
+      elements.badgeAiPlayerTimecode.textContent = `${formatSecondsToTimecode(startSec)} (${durDisplay}s • Buffer ±0.5s)`;
     }
-    showToast(`Memutar pratinjau adegan mentah: "${scene.title}" (${durDisplay}s)`);
+    showToast(`Memutar preview adegan: "${scene.title}" (${durDisplay}s)`);
 
     aiCutPreviewTimer = setTimeout(() => {
       if (elements.aiCutPreviewVideo && !elements.aiCutPreviewVideo.paused) {
@@ -6052,6 +6081,8 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
 
     const keepAudio = elements.checkAiKeepDialogAudio ? elements.checkAiKeepDialogAudio.checked : true;
     const mirror = elements.checkAiMirrorCut ? elements.checkAiMirrorCut.checked : false;
+    const audioPadding = elements.checkAiAudioPadding ? elements.checkAiAudioPadding.checked : true;
+    const audioFade = elements.checkAiAudioFade ? elements.checkAiAudioFade.checked : true;
 
     if (elements.btnExecuteAiBatchCut) elements.btnExecuteAiBatchCut.disabled = true;
     if (elements.aiCutBatchProgress) elements.aiCutBatchProgress.hidden = false;
@@ -6068,6 +6099,9 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
           scenes: selectedScenes,
           muteAudio: !keepAudio,
           mirror,
+          audioPadding,
+          audioFade,
+          paddingSeconds: 0.5,
           maxDurationSeconds: elements.aiCutMaxDuration ? parseFloat(elements.aiCutMaxDuration.value) || 5.0 : 5.0,
           projectId: state.currentProjectId || 0
         })
