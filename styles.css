@@ -3419,6 +3419,237 @@ button:active {
   margin: 0;
 }
 
+/* Upload Target Mode Selector */
+.upload-mode-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  background: #FFFFFF;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+}
+
+.upload-mode-label {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.upload-target-segmented {
+  display: flex;
+  background: #F1F5F9;
+  border-radius: 6px;
+  padding: 2px;
+  gap: 2px;
+}
+
+.upload-target-segmented .seg-btn {
+  font-size: 11px;
+  padding: 4px 9px;
+  border-radius: 4px;
+}
+
+.dropzone-btn-row {
+  margin-top: 8px;
+}
+
+/* Uploaded Sound File Info Card */
+.uploaded-sound-card {
+  margin-top: 12px;
+  background: #FFFFFF;
+  border: 1px solid #BFDBFE;
+  border-radius: 8px;
+  padding: 12px 14px;
+  box-shadow: 0 1px 3px rgba(37, 99, 235, 0.08);
+  animation: fadeIn 0.2s ease-in-out;
+}
+
+.sound-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.sound-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.sound-icon-badge {
+  font-size: 22px;
+  background: #EFF6FF;
+  padding: 6px;
+  border-radius: 8px;
+  border: 1px solid #DBEAFE;
+}
+
+.sound-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.sound-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: #0F172A;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 260px;
+}
+
+.sound-tags {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.badge-mini {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  background: #F1F5F9;
+  color: #475569;
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid #E2E8F0;
+}
+
+.badge-mini.green {
+  background: #ECFDF5;
+  color: #059669;
+  border-color: #A7F3D0;
+}
+
+/* Project Sound Library */
+.project-sound-library {
+  margin-top: 14px;
+  border-top: 1px solid #E2E8F0;
+  padding-top: 12px;
+}
+
+.library-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.library-title-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: #0F172A;
+}
+
+.count-pill {
+  font-size: 10.5px;
+  font-weight: 600;
+  background: #E2E8F0;
+  color: #475569;
+  padding: 1px 6px;
+  border-radius: 10px;
+}
+
+.sound-library-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 220px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.sound-library-empty {
+  font-size: 11.5px;
+  color: #94A3B8;
+  text-align: center;
+  padding: 18px 10px;
+  background: #FFFFFF;
+  border: 1px dashed #CBD5E1;
+  border-radius: 6px;
+}
+
+.sound-library-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: #FFFFFF;
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  gap: 10px;
+  transition: all 0.15s ease;
+}
+
+.sound-library-item:hover {
+  border-color: #93C5FD;
+  background: #F8FAFC;
+}
+
+.sound-item-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.sound-item-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #0F172A;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 170px;
+}
+
+.sound-item-sub {
+  font-size: 10.5px;
+  color: #64748B;
+  display: flex;
+  gap: 6px;
+}
+
+.sound-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.btn-deck-upload {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  color: #475569 !important;
+  background: #F1F5F9 !important;
+  border: 1px solid #CBD5E1 !important;
+  padding: 2px 8px !important;
+  border-radius: 4px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-deck-upload:hover {
+  background: #E2E8F0 !important;
+  color: #0F172A !important;
+}
+
 /* Monitor Deck Console */
 .studio-monitor-deck {
   background: #F8FAFC;

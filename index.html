@@ -604,16 +604,83 @@
           </div>
         </div>
 
-        <!-- TAB SOURCE 2: FILE UPLOAD -->
+        <!-- TAB SOURCE 2: FILE UPLOAD (UPLOAD MANUAL FILE SOUND) -->
         <div class="audio-source-pane" id="audioSourceTabUpload" hidden>
-          <div class="audio-dropzone" id="audioUploadDropzone">
-            <input type="file" id="audioFileInput" accept="audio/*,.mp3,.wav,.m4a,.flac,.ogg,.webm" hidden>
-            <div class="dropzone-content">
-              <span class="dropzone-icon">📁</span>
-              <strong>Tarik & lepaskan file audio di sini, atau klik untuk memilih file</strong>
-              <p>Mendukung format WAV, MP3, M4A, FLAC, OGG, WebM hingga 100 MB.</p>
-              <button type="button" class="btn-subtle btn-sm" id="btnBrowseAudioFile">Pilih File dari Komputer</button>
+          <div class="studio-rack-panel upload-panel-container">
+            
+            <!-- Upload Target Mode Selector -->
+            <div class="upload-mode-bar">
+              <span class="upload-mode-label">Tujuan File Sound:</span>
+              <div class="segmented-control upload-target-segmented">
+                <button type="button" class="seg-btn active" id="btnUploadModeVocal" data-mode="vocal" title="Muat sebagai track vokal utama untuk di-mixing & mastering">
+                  🎙️ Vokal Utama
+                </button>
+                <button type="button" class="seg-btn" id="btnUploadModeAppend" data-mode="append" title="Sambungkan audio baru ke akhir track yang sudah ada tanpa menimpa">
+                  ➕ Sambung (Append)
+                </button>
+                <button type="button" class="seg-btn" id="btnUploadModeBgm" data-mode="bgm" title="Muat sebagai musik latar (BGM) dengan auto-ducking">
+                  🎵 Musik Latar (BGM)
+                </button>
+              </div>
             </div>
+
+            <!-- Drag & Drop Zone -->
+            <div class="audio-dropzone" id="audioUploadDropzone">
+              <input type="file" id="audioFileInput" accept="audio/*,.mp3,.wav,.m4a,.flac,.ogg,.aac,.webm" hidden>
+              <div class="dropzone-content">
+                <span class="dropzone-icon">📁</span>
+                <strong id="dropzoneTitle">Tarik & lepaskan file sound di sini, atau klik tombol</strong>
+                <p id="dropzoneDesc">Mendukung format WAV, MP3, M4A, FLAC, OGG, AAC, WebM hingga 100 MB.</p>
+                <div class="dropzone-btn-row">
+                  <button type="button" class="btn-primary btn-sm" id="btnBrowseAudioFile">
+                    <span>📂 Pilih File Sound dari Komputer</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Uploaded File Info & Quick Action Card -->
+            <div class="uploaded-sound-card" id="uploadedSoundInfoCard" hidden>
+              <div class="sound-card-header">
+                <div class="sound-card-meta">
+                  <span class="sound-icon-badge">🎵</span>
+                  <div class="sound-details">
+                    <strong class="sound-name" id="uploadedSoundName">voice_sample.wav</strong>
+                    <div class="sound-tags">
+                      <span class="badge-mini" id="uploadedSoundDuration">00:00</span>
+                      <span class="badge-mini" id="uploadedSoundSize">0 MB</span>
+                      <span class="badge-mini" id="uploadedSoundFormat">WAV</span>
+                      <span class="badge-mini green" id="uploadedSoundTargetBadge">Track Vokal</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="sound-card-actions">
+                  <button type="button" class="btn-subtle btn-xs" id="btnSaveUploadedToLibrary" title="Simpan permanen ke Sound Library proyek di SQLite">
+                    💾 Simpan ke Database
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Project Sound Library Section -->
+            <div class="project-sound-library" id="projectSoundLibrary">
+              <div class="library-header">
+                <div class="library-title-group">
+                  <span class="library-icon">🗄️</span>
+                  <strong>Sound Library Proyek</strong>
+                  <span class="count-pill" id="soundLibraryCountBadge">0 sound</span>
+                </div>
+                <button type="button" class="btn-subtle btn-xs" id="btnRefreshSoundLibrary" title="Segarkan daftar sound proyek">
+                  🔄 Refresh
+                </button>
+              </div>
+              <div class="sound-library-list" id="soundLibraryList">
+                <div class="sound-library-empty" id="soundLibraryEmpty">
+                  Belum ada sound tersimpan di proyek ini. Rekam mic atau unggah file sound di atas.
+                </div>
+              </div>
+            </div>
+
           </div>
         </div>
 
@@ -646,6 +713,9 @@
               <span class="track-format-badge" id="audioActiveFormatBadge">-</span>
               <button type="button" class="btn-xs btn-deck-append" id="btnDeckAppendRecord" hidden title="Lanjutkan rekam mic dan sambung suara baru ke akhir track ini tanpa menimpa">
                 🎙️ Sambung Rekaman Mic
+              </button>
+              <button type="button" class="btn-xs btn-deck-upload" id="btnDeckUploadAudio" title="Unggah file suara manual dari komputer">
+                📁 Unggah Sound
               </button>
             </div>
             <!-- A/B Bypass Audition Toggle -->

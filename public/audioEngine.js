@@ -225,6 +225,23 @@
       return this.voiceBuffer;
     }
 
+    async appendVoiceFromFile(file) {
+      this.initContext();
+      const arrayBuffer = await file.arrayBuffer();
+      const newBuffer = await this.ctx.decodeAudioData(arrayBuffer);
+      if (this.voiceBuffer) {
+        this.previousVoiceBuffer = this.voiceBuffer;
+        this.voiceBuffer = await this.concatAudioBuffers(this.previousVoiceBuffer, newBuffer);
+      } else {
+        this.voiceBuffer = newBuffer;
+      }
+      return {
+        buffer: this.voiceBuffer,
+        duration: this.voiceBuffer.duration,
+        isAppended: Boolean(this.previousVoiceBuffer)
+      };
+    }
+
     async loadBgmFromUrl(url) {
       this.initContext();
       const res = await fetch(url);

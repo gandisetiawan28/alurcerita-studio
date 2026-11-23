@@ -265,6 +265,9 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
       customPresets: [],
       bgmList: [],
       projectTtsList: [],
+      projectSoundsList: [],
+      uploadTargetMode: 'vocal', // 'vocal' | 'append' | 'bgm'
+      lastUploadedFile: null,
       loadedTrackName: '',
       isBypassed: false
     },
@@ -338,6 +341,23 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     audioUploadDropzone: document.getElementById('audioUploadDropzone'),
     audioFileInput: document.getElementById('audioFileInput'),
     btnBrowseAudioFile: document.getElementById('btnBrowseAudioFile'),
+    dropzoneTitle: document.getElementById('dropzoneTitle'),
+    dropzoneDesc: document.getElementById('dropzoneDesc'),
+    btnUploadModeVocal: document.getElementById('btnUploadModeVocal'),
+    btnUploadModeAppend: document.getElementById('btnUploadModeAppend'),
+    btnUploadModeBgm: document.getElementById('btnUploadModeBgm'),
+    uploadedSoundInfoCard: document.getElementById('uploadedSoundInfoCard'),
+    uploadedSoundName: document.getElementById('uploadedSoundName'),
+    uploadedSoundDuration: document.getElementById('uploadedSoundDuration'),
+    uploadedSoundSize: document.getElementById('uploadedSoundSize'),
+    uploadedSoundFormat: document.getElementById('uploadedSoundFormat'),
+    uploadedSoundTargetBadge: document.getElementById('uploadedSoundTargetBadge'),
+    btnSaveUploadedToLibrary: document.getElementById('btnSaveUploadedToLibrary'),
+    projectSoundLibrary: document.getElementById('projectSoundLibrary'),
+    soundLibraryCountBadge: document.getElementById('soundLibraryCountBadge'),
+    btnRefreshSoundLibrary: document.getElementById('btnRefreshSoundLibrary'),
+    soundLibraryList: document.getElementById('soundLibraryList'),
+    soundLibraryEmpty: document.getElementById('soundLibraryEmpty'),
 
     projectTtsSelect: document.getElementById('projectTtsSelect'),
     btnLoadSelectedTts: document.getElementById('btnLoadSelectedTts'),
@@ -346,6 +366,7 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     audioActiveTrackLabel: document.getElementById('audioActiveTrackLabel'),
     audioActiveFormatBadge: document.getElementById('audioActiveFormatBadge'),
     btnDeckAppendRecord: document.getElementById('btnDeckAppendRecord'),
+    btnDeckUploadAudio: document.getElementById('btnDeckUploadAudio'),
     btnAuditionRaw: document.getElementById('btnAuditionRaw'),
     btnAuditionMaster: document.getElementById('btnAuditionMaster'),
 
@@ -3576,6 +3597,9 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     // Load project TTS recordings list
     await fetchProjectTtsList();
 
+    // Load project sound library files
+    await fetchProjectSoundLibrary();
+
     // Default to mic tab or specified tab
     switchAudioSourceTab(options.initialTab || state.audioSuite.activeTab || 'audioSourceTabMic');
 
@@ -3923,21 +3947,228 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     }
   }
 
-  // --- FILE UPLOAD ---
+  // --- MANUAL SOUND FILE UPLOAD & LIBRARY ---
+  function setUploadTargetMode(mode) {
+    state.audioSuite.uploadTargetMode = mode;
+    const modeButtons = [
+      { btn: elements.btnUploadModeVocal, mode: 'vocal' },
+      { btn: elements.btnUploadModeAppend, mode: 'append' },
+      { btn: elements.btnUploadModeBgm, mode: 'bgm' }
+    ];
+
+    modeButtons.forEach(m => {
+      if (m.btn) {
+        const isActive = m.mode === mode;
+        m.btn.classList.toggle('active', isActive);
+      }
+    });
+
+    if (elements.dropzoneTitle) {
+      if (mode === 'append') {
+        elements.dropzoneTitle.textContent = 'Pilih file sound untuk disambung ke akhir audio aktif';
+      } else if (mode === 'bgm') {
+        elements.dropzoneTitle.textContent = 'Pilih file musik latar (BGM) untuk dimuat ke auto-ducking mixer';
+      } else {
+        elements.dropzoneTitle.textContent = 'Tarik & lepaskan file sound di sini, atau klik tombol';
+      }
+    }
+  }
+
   async function handleAudioFileSelect(file) {
     if (!file || !window.AlurAudioEngine) return;
     try {
       showToast(`Membaca file "${file.name}"...`, 'info');
-      await window.AlurAudioEngine.loadVoiceFromFile(file);
-      state.audioSuite.loadedTrackName = file.name;
+      state.audioSuite.lastUploadedFile = file;
+
       const ext = file.name.split('.').pop().toUpperCase();
-      updateAudioTrackDisplay(state.audioSuite.loadedTrackName, ext);
-      applyPresetToEngine('youtube_recap');
-      showToast(`File audio "${file.name}" siap dipoles!`);
+      const mode = state.audioSuite.uploadTargetMode || 'vocal';
+      let duration = 0;
+
+      if (mode === 'append') {
+        const res = await window.AlurAudioEngine.appendVoiceFromFile(file);
+        duration = res.duration;
+        state.audioSuite.loadedTrackName = `🎙️ Sambungan: ${file.name}`;
+        updateAudioTrackDisplay(state.audioSuite.loadedTrackName, ext);
+        showToast(`File "${file.name}" berhasil disambungkan! Total durasi: ${formatAudioSeconds(duration)}.`);
+      } else if (mode === 'bgm') {
+        const bgmBuffer = await window.AlurAudioEngine.loadBgmFromFile(file);
+        duration = bgmBuffer.duration;
+        showToast(`File "${file.name}" (${formatAudioSeconds(duration)}) berhasil dimuat sebagai Musik Latar (BGM)!`);
+      } else {
+        // Main vocal track (for mixing & mastering)
+        const voiceBuffer = await window.AlurAudioEngine.loadVoiceFromFile(file);
+        duration = voiceBuffer.duration;
+        state.audioSuite.loadedTrackName = file.name;
+        updateAudioTrackDisplay(state.audioSuite.loadedTrackName, ext);
+        applyPresetToEngine('youtube_recap');
+        showToast(`File sound "${file.name}" berhasil dimuat ke DSP Rack! Siap dipoles.`);
+      }
+
+      // Display Uploaded File Info Card
+      if (elements.uploadedSoundInfoCard) {
+        elements.uploadedSoundInfoCard.hidden = false;
+        if (elements.uploadedSoundName) elements.uploadedSoundName.textContent = file.name;
+        if (elements.uploadedSoundDuration) elements.uploadedSoundDuration.textContent = formatAudioSeconds(duration);
+        if (elements.uploadedSoundSize) elements.uploadedSoundSize.textContent = formatBytes(file.size);
+        if (elements.uploadedSoundFormat) elements.uploadedSoundFormat.textContent = ext;
+        if (elements.uploadedSoundTargetBadge) {
+          const targetLabels = {
+            vocal: '🎙️ Track Vokal Utama',
+            append: '➕ Sambungan Audio',
+            bgm: '🎵 Musik Latar (BGM)'
+          };
+          elements.uploadedSoundTargetBadge.textContent = targetLabels[mode] || 'Track Vokal';
+        }
+      }
+
+      // Auto-save uploaded sound to server & project SQLite database
+      saveUploadedSoundToServer(file, duration, mode);
     } catch (err) {
       console.error(err);
-      showToast(`Gagal membaca file audio: ${err.message}`, 'error');
+      showToast(`Gagal membaca file sound: ${err.message}`, 'error');
     }
+  }
+
+  async function saveUploadedSoundToServer(file, durationSeconds, targetMode) {
+    try {
+      const base64Data = await fileToBase64(file);
+      const projectId = state.currentProjectId || 1;
+
+      const res = await fetch('/api/audio/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectId: projectId,
+          base64Data: base64Data,
+          filename: file.name,
+          sourceType: targetMode || 'upload',
+          durationSeconds: durationSeconds,
+          model: 'Manual Sound Upload',
+          voice: targetMode === 'bgm' ? 'BGM Musik Latar' : 'Uploaded Voice'
+        })
+      });
+
+      const json = await res.json();
+      if (json.success) {
+        showToast(`File sound "${file.name}" tersimpan di Sound Library proyek!`, 'info');
+        await fetchProjectSoundLibrary();
+      }
+    } catch (e) {
+      console.warn('Gagal menyimpan file sound ke database:', e);
+    }
+  }
+
+  function fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function formatBytes(bytes) {
+    if (!bytes || bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return `${(bytes / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`;
+  }
+
+  // --- PROJECT SOUND LIBRARY ---
+  async function fetchProjectSoundLibrary() {
+    if (!elements.soundLibraryList) return;
+
+    try {
+      const projectId = state.currentProjectId || 1;
+      const res = await fetch(`/api/projects/${projectId}/audios`);
+      const json = await res.json();
+
+      if (json.success && Array.isArray(json.data)) {
+        state.audioSuite.projectSoundsList = json.data;
+        if (elements.soundLibraryCountBadge) {
+          elements.soundLibraryCountBadge.textContent = `${json.data.length} sound`;
+        }
+        renderProjectSoundLibrary(json.data);
+      }
+    } catch (e) {
+      console.warn('Gagal memuat sound library proyek:', e);
+    }
+  }
+
+  function renderProjectSoundLibrary(list) {
+    if (!elements.soundLibraryList) return;
+    elements.soundLibraryList.innerHTML = '';
+
+    if (!list || list.length === 0) {
+      elements.soundLibraryList.innerHTML = `
+        <div class="sound-library-empty">
+          Belum ada sound tersimpan di proyek ini. Rekam mic atau unggah file sound di atas.
+        </div>
+      `;
+      return;
+    }
+
+    list.forEach(item => {
+      const itemEl = document.createElement('div');
+      itemEl.className = 'sound-library-item';
+
+      const isMastered = item.is_mastered;
+      const durText = formatAudioSeconds(item.duration_seconds || 0);
+      const typeBadge = item.source_type === 'recording' ? '🎙️ Mic' : (item.source_type === 'tts' ? '🤖 TTS' : (isMastered ? '🎚️ Master' : '📁 Upload'));
+
+      itemEl.innerHTML = `
+        <div class="sound-item-meta">
+          <span style="font-size: 16px;">${isMastered ? '🎚️' : (item.source_type === 'bgm' ? '🎵' : '🔊')}</span>
+          <div style="min-width: 0;">
+            <div class="sound-item-title" title="${item.filename}">${item.filename}</div>
+            <div class="sound-item-sub">
+              <span>${durText}</span>
+              <span>•</span>
+              <span class="badge-mini" style="font-size: 9.5px;">${typeBadge}</span>
+            </div>
+          </div>
+        </div>
+        <div class="sound-item-actions">
+          <button type="button" class="btn-primary btn-xs btn-load-sound" data-url="/audio/${item.filename}" data-name="${item.filename}" title="Muat ke Rack DSP untuk mixing dan mastering">
+            ⚡ Muat ke DSP
+          </button>
+          <button type="button" class="btn-subtle btn-xs btn-delete-sound" data-id="${item.id}" title="Hapus file ini">
+            🗑️
+          </button>
+        </div>
+      `;
+
+      elements.soundLibraryList.appendChild(itemEl);
+    });
+
+    // Wire clicks on library action buttons
+    elements.soundLibraryList.querySelectorAll('.btn-load-sound').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const url = btn.getAttribute('data-url');
+        const name = btn.getAttribute('data-name');
+        await loadAudioTrackFromUrl(url, name);
+        showToast(`Sound "${name}" berhasil dimuat ke DSP Rack!`);
+      });
+    });
+
+    elements.soundLibraryList.querySelectorAll('.btn-delete-sound').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.getAttribute('data-id');
+        if (!confirm('Hapus file sound ini dari database proyek?')) return;
+        try {
+          const res = await fetch(`/api/audio/${id}`, { method: 'DELETE' });
+          const json = await res.json();
+          if (json.success) {
+            showToast('File sound berhasil dihapus.');
+            await fetchProjectSoundLibrary();
+            await fetchProjectTtsList();
+          }
+        } catch (e) {
+          showToast(`Gagal menghapus: ${e.message}`, 'error');
+        }
+      });
+    });
   }
 
   // --- PROJECT TTS LOAD ---
@@ -4712,6 +4943,33 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
         elements.audioUploadDropzone.classList.remove('dragover');
         if (e.dataTransfer.files && e.dataTransfer.files.length) {
           handleAudioFileSelect(e.dataTransfer.files[0]);
+        }
+      });
+    }
+
+    // Upload Target Mode Selection
+    if (elements.btnUploadModeVocal) elements.btnUploadModeVocal.addEventListener('click', () => setUploadTargetMode('vocal'));
+    if (elements.btnUploadModeAppend) elements.btnUploadModeAppend.addEventListener('click', () => setUploadTargetMode('append'));
+    if (elements.btnUploadModeBgm) elements.btnUploadModeBgm.addEventListener('click', () => setUploadTargetMode('bgm'));
+
+    // Monitor Deck Quick Upload Trigger
+    if (elements.btnDeckUploadAudio) {
+      elements.btnDeckUploadAudio.addEventListener('click', () => {
+        switchAudioSourceTab('audioSourceTabUpload');
+        if (elements.audioFileInput) elements.audioFileInput.click();
+      });
+    }
+
+    // Sound Library Actions
+    if (elements.btnRefreshSoundLibrary) {
+      elements.btnRefreshSoundLibrary.addEventListener('click', fetchProjectSoundLibrary);
+    }
+    if (elements.btnSaveUploadedToLibrary) {
+      elements.btnSaveUploadedToLibrary.addEventListener('click', () => {
+        if (state.audioSuite.lastUploadedFile && window.AlurAudioEngine && window.AlurAudioEngine.voiceBuffer) {
+          saveUploadedSoundToServer(state.audioSuite.lastUploadedFile, window.AlurAudioEngine.voiceBuffer.duration, state.audioSuite.uploadTargetMode || 'vocal');
+        } else {
+          showToast('Tidak ada file baru untuk disimpan.', 'info');
         }
       });
     }
