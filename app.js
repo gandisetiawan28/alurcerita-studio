@@ -309,6 +309,7 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     btnOpenAudioSuiteModal: document.getElementById('btnOpenAudioSuiteModal'),
     audioSuiteActiveDot: document.getElementById('audioSuiteActiveDot'),
     audioSuiteModal: document.getElementById('audioSuiteModal'),
+    audioDockResizer: document.getElementById('audioDockResizer'),
     btnToggleAudioDock: document.getElementById('btnToggleAudioDock'),
     audioDockDot: document.getElementById('audioDockDot'),
     audioDockTogglePill: document.getElementById('audioDockTogglePill'),
@@ -3572,6 +3573,7 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
   async function openAudioSuiteModal(options = {}) {
     if (!elements.audioSuiteModal) return;
     elements.audioSuiteModal.hidden = false;
+    if (elements.audioDockResizer) elements.audioDockResizer.hidden = false;
 
     // Update Dock Toggle UI state to ON
     if (elements.btnToggleAudioDock) {
@@ -3625,6 +3627,7 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     }
     stopAudioVisualizerLoop();
     elements.audioSuiteModal.hidden = true;
+    if (elements.audioDockResizer) elements.audioDockResizer.hidden = true;
 
     // Update Dock Toggle UI state to OFF
     if (elements.btnToggleAudioDock) {
@@ -3667,6 +3670,66 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
         elements.recOscilloscopeCanvas.width = w;
       }
     }
+  }
+
+  function initAudioDockResizer() {
+    if (!elements.audioDockResizer || !elements.audioSuiteModal) return;
+
+    // Restore saved width from localStorage if exists
+    const savedWidth = localStorage.getItem('alur_audio_dock_width');
+    if (savedWidth) {
+      const parsed = parseInt(savedWidth, 10);
+      if (parsed >= 320 && parsed <= window.innerWidth * 0.75) {
+        elements.audioSuiteModal.style.width = parsed + 'px';
+      }
+    }
+
+    let isDragging = false;
+    let startX = 0;
+    let startWidth = 0;
+
+    const onMouseDown = (e) => {
+      if (elements.audioSuiteModal.hidden) return;
+      isDragging = true;
+      startX = e.clientX;
+      startWidth = elements.audioSuiteModal.getBoundingClientRect().width;
+      elements.audioDockResizer.classList.add('is-dragging');
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+
+      document.addEventListener('mousemove', onMouseMove);
+      document.addEventListener('mouseup', onMouseUp);
+      e.preventDefault();
+    };
+
+    const onMouseMove = (e) => {
+      if (!isDragging) return;
+      const deltaX = startX - e.clientX; // Dragging left widens dock
+      let newWidth = startWidth + deltaX;
+      const minWidth = 320;
+      const maxWidth = Math.floor(window.innerWidth * 0.70);
+      newWidth = Math.max(minWidth, Math.min(newWidth, maxWidth));
+
+      elements.audioSuiteModal.style.width = newWidth + 'px';
+      resizeAudioCanvases();
+    };
+
+    const onMouseUp = () => {
+      if (!isDragging) return;
+      isDragging = false;
+      elements.audioDockResizer.classList.remove('is-dragging');
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+
+      const currentWidth = elements.audioSuiteModal.getBoundingClientRect().width;
+      localStorage.setItem('alur_audio_dock_width', Math.round(currentWidth));
+      resizeAudioCanvases();
+    };
+
+    elements.audioDockResizer.addEventListener('mousedown', onMouseDown);
   }
 
   function switchAudioSourceTab(targetTabId) {
@@ -4898,6 +4961,7 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     if (elements.btnOpenAudioSuiteModal) elements.btnOpenAudioSuiteModal.addEventListener('click', () => toggleAudioDock());
     if (elements.btnCloseAudioSuiteModal) elements.btnCloseAudioSuiteModal.addEventListener('click', closeAudioSuiteModal);
     if (elements.btnCloseAudioSuiteFooter) elements.btnCloseAudioSuiteFooter.addEventListener('click', closeAudioSuiteModal);
+    initAudioDockResizer();
     window.addEventListener('resize', resizeAudioCanvases);
     if (elements.btnOpenTtsInAudioSuite) {
       elements.btnOpenTtsInAudioSuite.addEventListener('click', () => {

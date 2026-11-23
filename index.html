@@ -536,6 +536,11 @@
 
       </div>
 
+        <!-- Resizer Divider Handle (Tarik untuk resize panel samping) -->
+        <div class="audio-dock-resizer" id="audioDockResizer" hidden title="Tarik ke kiri/kanan untuk menyesuaikan ukuran panel Studio Audio">
+          <div class="resizer-handle-pill"></div>
+        </div>
+
         <!-- DOCKED AUDIO SUITE SIDE PANEL (Berada di samping kanvas untuk Live Voiceover Recording sambil membaca) -->
         <aside class="audio-suite-dock" id="audioSuiteModal" hidden aria-label="Studio Audio & Live Recording">
           <div class="dock-header">
@@ -552,17 +557,17 @@
           </div>
 
           <nav class="master-tabs-bar audio-source-tabs" role="tablist">
-        <button type="button" class="master-tab-btn active" id="tabBtnAudioMic" data-target="audioSourceTabMic">
-          <span>🎙️ Rekam Mic Langsung</span>
-        </button>
-        <button type="button" class="master-tab-btn" id="tabBtnAudioUpload" data-target="audioSourceTabUpload">
-          <span>📁 Unggah File Audio</span>
-        </button>
-        <button type="button" class="master-tab-btn" id="tabBtnAudioTts" data-target="audioSourceTabTts">
-          <span>🤖 Muat Voiceover TTS Proyek</span>
-          <span class="tab-badge" id="badgeAudioTtsCount">0</span>
-        </button>
-      </nav>
+            <button type="button" class="master-tab-btn active" id="tabBtnAudioMic" data-target="audioSourceTabMic">
+              <span>🎙️ Rekam Mic</span>
+            </button>
+            <button type="button" class="master-tab-btn" id="tabBtnAudioUpload" data-target="audioSourceTabUpload">
+              <span>📁 Upload Sound</span>
+            </button>
+            <button type="button" class="master-tab-btn" id="tabBtnAudioTts" data-target="audioSourceTabTts">
+              <span>🤖 TTS Proyek</span>
+              <span class="tab-badge" id="badgeAudioTtsCount">0</span>
+            </button>
+          </nav>
 
           <div class="dock-body-scrollable">
             <!-- TAB SOURCE 1: LIVE MIC RECORDING -->

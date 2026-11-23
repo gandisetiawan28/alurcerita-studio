@@ -903,20 +903,66 @@ button:active {
   transition: padding 0.2s ease;
 }
 
+/* Docked Audio Suite Resizer Divider */
+.audio-dock-resizer {
+  width: 8px;
+  background: transparent;
+  cursor: col-resize;
+  position: relative;
+  flex-shrink: 0;
+  z-index: 25;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  touch-action: none;
+  transition: background-color 0.15s ease;
+}
+
+.audio-dock-resizer:hover,
+.audio-dock-resizer.is-dragging {
+  background: rgba(37, 99, 235, 0.12);
+}
+
+.resizer-handle-pill {
+  width: 4px;
+  height: 38px;
+  border-radius: 4px;
+  background: #CBD5E1;
+  transition: all 0.15s ease;
+}
+
+.audio-dock-resizer:hover .resizer-handle-pill,
+.audio-dock-resizer.is-dragging .resizer-handle-pill {
+  background: #2563EB;
+  height: 52px;
+  box-shadow: 0 0 8px rgba(37, 99, 235, 0.45);
+}
+
+.audio-dock-resizer[hidden] {
+  display: none !important;
+}
+
 /* Docked Audio Suite Side Panel */
 .audio-suite-dock {
-  width: 480px;
-  max-width: 48vw;
-  min-width: 360px;
+  width: 460px;
+  max-width: 70vw;
+  min-width: 320px;
   background: var(--bg-surface);
   border-left: 1px solid var(--border-subtle);
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow-x: hidden !important;
+  overflow-y: hidden !important;
   box-shadow: -4px 0 20px rgba(15, 23, 42, 0.06);
   z-index: 20;
   flex-shrink: 0;
+  box-sizing: border-box;
   animation: slideInDock 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.audio-suite-dock * {
+  box-sizing: border-box;
 }
 
 .audio-suite-dock[hidden] {
@@ -1076,6 +1122,7 @@ button:active {
 @media (max-width: 1024px) {
   .audio-suite-dock {
     width: 420px;
+    max-width: 65vw;
   }
 }
 
@@ -1083,13 +1130,16 @@ button:active {
   .editor-workspace-body {
     flex-direction: column;
   }
+  .audio-dock-resizer {
+    display: none !important;
+  }
   .audio-suite-dock {
-    width: 100%;
-    max-width: 100%;
-    min-width: 100%;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 100% !important;
     border-left: none;
     border-top: 1px solid var(--border-subtle);
-    max-height: 55vh;
+    max-height: 58vh;
   }
 }
 
@@ -4338,6 +4388,391 @@ input:checked + .slider.round:before {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+/* ==========================================================================
+   DOCKED AUDIO SUITE RESPONSIVE CHANNEL STRIP SPECIALIZATION
+   Eliminates all horizontal overflow, enforces single-column rack,
+   proportional fluid controls, and seamless resizable dock behavior.
+   ========================================================================== */
+
+/* Zero horizontal scrollbar on body */
+.audio-suite-dock .dock-body-scrollable {
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  padding: 12px 14px 24px 14px !important;
+}
+
+/* Compact, responsive top source tabs with zero overflow */
+.audio-suite-dock .audio-source-tabs {
+  display: flex !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow-x: hidden !important;
+  padding: 0 4px !important;
+  gap: 2px !important;
+  background: #F8FAFC !important;
+  border-bottom: 1px solid #E2E8F0 !important;
+  flex-shrink: 0 !important;
+}
+
+.audio-suite-dock .audio-source-tabs .master-tab-btn {
+  flex: 1 1 0 !important;
+  min-width: 0 !important;
+  padding: 8px 4px !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  text-align: center !important;
+  justify-content: center !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  gap: 4px !important;
+}
+
+.audio-suite-dock .audio-source-tabs .master-tab-btn span {
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+/* Single-column channel strip rack */
+.audio-suite-dock .manual-rack-grid {
+  display: flex !important;
+  flex-direction: column !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  gap: 12px !important;
+}
+
+.audio-suite-dock .rack-module-card {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+  padding: 12px 14px !important;
+}
+
+.audio-suite-dock .rack-module-wide {
+  grid-column: auto !important;
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+/* Equalizer 4-band grid inside dock */
+.audio-suite-dock .eq-4band-grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 8px 10px !important;
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+@media (max-width: 380px) {
+  .audio-suite-dock .eq-4band-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* Effect mode tabs & meta actions bar */
+.audio-suite-dock .effects-nav-bar {
+  flex-direction: column !important;
+  align-items: stretch !important;
+  gap: 8px !important;
+  margin-bottom: 12px !important;
+  padding-bottom: 10px !important;
+}
+
+.audio-suite-dock .effects-mode-tabs {
+  display: flex !important;
+  width: 100% !important;
+}
+
+.audio-suite-dock .effect-mode-tab {
+  flex: 1 1 0 !important;
+  min-width: 0 !important;
+  padding: 6px 6px !important;
+  font-size: 11px !important;
+  text-align: center !important;
+  justify-content: center !important;
+  white-space: nowrap !important;
+}
+
+.audio-suite-dock .pill-chip-badge {
+  display: none !important;
+}
+
+.audio-suite-dock .effects-meta-actions {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 6px !important;
+  width: 100% !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+}
+
+.audio-suite-dock .active-preset-indicator {
+  font-size: 11px !important;
+  padding: 3px 6px !important;
+  max-width: 100% !important;
+}
+
+.audio-suite-dock #customPresetSelect {
+  flex: 1 1 110px !important;
+  max-width: 100% !important;
+  font-size: 11px !important;
+  padding: 3px 6px !important;
+}
+
+.audio-suite-dock #btnSaveCurrentAsPreset,
+.audio-suite-dock #btnResetToDefaultDsp {
+  font-size: 11px !important;
+  padding: 3px 8px !important;
+}
+
+/* 1-Click Pro Preset Pills inside dock */
+.audio-suite-dock .preset-pills-grid {
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  gap: 8px !important;
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+/* BGM Mixer controls in dock */
+.audio-suite-dock .bgm-mixer-card {
+  width: 100% !important;
+  max-width: 100% !important;
+  padding: 12px 14px !important;
+}
+
+.audio-suite-dock .bgm-controls-grid {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 10px !important;
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+/* Studio Monitor Deck inside dock */
+.audio-suite-dock .studio-monitor-deck {
+  width: 100% !important;
+  max-width: 100% !important;
+  padding: 12px 14px !important;
+}
+
+.audio-suite-dock .deck-top-row {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  gap: 8px !important;
+}
+
+.audio-suite-dock .deck-track-title {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  gap: 6px !important;
+  width: 100% !important;
+}
+
+.audio-suite-dock .track-name {
+  max-width: 180px !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+.audio-suite-dock .ab-toggle-box {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  width: 100% !important;
+  gap: 8px !important;
+}
+
+.audio-suite-dock .ab-segmented {
+  display: flex !important;
+  flex: 1 !important;
+  max-width: 250px !important;
+}
+
+.audio-suite-dock .ab-segmented .seg-btn {
+  flex: 1 !important;
+  text-align: center !important;
+  font-size: 11px !important;
+  padding: 3px 6px !important;
+}
+
+.audio-suite-dock .transport-row {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 8px !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  width: 100% !important;
+}
+
+.audio-suite-dock .transport-fader {
+  margin-left: auto !important;
+  font-size: 11px !important;
+}
+
+.audio-suite-dock .transport-fader .mini-slider {
+  width: 65px !important;
+}
+
+.audio-suite-dock .vu-meter-rack {
+  width: 100% !important;
+  display: flex !important;
+  justify-content: flex-end !important;
+  align-items: center !important;
+  gap: 6px !important;
+  margin-top: 2px !important;
+}
+
+.audio-suite-dock .vu-bar-track {
+  flex: 1 !important;
+  max-width: 170px !important;
+  height: 8px !important;
+}
+
+/* Mic Recording Strip in dock */
+.audio-suite-dock .record-strip-header {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  gap: 8px !important;
+  width: 100% !important;
+}
+
+.audio-suite-dock .record-meta-info {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  gap: 8px !important;
+  width: 100% !important;
+}
+
+.audio-suite-dock .record-action-group {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 6px !important;
+  width: 100% !important;
+}
+
+.audio-suite-dock .btn-record-main {
+  flex: 1 1 auto !important;
+  justify-content: center !important;
+  text-align: center !important;
+}
+
+/* Upload Panel in dock */
+.audio-suite-dock .upload-mode-bar {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  gap: 6px !important;
+  width: 100% !important;
+  padding: 8px 10px !important;
+}
+
+.audio-suite-dock .upload-target-segmented {
+  display: flex !important;
+  width: 100% !important;
+}
+
+.audio-suite-dock .upload-target-segmented .seg-btn {
+  flex: 1 !important;
+  text-align: center !important;
+  font-size: 10.5px !important;
+  padding: 4px 4px !important;
+}
+
+.audio-suite-dock .sound-card-header {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  gap: 8px !important;
+  width: 100% !important;
+}
+
+.audio-suite-dock .sound-card-meta {
+  width: 100% !important;
+}
+
+.audio-suite-dock .sound-name {
+  max-width: 220px !important;
+}
+
+/* Dock Footer and Export Actions */
+.audio-suite-dock .dock-footer {
+  padding: 10px 14px !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+  overflow-x: hidden !important;
+  background: #FFFFFF !important;
+  border-top: 1px solid var(--border-subtle) !important;
+}
+
+.audio-suite-dock .export-format-selector {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  width: 100% !important;
+  gap: 8px !important;
+  margin-bottom: 8px !important;
+}
+
+.audio-suite-dock .export-format-selector label {
+  font-size: 11.5px !important;
+  font-weight: 600 !important;
+  color: var(--text-secondary) !important;
+  white-space: nowrap !important;
+}
+
+.audio-suite-dock .btn-group-toggle {
+  display: flex !important;
+  flex: 1 !important;
+  max-width: 240px !important;
+}
+
+.audio-suite-dock .btn-group-toggle .btn {
+  flex: 1 !important;
+  font-size: 11px !important;
+  padding: 4px 8px !important;
+  text-align: center !important;
+}
+
+.audio-suite-dock .dock-footer-actions {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 6px !important;
+  width: 100% !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+}
+
+.audio-suite-dock .dock-footer-actions .btn {
+  font-size: 11.5px !important;
+  padding: 6px 10px !important;
+}
+
+.audio-suite-dock #btnExportMasterAudio {
+  flex: 1 1 auto !important;
+  min-width: 130px !important;
+  text-align: center !important;
+  justify-content: center !important;
+}
+
+.audio-suite-dock #btnApplyMasterToProject {
+  flex: 1 1 auto !important;
+  min-width: 110px !important;
+  text-align: center !important;
+  justify-content: center !important;
 }
 
 
