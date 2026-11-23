@@ -251,6 +251,11 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     selectedSlicerMedia: null,
     selectedSlicerFile: null,
     slicedResultMedia: null,
+    // AI Cut Scene State
+    aiCutSrtFile: null,
+    aiCutSelectedMedia: null,
+    aiCuratedScenes: [],
+    aiSelectedClipIndices: new Set(),
     fmFilter: 'all',
     fmSearch: '',
     fmViewMode: 'grid', // 'grid' | 'table'
@@ -570,13 +575,56 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
 
     // Media Workspace & Sub-Nav Elements
     tabMediaSlicer: document.getElementById('tabMediaSlicer'),
+    tabMediaAiCut: document.getElementById('tabMediaAiCut'),
     tabMediaFiles: document.getElementById('tabMediaFiles'),
     mediaSlicerSection: document.getElementById('mediaSlicerSection'),
+    mediaAiCutSection: document.getElementById('mediaAiCutSection'),
     mediaFilesSection: document.getElementById('mediaFilesSection'),
     mediaHeaderStats: document.getElementById('mediaHeaderStats'),
     mediaStatsSummaryText: document.getElementById('mediaStatsSummaryText'),
     btnRefreshMedia: document.getElementById('btnRefreshMedia'),
     btnOpenUploadModal: document.getElementById('btnOpenUploadModal'),
+
+    // AI Smart Cut Scene (SRT) Elements
+    aiCutSelectVideo: document.getElementById('aiCutSelectVideo'),
+    aiCutSelectedVideoPill: document.getElementById('aiCutSelectedVideoPill'),
+    aiCutSelectedVideoTitle: document.getElementById('aiCutSelectedVideoTitle'),
+    aiCutSelectedVideoMeta: document.getElementById('aiCutSelectedVideoMeta'),
+    aiCutSrtDropzone: document.getElementById('aiCutSrtDropzone'),
+    aiCutSrtFileInput: document.getElementById('aiCutSrtFileInput'),
+    aiCutSrtMainText: document.getElementById('aiCutSrtMainText'),
+    aiCutSrtSubText: document.getElementById('aiCutSrtSubText'),
+    btnExtractEmbeddedSubs: document.getElementById('btnExtractEmbeddedSubs'),
+    btnTogglePasteSrt: document.getElementById('btnTogglePasteSrt'),
+    boxPasteSrtArea: document.getElementById('boxPasteSrtArea'),
+    aiCutSrtTextArea: document.getElementById('aiCutSrtTextArea'),
+    aiCutFocusHint: document.getElementById('aiCutFocusHint'),
+    aiCutMaxClips: document.getElementById('aiCutMaxClips'),
+    btnRunAiSrtAnalysis: document.getElementById('btnRunAiSrtAnalysis'),
+    btnRunAiSrtAnalysisText: document.getElementById('btnRunAiSrtAnalysisText'),
+    aiCutAnalysisProgress: document.getElementById('aiCutAnalysisProgress'),
+    aiCutAnalysisStatusText: document.getElementById('aiCutAnalysisStatusText'),
+    boxAiBatchCutControls: document.getElementById('boxAiBatchCutControls'),
+    checkAiKeepDialogAudio: document.getElementById('checkAiKeepDialogAudio'),
+    checkAiMirrorCut: document.getElementById('checkAiMirrorCut'),
+    btnExecuteAiBatchCut: document.getElementById('btnExecuteAiBatchCut'),
+    btnExecuteAiBatchCutText: document.getElementById('btnExecuteAiBatchCutText'),
+    aiSelectedCountDisplay: document.getElementById('aiSelectedCountDisplay'),
+    aiCutBatchProgress: document.getElementById('aiCutBatchProgress'),
+    aiBatchCutProgressBar: document.getElementById('aiBatchCutProgressBar'),
+    aiBatchCutStatusText: document.getElementById('aiBatchCutStatusText'),
+    badgeAiPlayerTimecode: document.getElementById('badgeAiPlayerTimecode'),
+    btnAiPlayerMuteToggle: document.getElementById('btnAiPlayerMuteToggle'),
+    aiCutPreviewVideo: document.getElementById('aiCutPreviewVideo'),
+    aiCutPlayerPlaceholder: document.getElementById('aiCutPlayerPlaceholder'),
+    badgeAiClipsCount: document.getElementById('badgeAiClipsCount'),
+    btnSelectAllAiClips: document.getElementById('btnSelectAllAiClips'),
+    aiGeminiSummaryBox: document.getElementById('aiGeminiSummaryBox'),
+    aiGeminiSummaryText: document.getElementById('aiGeminiSummaryText'),
+    aiScenesContainer: document.getElementById('aiScenesContainer'),
+    aiCutResultsBox: document.getElementById('aiCutResultsBox'),
+    aiCutClipsGrid: document.getElementById('aiCutClipsGrid'),
+    btnModalSendToAiCut: document.getElementById('btnModalSendToAiCut'),
 
     // Video Slicer Controls
     btnSourceFromManager: document.getElementById('btnSourceFromManager'),
@@ -5131,18 +5179,30 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     }
   }
 
-  // Subnav switcher: Slicer vs File Manager
+  // Subnav switcher: Slicer vs AI Cut vs File Manager
   function switchMediaTab(tabName) {
     if (tabName === 'slicer') {
       if (elements.tabMediaSlicer) elements.tabMediaSlicer.classList.add('active');
+      if (elements.tabMediaAiCut) elements.tabMediaAiCut.classList.remove('active');
       if (elements.tabMediaFiles) elements.tabMediaFiles.classList.remove('active');
       if (elements.mediaSlicerSection) elements.mediaSlicerSection.hidden = false;
+      if (elements.mediaAiCutSection) elements.mediaAiCutSection.hidden = true;
       if (elements.mediaFilesSection) elements.mediaFilesSection.hidden = true;
+    } else if (tabName === 'aicut') {
+      if (elements.tabMediaAiCut) elements.tabMediaAiCut.classList.add('active');
+      if (elements.tabMediaSlicer) elements.tabMediaSlicer.classList.remove('active');
+      if (elements.tabMediaFiles) elements.tabMediaFiles.classList.remove('active');
+      if (elements.mediaAiCutSection) elements.mediaAiCutSection.hidden = false;
+      if (elements.mediaSlicerSection) elements.mediaSlicerSection.hidden = true;
+      if (elements.mediaFilesSection) elements.mediaFilesSection.hidden = true;
+      populateAiCutVideoDropdown();
     } else {
       if (elements.tabMediaFiles) elements.tabMediaFiles.classList.add('active');
       if (elements.tabMediaSlicer) elements.tabMediaSlicer.classList.remove('active');
+      if (elements.tabMediaAiCut) elements.tabMediaAiCut.classList.remove('active');
       if (elements.mediaFilesSection) elements.mediaFilesSection.hidden = false;
       if (elements.mediaSlicerSection) elements.mediaSlicerSection.hidden = true;
+      if (elements.mediaAiCutSection) elements.mediaAiCutSection.hidden = true;
       fetchMediaList();
     }
   }
@@ -5381,6 +5441,7 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
       if (json.success && Array.isArray(json.data)) {
         state.mediaItems = json.data;
         populateSlicerVideoDropdown();
+        populateAiCutVideoDropdown();
         renderMediaItems();
       }
     } catch (err) {
@@ -5501,6 +5562,9 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
                 <button type="button" class="btn-subtle btn-xs btn-card-slice" data-id="${item.id}" title="Kirim video ini ke Slicer 3s/10s">
                   ✂️ Potong
                 </button>
+                <button type="button" class="btn-subtle btn-xs btn-card-aicut" data-id="${item.id}" title="Analisis subtitle & potong scene dengan AI">
+                  🤖 AI Cut
+                </button>
               ` : ''}
               <button type="button" class="btn-subtle btn-xs btn-card-edit" data-id="${item.id}" title="Edit metadata & nama">
                 ✏️ Edit
@@ -5526,6 +5590,15 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
           btnSlice.addEventListener('click', (e) => {
             e.stopPropagation();
             sendMediaToSlicer(item);
+          });
+        }
+
+        // AI Cut button click
+        const btnAiCut = card.querySelector('.btn-card-aicut');
+        if (btnAiCut) {
+          btnAiCut.addEventListener('click', (e) => {
+            e.stopPropagation();
+            sendMediaToAiCut(item);
           });
         }
 
@@ -5570,7 +5643,10 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
           <td style="text-align: right;">
             <div style="display: inline-flex; gap: 4px;">
               <button type="button" class="btn-subtle btn-xs btn-table-play" title="Putar">▶️</button>
-              ${isVideo ? `<button type="button" class="btn-subtle btn-xs btn-table-slice" title="Potong Fair-Use">✂️</button>` : ''}
+              ${isVideo ? `
+                <button type="button" class="btn-subtle btn-xs btn-table-slice" title="Potong Fair-Use">✂️</button>
+                <button type="button" class="btn-subtle btn-xs btn-table-aicut" title="AI Cut Scene (SRT)">🤖</button>
+              ` : ''}
               <button type="button" class="btn-subtle btn-xs btn-table-edit" title="Edit">✏️</button>
               <a href="${item.file_url}" download class="btn-subtle btn-xs" title="Unduh">⬇️</a>
               <button type="button" class="btn-subtle btn-xs btn-table-del" title="Hapus" style="color: #DC2626;">🗑️</button>
@@ -5581,6 +5657,8 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
         tr.querySelector('.btn-table-play').addEventListener('click', () => openMediaPreviewModal(item));
         const btnSlice = tr.querySelector('.btn-table-slice');
         if (btnSlice) btnSlice.addEventListener('click', () => sendMediaToSlicer(item));
+        const btnAiCut = tr.querySelector('.btn-table-aicut');
+        if (btnAiCut) btnAiCut.addEventListener('click', () => sendMediaToAiCut(item));
         tr.querySelector('.btn-table-edit').addEventListener('click', () => openMediaEditModal(item));
         tr.querySelector('.btn-table-del').addEventListener('click', () => deleteMediaItem(item.id, item.original_name));
 
@@ -5596,6 +5674,377 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     selectSlicerMediaItem(item);
     if (elements.slicerSelectVideo) elements.slicerSelectVideo.value = item.id;
     showToast(`Video "${item.original_name}" berhasil dimuat ke Slicer Fair-Use!`);
+  }
+
+  // Send video directly to AI Cut tab
+  function sendMediaToAiCut(item) {
+    switchMediaTab('aicut');
+    selectAiCutVideo(item);
+    if (elements.aiCutSelectVideo) elements.aiCutSelectVideo.value = item.id;
+    showToast(`Video "${item.original_name}" berhasil dimuat ke AI Cut Scene!`);
+  }
+
+  // --- AI Smart Cut Scene (SRT) Methods ---
+
+  // Populate AI Cut video dropdown from available video records in SQLite
+  function populateAiCutVideoDropdown() {
+    if (!elements.aiCutSelectVideo) return;
+    const videos = state.mediaItems.filter(m => m.file_type === 'video');
+    elements.aiCutSelectVideo.innerHTML = '<option value="">-- Pilih video film sumber (' + videos.length + ' video) --</option>';
+    videos.forEach(v => {
+      const opt = document.createElement('option');
+      opt.value = v.id;
+      const durStr = v.duration_seconds > 0 ? ` (${formatDuration(v.duration_seconds)})` : '';
+      const catBadge = v.category === 'cut_scene' ? ' [🤖 Cut Scene]' : (v.category === 'footage_sliced' ? ' [✂️ Sliced]' : ' [Raw]');
+      opt.textContent = `${v.original_name}${durStr}${catBadge}`;
+      elements.aiCutSelectVideo.appendChild(opt);
+    });
+
+    if (state.aiCutSelectedMedia) {
+      elements.aiCutSelectVideo.value = state.aiCutSelectedMedia.id;
+    }
+  }
+
+  // Set selected video for AI Cut
+  function selectAiCutVideo(item) {
+    state.aiCutSelectedMedia = item;
+    if (elements.aiCutSelectedVideoPill) elements.aiCutSelectedVideoPill.hidden = false;
+    if (elements.aiCutSelectedVideoTitle) elements.aiCutSelectedVideoTitle.textContent = item.original_name;
+    if (elements.aiCutSelectedVideoMeta) {
+      elements.aiCutSelectedVideoMeta.textContent = `Durasi: ${formatDuration(item.duration_seconds)} • ${item.resolution || 'HD'} • ${formatBytes(item.file_size)}`;
+    }
+
+    if (elements.aiCutPreviewVideo) {
+      elements.aiCutPreviewVideo.src = item.file_url;
+      if (elements.aiCutPlayerPlaceholder) elements.aiCutPlayerPlaceholder.classList.add('hidden');
+    }
+  }
+
+  function clearAiCutSelectedVideo() {
+    state.aiCutSelectedMedia = null;
+    if (elements.aiCutSelectedVideoPill) elements.aiCutSelectedVideoPill.hidden = true;
+    if (elements.aiCutSelectVideo) elements.aiCutSelectVideo.value = '';
+    if (elements.aiCutPreviewVideo) elements.aiCutPreviewVideo.removeAttribute('src');
+    if (elements.aiCutPlayerPlaceholder) elements.aiCutPlayerPlaceholder.classList.remove('hidden');
+  }
+
+  // Handle SRT / VTT subtitle file upload
+  function handleAiSrtFileSelect(file) {
+    if (!file) return;
+    state.aiCutSrtFile = file;
+    if (elements.aiCutSrtMainText) elements.aiCutSrtMainText.textContent = `📄 ${file.name}`;
+    if (elements.aiCutSrtSubText) elements.aiCutSrtSubText.textContent = `Ukuran: ${formatBytes(file.size)} • Siap dianalisis`;
+    showToast(`File subtitle "${file.name}" berhasil dimuat!`);
+  }
+
+  // Extract embedded subtitles from the video file itself using backend FFmpeg
+  async function extractEmbeddedSubsFromVideo() {
+    if (!state.aiCutSelectedMedia) {
+      showToast('Pilih video film sumber di atas terlebih dahulu!', 'warning');
+      return;
+    }
+
+    try {
+      showToast('Memeriksa subtitle internal (embedded stream) di file video...');
+      const formData = new FormData();
+      formData.append('mediaId', state.aiCutSelectedMedia.id);
+
+      if (elements.aiCutAnalysisProgress) {
+        elements.aiCutAnalysisProgress.hidden = false;
+        if (elements.aiCutAnalysisStatusText) elements.aiCutAnalysisStatusText.textContent = 'Mengekstrak track subtitle internal dari file video via FFmpeg...';
+      }
+
+      const res = await fetch('/api/media/ai-analyze-srt', {
+        method: 'POST',
+        body: formData
+      });
+      const data = await res.json();
+      if (elements.aiCutAnalysisProgress) elements.aiCutAnalysisProgress.hidden = true;
+
+      if (!res.ok || !data.success) {
+        showToast(data.error || 'Video tidak memiliki subtitle internal (.srt). Silakan unggah file .srt terpisah.', 'warning');
+        return;
+      }
+
+      handleAiAnalysisResult(data.data);
+    } catch (err) {
+      if (elements.aiCutAnalysisProgress) elements.aiCutAnalysisProgress.hidden = true;
+      console.error('Error extracting embedded subs:', err);
+      showToast('Gagal memeriksa subtitle video: ' + err.message, 'error');
+    }
+  }
+
+  // Run AI Gemini analysis on subtitle
+  async function runAiSrtAnalysis() {
+    const srtText = elements.aiCutSrtTextArea ? elements.aiCutSrtTextArea.value.trim() : '';
+    if (!state.aiCutSrtFile && !srtText && !state.aiCutSelectedMedia) {
+      showToast('Silakan unggah file .SRT atau tempelkan teks dialog subtitle terlebih dahulu!', 'warning');
+      return;
+    }
+
+    const focusHint = elements.aiCutFocusHint ? elements.aiCutFocusHint.value.trim() : '';
+    const maxClips = elements.aiCutMaxClips ? elements.aiCutMaxClips.value : 8;
+    const movieTitle = state.aiCutSelectedMedia ? state.aiCutSelectedMedia.original_name : (state.currentProject ? state.currentProject.title : 'Film');
+
+    const formData = new FormData();
+    if (state.aiCutSrtFile) {
+      formData.append('file', state.aiCutSrtFile);
+    }
+    if (srtText) {
+      formData.append('srtText', srtText);
+    }
+    if (state.aiCutSelectedMedia) {
+      formData.append('mediaId', state.aiCutSelectedMedia.id);
+    }
+    formData.append('movieTitle', movieTitle);
+    formData.append('focusHint', focusHint);
+    formData.append('maxClips', maxClips);
+
+    if (elements.btnRunAiSrtAnalysis) elements.btnRunAiSrtAnalysis.disabled = true;
+    if (elements.aiCutAnalysisProgress) elements.aiCutAnalysisProgress.hidden = false;
+    if (elements.aiCutAnalysisStatusText) {
+      elements.aiCutAnalysisStatusText.textContent = 'Gemini sedang membaca dialog, menganalisis bobot dramatis, dan menyusun timestamp adegan...';
+    }
+
+    try {
+      const res = await fetch('/api/media/ai-analyze-srt', {
+        method: 'POST',
+        body: formData
+      });
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Gagal menganalisis subtitle dengan AI Gemini.');
+      }
+
+      handleAiAnalysisResult(data.data);
+      showToast(`Sukses! ${data.data.scenes.length} adegan kunci terdeteksi dan siap dipotong.`);
+    } catch (err) {
+      console.error('Error analyzing subtitle:', err);
+      showToast('Analisis gagal: ' + err.message, 'error');
+    } finally {
+      if (elements.btnRunAiSrtAnalysis) elements.btnRunAiSrtAnalysis.disabled = false;
+      if (elements.aiCutAnalysisProgress) elements.aiCutAnalysisProgress.hidden = true;
+    }
+  }
+
+  // Handle successful AI Gemini analysis data
+  function handleAiAnalysisResult(aiResult) {
+    if (!aiResult || !Array.isArray(aiResult.scenes)) return;
+
+    state.aiCuratedScenes = aiResult.scenes;
+    state.aiSelectedClipIndices = new Set(aiResult.scenes.map((_, i) => i));
+
+    if (elements.aiGeminiSummaryBox) elements.aiGeminiSummaryBox.hidden = false;
+    if (elements.aiGeminiSummaryText) {
+      elements.aiGeminiSummaryText.textContent = aiResult.summary || 'Koleksi dialog dan adegan kunci dengan intensitas dramatis tinggi telah dikurasi oleh Gemini.';
+    }
+
+    if (elements.badgeAiClipsCount) {
+      elements.badgeAiClipsCount.hidden = false;
+      elements.badgeAiClipsCount.textContent = `${aiResult.scenes.length} Adegan Terdeteksi`;
+    }
+
+    if (elements.btnSelectAllAiClips) {
+      elements.btnSelectAllAiClips.hidden = false;
+      elements.btnSelectAllAiClips.textContent = 'Batal Pilih Semua';
+    }
+
+    if (elements.boxAiBatchCutControls) elements.boxAiBatchCutControls.hidden = false;
+    updateAiSelectedCount();
+    renderAiScenesList();
+  }
+
+  // Update selected count display
+  function updateAiSelectedCount() {
+    const count = state.aiSelectedClipIndices.size;
+    if (elements.aiSelectedCountDisplay) elements.aiSelectedCountDisplay.textContent = count;
+    if (elements.btnExecuteAiBatchCut) {
+      elements.btnExecuteAiBatchCut.disabled = (count === 0 || !state.aiCutSelectedMedia);
+    }
+  }
+
+  // Toggle selection of all scenes
+  function toggleSelectAllAiScenes() {
+    if (state.aiSelectedClipIndices.size === state.aiCuratedScenes.length) {
+      state.aiSelectedClipIndices.clear();
+      if (elements.btnSelectAllAiClips) elements.btnSelectAllAiClips.textContent = 'Pilih Semua';
+    } else {
+      state.aiSelectedClipIndices = new Set(state.aiCuratedScenes.map((_, i) => i));
+      if (elements.btnSelectAllAiClips) elements.btnSelectAllAiClips.textContent = 'Batal Pilih Semua';
+    }
+    updateAiSelectedCount();
+    renderAiScenesList();
+  }
+
+  // Render cards for each AI detected scene
+  function renderAiScenesList() {
+    if (!elements.aiScenesContainer) return;
+    elements.aiScenesContainer.innerHTML = '';
+
+    if (!state.aiCuratedScenes || state.aiCuratedScenes.length === 0) {
+      elements.aiScenesContainer.innerHTML = `
+        <div class="fm-empty-state" style="padding: 30px 16px;">
+          <div class="empty-icon">🎬</div>
+          <h4 style="margin: 0; font-size: 14px; color: #1E293B;">Belum Ada Analisis Subtitle</h4>
+          <p style="margin: 0; font-size: 12px; color: #64748B;">Pilih video, unggah file subtitle .SRT di sebelah kiri, lalu klik "Analisis Adegan Kunci dengan AI Gemini".</p>
+        </div>
+      `;
+      return;
+    }
+
+    state.aiCuratedScenes.forEach((scene, index) => {
+      const isSelected = state.aiSelectedClipIndices.has(index);
+      const card = document.createElement('div');
+      card.className = `ai-scene-item ${isSelected ? 'selected' : ''}`;
+
+      const durSec = Math.max(1, Math.round((parseFloat(scene.end_seconds) - parseFloat(scene.start_seconds)) * 10) / 10);
+      const roleBadge = scene.narrative_role ? `<span class="badge badge-subtle" style="font-size: 10px;">${escapeHtml(scene.narrative_role)}</span>` : '';
+
+      card.innerHTML = `
+        <div class="ai-scene-item-header">
+          <div class="scene-title-left">
+            <input type="checkbox" class="scene-checkbox" ${isSelected ? 'checked' : ''} data-index="${index}">
+            <span class="scene-num-badge">#${scene.clip_number || (index + 1)}</span>
+            <strong class="scene-title-text">${escapeHtml(scene.title || `Adegan ${index + 1}`)}</strong>
+            ${roleBadge}
+          </div>
+          <span class="scene-timecode-chip">${scene.start_time} - ${scene.end_time} (${durSec}s)</span>
+        </div>
+
+        <div class="scene-dialogue-box">
+          "${escapeHtml(scene.dialogue || '')}"
+          ${scene.dialogue_translated ? `<div style="font-size: 11px; color: #475569; margin-top: 3px; font-style: normal;">🇮🇩 ${escapeHtml(scene.dialogue_translated)}</div>` : ''}
+        </div>
+
+        ${scene.reason ? `<div class="scene-reason-text">💡 <strong>Alasan AI:</strong> ${escapeHtml(scene.reason)}</div>` : ''}
+
+        <div class="scene-actions-row">
+          <button type="button" class="btn-subtle btn-xs btn-preview-scene" data-index="${index}">
+            ▶️ Putar Detik Ini (${scene.start_time})
+          </button>
+        </div>
+      `;
+
+      // Checkbox listener
+      const chk = card.querySelector('.scene-checkbox');
+      chk.addEventListener('change', (e) => {
+        if (e.target.checked) {
+          state.aiSelectedClipIndices.add(index);
+          card.classList.add('selected');
+        } else {
+          state.aiSelectedClipIndices.delete(index);
+          card.classList.remove('selected');
+        }
+        updateAiSelectedCount();
+      });
+
+      // Preview listener
+      const btnPrev = card.querySelector('.btn-preview-scene');
+      btnPrev.addEventListener('click', () => previewAiScene(scene));
+
+      elements.aiScenesContainer.appendChild(card);
+    });
+  }
+
+  // Preview specific scene on video player
+  function previewAiScene(scene) {
+    if (!elements.aiCutPreviewVideo) return;
+    if (!state.aiCutSelectedMedia) {
+      showToast('Pilih video sumber di kolom kiri untuk memutar pratinjau!', 'warning');
+      return;
+    }
+
+    const startSec = Math.max(0, parseFloat(scene.start_seconds) || 0);
+    elements.aiCutPreviewVideo.currentTime = startSec;
+    elements.aiCutPreviewVideo.play().catch(e => console.log('Autoplay prevented:', e));
+
+    if (elements.badgeAiPlayerTimecode) {
+      elements.badgeAiPlayerTimecode.textContent = `${scene.start_time} (Klip #${scene.clip_number})`;
+    }
+    showToast(`Memutar: "${scene.title}" (${scene.start_time})`);
+  }
+
+  // Execute batch cut via FFmpeg
+  async function executeAiBatchCut() {
+    if (!state.aiCutSelectedMedia) {
+      showToast('Pilih video film sumber terlebih dahulu sebelum memotong!', 'warning');
+      return;
+    }
+
+    const selectedScenes = state.aiCuratedScenes.filter((_, i) => state.aiSelectedClipIndices.has(i));
+    if (selectedScenes.length === 0) {
+      showToast('Pilih minimal 1 adegan yang ingin dipotong!', 'warning');
+      return;
+    }
+
+    const keepAudio = elements.checkAiKeepDialogAudio ? elements.checkAiKeepDialogAudio.checked : true;
+    const mirror = elements.checkAiMirrorCut ? elements.checkAiMirrorCut.checked : false;
+
+    if (elements.btnExecuteAiBatchCut) elements.btnExecuteAiBatchCut.disabled = true;
+    if (elements.aiCutBatchProgress) elements.aiCutBatchProgress.hidden = false;
+    if (elements.aiBatchCutStatusText) {
+      elements.aiBatchCutStatusText.textContent = `Memotong ${selectedScenes.length} adegan film via FFmpeg...`;
+    }
+
+    try {
+      const res = await fetch('/api/media/ai-batch-cut', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mediaId: state.aiCutSelectedMedia.id,
+          scenes: selectedScenes,
+          muteAudio: !keepAudio,
+          mirror,
+          projectId: state.currentProjectId || 0
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Gagal memotong adegan dengan FFmpeg.');
+      }
+
+      renderAiCutResults(data.clips || []);
+      showToast(`🎉 Sukses! ${data.count} klip video berhasil dipotong & tersimpan di File Manager.`);
+
+      fetchMediaList();
+      fetchMediaStats();
+    } catch (err) {
+      console.error('Error batch cutting scenes:', err);
+      showToast('Pemotongan video gagal: ' + err.message, 'error');
+    } finally {
+      if (elements.btnExecuteAiBatchCut) elements.btnExecuteAiBatchCut.disabled = false;
+      if (elements.aiCutBatchProgress) elements.aiCutBatchProgress.hidden = true;
+    }
+  }
+
+  // Render batch cut result badges
+  function renderAiCutResults(clips) {
+    if (!elements.aiCutResultsBox || !elements.aiCutClipsGrid) return;
+    elements.aiCutClipsGrid.innerHTML = '';
+    elements.aiCutResultsBox.hidden = false;
+
+    clips.forEach(clip => {
+      const badge = document.createElement('div');
+      badge.className = 'ai-cut-clip-badge';
+      badge.innerHTML = `
+        <div style="overflow: hidden; text-overflow: ellipsis;">
+          <strong>🎬 ${escapeHtml(clip.original_name)}</strong>
+          <div style="font-size: 10.5px; color: #15803D;">Durasi: ${formatDuration(clip.duration_seconds)} • ${formatBytes(clip.file_size)}</div>
+        </div>
+        <div style="display: flex; gap: 4px; flex-shrink: 0;">
+          <a href="${clip.file_url}" download class="btn-subtle btn-xs" title="Unduh Klip">⬇️</a>
+          <button type="button" class="btn-subtle btn-xs btn-open-clip" title="Buka di File Manager">📁</button>
+        </div>
+      `;
+
+      badge.querySelector('.btn-open-clip').addEventListener('click', () => {
+        switchMediaTab('files');
+      });
+
+      elements.aiCutClipsGrid.appendChild(badge);
+    });
   }
 
   // Open Full Preview Modal (Lightbox)
@@ -5648,6 +6097,14 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
       elements.btnModalSendToSlicer.onclick = () => {
         closeMediaPreviewModal();
         sendMediaToSlicer(item);
+      };
+    }
+
+    if (elements.btnModalSendToAiCut) {
+      elements.btnModalSendToAiCut.hidden = !isVideo;
+      elements.btnModalSendToAiCut.onclick = () => {
+        closeMediaPreviewModal();
+        sendMediaToAiCut(item);
       };
     }
 
@@ -5802,10 +6259,76 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
 
     // Media Studio & File Manager Events
     if (elements.tabMediaSlicer) elements.tabMediaSlicer.addEventListener('click', () => switchMediaTab('slicer'));
+    if (elements.tabMediaAiCut) elements.tabMediaAiCut.addEventListener('click', () => switchMediaTab('aicut'));
     if (elements.tabMediaFiles) elements.tabMediaFiles.addEventListener('click', () => switchMediaTab('files'));
     if (elements.btnRefreshMedia) elements.btnRefreshMedia.addEventListener('click', () => { fetchMediaList(); fetchMediaStats(); });
     if (elements.btnOpenUploadModal) elements.btnOpenUploadModal.addEventListener('click', openMediaUploadModal);
     if (elements.btnEmptyUpload) elements.btnEmptyUpload.addEventListener('click', openMediaUploadModal);
+
+    // AI Cut Scene Events
+    if (elements.aiCutSelectVideo) {
+      elements.aiCutSelectVideo.addEventListener('change', (e) => {
+        const val = e.target.value;
+        const item = state.mediaItems.find(m => String(m.id) === String(val));
+        if (item) selectAiCutVideo(item);
+        else clearAiCutSelectedVideo();
+      });
+    }
+    if (elements.aiCutSrtDropzone && elements.aiCutSrtFileInput) {
+      elements.aiCutSrtDropzone.addEventListener('click', () => elements.aiCutSrtFileInput.click());
+      elements.aiCutSrtFileInput.addEventListener('change', (e) => {
+        if (e.target.files && e.target.files[0]) handleAiSrtFileSelect(e.target.files[0]);
+      });
+      elements.aiCutSrtDropzone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        elements.aiCutSrtDropzone.classList.add('dragover');
+      });
+      elements.aiCutSrtDropzone.addEventListener('dragleave', () => {
+        elements.aiCutSrtDropzone.classList.remove('dragover');
+      });
+      elements.aiCutSrtDropzone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        elements.aiCutSrtDropzone.classList.remove('dragover');
+        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+          handleAiSrtFileSelect(e.dataTransfer.files[0]);
+        }
+      });
+    }
+    if (elements.btnTogglePasteSrt && elements.boxPasteSrtArea) {
+      elements.btnTogglePasteSrt.addEventListener('click', () => {
+        elements.boxPasteSrtArea.hidden = !elements.boxPasteSrtArea.hidden;
+        if (!elements.boxPasteSrtArea.hidden && elements.aiCutSrtTextArea) {
+          elements.aiCutSrtTextArea.focus();
+        }
+      });
+    }
+    if (elements.btnExtractEmbeddedSubs) {
+      elements.btnExtractEmbeddedSubs.addEventListener('click', extractEmbeddedSubsFromVideo);
+    }
+    if (elements.btnRunAiSrtAnalysis) {
+      elements.btnRunAiSrtAnalysis.addEventListener('click', runAiSrtAnalysis);
+    }
+    if (elements.btnSelectAllAiClips) {
+      elements.btnSelectAllAiClips.addEventListener('click', toggleSelectAllAiScenes);
+    }
+    if (elements.btnExecuteAiBatchCut) {
+      elements.btnExecuteAiBatchCut.addEventListener('click', executeAiBatchCut);
+    }
+    if (elements.btnAiPlayerMuteToggle && elements.aiCutPreviewVideo) {
+      elements.btnAiPlayerMuteToggle.addEventListener('click', () => {
+        elements.aiCutPreviewVideo.muted = !elements.aiCutPreviewVideo.muted;
+        elements.btnAiPlayerMuteToggle.textContent = elements.aiCutPreviewVideo.muted ? '🔇 Mute' : '🔊 Suara On';
+      });
+    }
+    if (elements.aiCutPreviewVideo) {
+      elements.aiCutPreviewVideo.addEventListener('timeupdate', () => {
+        if (elements.badgeAiPlayerTimecode) {
+          const cur = formatDuration(elements.aiCutPreviewVideo.currentTime || 0);
+          const dur = formatDuration(elements.aiCutPreviewVideo.duration || 0);
+          elements.badgeAiPlayerTimecode.textContent = `${cur} / ${dur}`;
+        }
+      });
+    }
 
     // Slicer Controls & Source Selector
     if (elements.btnSourceFromManager) elements.btnSourceFromManager.addEventListener('click', () => switchSlicerSourceMode('manager'));

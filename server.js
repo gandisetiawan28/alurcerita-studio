@@ -13,7 +13,7 @@ const path = require('node:path');
 const fs = require('node:fs');
 const { spawn, execSync } = require('node:child_process');
 const { ProjectRepo, ApiKeyRepo, TtsRepo, ChannelRepo, PersonaRepo, TtsVoiceRepo, PromptTemplateRepo, SettingsRepo, AudioPresetRepo, AudioRecordingRepo, MediaRepo } = require('./db');
-const { GEMINI_MODELS, runGeminiGeneration, runGeminiTranscreation, testGeminiApiKey } = require('./geminiService');
+const { GEMINI_MODELS, runGeminiGeneration, runGeminiTranscreation, testGeminiApiKey, analyzeSrtForCutScenes } = require('./geminiService');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -1708,6 +1708,268 @@ app.delete('/api/media/:id', (req, res) => {
     res.json({ success: true, message: `File "${item.original_name}" berhasil dihapus dari database dan penyimpanan.` });
   } catch (error) {
     console.error('Error deleting media:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// AI Cut Scene Detector: Analisis Subtitle / Dialog Film & Batch Cut FFmpeg
+// ---------------------------------------------------------------------------
+
+function timeStringToSeconds(timeStr) {
+  if (!timeStr) return 0;
+  const clean = String(timeStr).trim().replace(',', '.');
+  const parts = clean.split(':');
+  if (parts.length === 3) {
+    const h = parseFloat(parts[0]) || 0;
+    const m = parseFloat(parts[1]) || 0;
+    const s = parseFloat(parts[2]) || 0;
+    return Math.round((h * 3600 + m * 60 + s) * 1000) / 1000;
+  }
+  return 0;
+}
+
+function parseSrtContent(srtText) {
+  if (!srtText || typeof srtText !== 'string') return [];
+  const normalized = srtText.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const blocks = normalized.split(/\n\s*\n/);
+  const entries = [];
+
+  for (const block of blocks) {
+    const lines = block.trim().split('\n');
+    if (lines.length < 2) continue;
+
+    let timeLineIdx = 1;
+    if (lines[0].includes('-->')) {
+      timeLineIdx = 0;
+    }
+
+    const timeLine = lines[timeLineIdx];
+    if (!timeLine || !timeLine.includes('-->')) continue;
+
+    const [startStr, endStr] = timeLine.split('-->').map(s => s.trim());
+    const startSec = timeStringToSeconds(startStr);
+    const endSec = timeStringToSeconds(endStr);
+    const text = lines.slice(timeLineIdx + 1).join(' ').replace(/<[^>]*>/g, '').trim();
+
+    if (text && endSec > startSec) {
+      entries.push({
+        id: entries.length + 1,
+        startTime: startStr.replace(',', '.'),
+        endTime: endStr.replace(',', '.'),
+        startSec,
+        endSec,
+        duration: Math.round((endSec - startSec) * 10) / 10,
+        text
+      });
+    }
+  }
+  return entries;
+}
+
+// 8. Analyze SRT Subtitle for Important Cut Scenes using Gemini
+app.post('/api/media/ai-analyze-srt', uploadMedia.single('file'), async (req, res) => {
+  try {
+    let srtText = '';
+    const movieTitle = req.body.movieTitle || 'Film';
+    const focusHint = req.body.focusHint || '';
+    const maxClips = parseInt(req.body.maxClips, 10) || 8;
+    const preferredModel = req.body.preferredModel || 'auto';
+
+    if (req.file) {
+      srtText = fs.readFileSync(req.file.path, 'utf8');
+    } else if (req.body.srtText) {
+      srtText = req.body.srtText;
+    } else if (req.body.mediaId) {
+      // Try extracting embedded subtitle stream from video using ffmpeg
+      const source = MediaRepo.getById(req.body.mediaId);
+      if (source && source.file_url) {
+        let videoDiskPath = '';
+        if (source.file_url.startsWith('/videos/raw/')) {
+          videoDiskPath = path.join(publicVideosRawDir, source.filename);
+        } else if (source.file_url.startsWith('/videos/processed/')) {
+          videoDiskPath = path.join(publicVideosProcessedDir, source.filename);
+        }
+
+        if (fs.existsSync(videoDiskPath)) {
+          try {
+            console.log(`[FFmpeg] Mencoba mengekstrak subtitle embedded dari: ${videoDiskPath}...`);
+            const extracted = execSync(`ffmpeg -y -i "${videoDiskPath}" -map 0:s:0 -f srt -`, {
+              encoding: 'utf8',
+              timeout: 15000,
+              windowsHide: true
+            });
+            if (extracted && extracted.trim().length > 50) {
+              srtText = extracted;
+            }
+          } catch (subErr) {
+            console.log('[FFmpeg] Video tidak memiliki stream subtitle internal, menunggu file SRT upload.');
+          }
+        }
+      }
+    }
+
+    if (!srtText || srtText.trim().length < 20) {
+      return res.status(400).json({
+        success: false,
+        error: 'File atau teks subtitle (.SRT / .VTT) tidak ditemukan atau kosong. Silakan unggah file subtitle film terlebih dahulu.'
+      });
+    }
+
+    const srtEntries = parseSrtContent(srtText);
+    if (srtEntries.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Format subtitle tidak valid. Pastikan file memiliki timecode (00:00:00 --> 00:00:00).'
+      });
+    }
+
+    const aiResult = await analyzeSrtForCutScenes({
+      srtEntries,
+      movieTitle,
+      focusHint,
+      maxClips,
+      preferredModel
+    });
+
+    res.json({
+      success: true,
+      data: aiResult,
+      total_subtitles_analyzed: srtEntries.length,
+      message: `Gemini berhasil mengidentifikasi ${aiResult.scenes.length} adegan kunci untuk dipotong jadi cut-scene!`
+    });
+  } catch (error) {
+    console.error('Error analyzing SRT for cut scenes:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 9. Batch Cut Video Scenes via FFmpeg
+app.post('/api/media/ai-batch-cut', async (req, res) => {
+  try {
+    const { mediaId, videoPath, scenes, muteAudio = false, mirror = false, speed = 1.0, projectId = 0 } = req.body;
+
+    if (!Array.isArray(scenes) || scenes.length === 0) {
+      return res.status(400).json({ success: false, error: 'Daftar adegan yang akan dipotong tidak boleh kosong.' });
+    }
+
+    let inputPath = null;
+    let sourceMediaRecord = null;
+
+    if (mediaId) {
+      sourceMediaRecord = MediaRepo.getById(mediaId);
+      if (sourceMediaRecord) {
+        if (sourceMediaRecord.file_url.startsWith('/videos/raw/')) {
+          inputPath = path.join(publicVideosRawDir, sourceMediaRecord.filename);
+        } else if (sourceMediaRecord.file_url.startsWith('/videos/processed/')) {
+          inputPath = path.join(publicVideosProcessedDir, sourceMediaRecord.filename);
+        } else {
+          inputPath = path.join(__dirname, 'public', sourceMediaRecord.file_url.replace(/^\//, ''));
+        }
+      }
+    } else if (videoPath) {
+      inputPath = path.resolve(__dirname, videoPath.replace(/^\//, ''));
+    }
+
+    if (!inputPath || !fs.existsSync(inputPath)) {
+      return res.status(400).json({ success: false, error: 'File video sumber tidak ditemukan untuk dipotong.' });
+    }
+
+    const createdClips = [];
+
+    for (let i = 0; i < scenes.length; i++) {
+      const sc = scenes[i];
+      const startSec = Math.max(0, parseFloat(sc.start_seconds) || 0);
+      const endSec = Math.max(startSec + 0.5, parseFloat(sc.end_seconds) || (startSec + 3));
+      const duration = Math.round((endSec - startSec) * 100) / 100;
+
+      const cleanTitle = (sc.title || `Clip_${i+1}`).replace(/[^a-zA-Z0-9_\-\.]/g, '_').substring(0, 30);
+      const outFilename = `cutscene_${i+1}_${cleanTitle}_${Date.now()}.mp4`;
+      const outputPath = path.join(publicVideosProcessedDir, outFilename);
+
+      // Construct FFmpeg command
+      let videoFilters = [];
+      if (mirror) videoFilters.push('hflip');
+      if (speed && speed !== 1.0) {
+        const speedFactor = (1.0 / speed).toFixed(4);
+        videoFilters.push(`setpts=${speedFactor}*PTS`);
+      }
+
+      const args = [
+        '-y',
+        '-ss', startSec.toString(),
+        '-to', endSec.toString(),
+        '-i', inputPath
+      ];
+
+      if (videoFilters.length > 0) {
+        args.push('-vf', videoFilters.join(','));
+      }
+
+      args.push(
+        '-c:v', 'libx264',
+        '-preset', 'veryfast',
+        '-crf', '22',
+        '-pix_fmt', 'yuv420p'
+      );
+
+      if (muteAudio) {
+        args.push('-an');
+      } else {
+        if (speed && speed !== 1.0) {
+          args.push('-filter:a', `atempo=${speed.toFixed(2)}`);
+        }
+        args.push('-c:a', 'aac', '-b:a', '192k');
+      }
+
+      args.push(outputPath);
+
+      console.log(`[FFmpeg Batch Cut #${i+1}] Memotong: ${startSec}s -> ${endSec}s (${duration}s) ke ${outFilename}`);
+
+      await new Promise((resolve) => {
+        const proc = spawn('ffmpeg', args, { windowsHide: true });
+        let stderr = '';
+        proc.stderr.on('data', d => stderr += d.toString());
+        proc.on('close', code => {
+          if (code === 0 && fs.existsSync(outputPath)) {
+            resolve(true);
+          } else {
+            console.warn(`[FFmpeg Cut Error Klip #${i+1}]:`, stderr.slice(-400));
+            resolve(false);
+          }
+        });
+        proc.on('error', () => resolve(false));
+      });
+
+      if (fs.existsSync(outputPath)) {
+        const probed = probeMediaFile(outputPath);
+        const record = MediaRepo.create({
+          project_id: projectId || (sourceMediaRecord ? sourceMediaRecord.project_id : 0),
+          filename: outFilename,
+          original_name: `🎬 Cut Scene #${sc.clip_number || (i+1)} - ${sc.title || 'Adegan Kunci'}`,
+          file_type: 'video',
+          category: 'cut_scene',
+          file_size: probed.file_size,
+          duration_seconds: probed.duration_seconds || duration,
+          resolution: probed.resolution || 'HD',
+          mime_type: 'video/mp4',
+          file_url: `/videos/processed/${outFilename}`,
+          tags: `cut_scene, ai_gemini, dialog${mirror ? ', mirror' : ''}`,
+          notes: `${sc.dialogue || ''} — ${sc.reason || ''}`
+        });
+        createdClips.push(record);
+      }
+    }
+
+    res.json({
+      success: true,
+      clips: createdClips,
+      total_requested: scenes.length,
+      total_created: createdClips.length,
+      message: `Berhasil memotong ${createdClips.length} klip cut scene dengan AI Gemini & FFmpeg!`
+    });
+  } catch (error) {
+    console.error('Error in batch cut:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });

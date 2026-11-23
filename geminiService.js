@@ -663,10 +663,102 @@ Produce the full, complete transcreated script in clean Markdown without convers
   };
 }
 
+/**
+ * AI Smart Cut Scene Detector: Analisis Subtitle / Dialog Film menggunakan Gemini
+ * Memilih momen dramatis, punchline, dialog kunci, dan klimaks untuk dipotong jadi cut scene fair-use.
+ */
+async function analyzeSrtForCutScenes({
+  srtEntries = [],
+  movieTitle = 'Film',
+  channelPersona = 'alur_cerita',
+  focusHint = '',
+  maxClips = 10,
+  preferredModel = 'auto'
+}) {
+  if (!srtEntries || srtEntries.length === 0) {
+    throw new Error('Data subtitle film kosong atau tidak valid.');
+  }
+
+  // Format subtitle entries compactly for prompt efficiency
+  const condensedDialog = srtEntries.slice(0, 1200).map((item, idx) => 
+    `[#${idx + 1}] ${item.startTime} -> ${item.endTime} (${item.duration}s) | ${item.text}`
+  ).join('\n');
+
+  const prompt = `
+Anda adalah Sutradara & Video Editor Profesional khusus YouTube Alur Cerita / Movie Recap.
+Tugas Anda: Dari data subtitle & dialog film "${movieTitle}" berikut, pilih ${Math.min(15, Math.max(5, maxClips))} adegan / kalimat kunci paling penting yang WAJIB dipotong menjadi klip video cut-scene (B-Roll Dramatis / Hook).
+
+${focusHint ? `FOKUS KHUSUS PEMILIHAN DARI PENGGUNA:\n"${focusHint}"\n` : ''}
+
+KRITERIA WAJIB PEMILIHAN CUT SCENE:
+1. PUNCHLINE & PLOT TWIST: Dialog pengungkapan rahasia, momen kejutan, atau fakta baru yang mengubah arah cerita.
+2. MOMEN EMOSIONAL / DILEMA: Kalimat penuh ketakutan, keputusasaan, kemarahan, atau pengakuan mendalam tokoh.
+3. KATA KUNCI PERISTIWA (EVENT TRIGGER): Adegan ledakan wabah, keputusan berbahaya, atau konfrontasi puncak.
+4. DURASI KLIP IDEAL: Antara 2.5 hingga 6 detik per adegan (sangat aman untuk fair-use YouTube dan tidak membosankan).
+5. BUFFER WAKTU: Pastikan start_seconds diberi jeda ~0.3s sebelum dialog mulai dan end_seconds diberi jeda ~0.4s setelah dialog selesai agar suara/gerakan tidak terpotong kaku.
+
+SUBTITLE & TIMECODE FILM (${movieTitle}):
+${condensedDialog}
+
+FORMAT OUTPUT WAJIB:
+Hasilkan HANYA JSON VALID murni (tanpa format markdown tambahan seperti \`\`\`json):
+{
+  "summary": "Ringkasan kurasi: mengapa adegan-adegan ini dipilih untuk memperkuat alur cerita film ini",
+  "scenes": [
+    {
+      "clip_number": 1,
+      "title": "Judul Adegan Singkat & Padat",
+      "start_time": "00:03:14.500",
+      "end_time": "00:03:18.800",
+      "start_seconds": 194.5,
+      "end_seconds": 198.8,
+      "dialogue": "Teks dialog asli dalam film",
+      "dialogue_translated": "Terjemahan dialog bahasa Indonesia",
+      "narrative_role": "Hook Pembuka / Titik Balik / Momen Emosional / Klimaks",
+      "reason": "Alasan singkat mengapa adegan ini sangat krusial dimasukkan ke video alur cerita"
+    }
+  ]
+}
+`;
+
+  console.log(`🤖 [AI Cut Scene Engine] Menganalisis subtitle untuk "${movieTitle}" (${srtEntries.length} baris)...`);
+  const result = await callGeminiSmartStage(prompt, `AI Cut Scene Detector (${movieTitle})`, preferredModel);
+
+  if (!result || !result.text) {
+    throw new Error('Gemini tidak memberikan respons analisis cut scene.');
+  }
+
+  // Parse JSON response safely
+  let parsedJson = null;
+  const rawText = result.text.trim();
+  try {
+    parsedJson = JSON.parse(rawText);
+  } catch (e) {
+    const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      try {
+        parsedJson = JSON.parse(jsonMatch[0]);
+      } catch (e2) {
+        throw new Error('Gagal mem-parsing format JSON hasil analisis adegan Gemini.');
+      }
+    } else {
+      throw new Error('Format output Gemini bukan JSON yang valid.');
+    }
+  }
+
+  return {
+    summary: parsedJson.summary || 'Koleksi cut scene kunci berhasil dianalisis oleh Gemini.',
+    scenes: Array.isArray(parsedJson.scenes) ? parsedJson.scenes : [],
+    active_model: result.modelName,
+    used_key: result.keyInfo
+  };
+}
+
 module.exports = {
   GEMINI_MODELS,
   runGeminiGeneration,
   runGeminiTranscreation,
+  analyzeSrtForCutScenes,
   testGeminiApiKey,
   countWords,
   getModelSequence
