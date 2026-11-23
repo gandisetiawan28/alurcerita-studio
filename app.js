@@ -751,7 +751,9 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     mobileNavBar: document.getElementById('mobileNavBar'),
     mobileTabBtns: document.querySelectorAll('.mobile-tab-btn'),
     studioSidebar: document.getElementById('studio-sidebar'),
-    studioEditor: document.getElementById('studio-editor')
+    studioEditor: document.getElementById('studio-editor'),
+    btnToggleSidebar: document.getElementById('btnToggleSidebar'),
+    btnToggleSidebarText: document.getElementById('btnToggleSidebarText')
   };
 
   // --- Utility Functions ---
@@ -3672,6 +3674,36 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     }
   }
 
+
+  function toggleLeftSidebar(forceState = null) {
+    if (!elements.studioSidebar) return;
+    const isCollapsed = elements.studioSidebar.classList.contains('collapsed');
+    const shouldCollapse = (forceState !== null) ? Boolean(forceState) : !isCollapsed;
+
+    if (shouldCollapse) {
+      elements.studioSidebar.classList.add('collapsed');
+      if (elements.btnToggleSidebar) {
+        elements.btnToggleSidebar.classList.add('active');
+        elements.btnToggleSidebar.setAttribute('aria-pressed', 'true');
+      }
+      if (elements.btnToggleSidebarText) {
+        elements.btnToggleSidebarText.textContent = 'Buka Input';
+      }
+    } else {
+      elements.studioSidebar.classList.remove('collapsed');
+      if (elements.btnToggleSidebar) {
+        elements.btnToggleSidebar.classList.remove('active');
+        elements.btnToggleSidebar.setAttribute('aria-pressed', 'false');
+      }
+      if (elements.btnToggleSidebarText) {
+        elements.btnToggleSidebarText.textContent = 'Panel Input';
+      }
+    }
+
+    localStorage.setItem('alur_sidebar_collapsed', shouldCollapse ? '1' : '0');
+    resizeAudioCanvases();
+  }
+
   function initAudioDockResizer() {
     if (!elements.audioDockResizer || !elements.audioSuiteModal) return;
 
@@ -4957,6 +4989,7 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     if (elements.btnTriggerTranscreate) elements.btnTriggerTranscreate.addEventListener('click', handleTranscreateScript);
 
     // Audio Mixing & Mastering Suite Dock / Side Panel
+    if (elements.btnToggleSidebar) elements.btnToggleSidebar.addEventListener('click', () => toggleLeftSidebar());
     if (elements.btnToggleAudioDock) elements.btnToggleAudioDock.addEventListener('click', () => toggleAudioDock());
     if (elements.btnOpenAudioSuiteModal) elements.btnOpenAudioSuiteModal.addEventListener('click', () => toggleAudioDock());
     if (elements.btnCloseAudioSuiteModal) elements.btnCloseAudioSuiteModal.addEventListener('click', closeAudioSuiteModal);
@@ -5686,6 +5719,10 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
         e.preventDefault();
         togglePrompterScroll();
       }
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'b' || e.key === 'B')) {
+        e.preventDefault();
+        toggleLeftSidebar();
+      }
       if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
         e.preventDefault();
         saveCurrentProjectToSQLite();
@@ -5718,6 +5755,12 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
   // --- Initial Mount ---
   async function initApp() {
     initEvents();
+
+    // Pulihkan status collapse sidebar jika tersimpan
+    const savedSidebarCollapsed = localStorage.getItem('alur_sidebar_collapsed');
+    if (savedSidebarCollapsed === '1') {
+      toggleLeftSidebar(true);
+    }
 
     // Pastikan status tampilan awal adalah Editorial Reader
     state.isRawMode = false;

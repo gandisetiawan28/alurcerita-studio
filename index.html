@@ -73,7 +73,7 @@
       <!-- Database Master Center Trigger -->
       <button type="button" class="btn-subtle header-db-btn" id="btnOpenDbMasterModal" title="Pusat Data Master & Pengaturan CRUD Database SQLite">
         <span style="font-size: 14px;">🗄️</span>
-        <span>Database Master</span>
+        <span>Database</span>
       </button>
 
       <!-- API Key Manager Trigger (Smart Round-Robin) -->
@@ -83,7 +83,7 @@
           <path d="m21 2-9.6 9.6"></path>
           <path d="m15.5 7.5 3 3L22 7l-3-3"></path>
         </svg>
-        <span>API Keys</span>
+        <span>Keys</span>
         <span class="key-count-chip" id="headerKeyCountBadge">0</span>
       </button>
 
@@ -97,7 +97,7 @@
             <line x1="12" y1="19" x2="12" y2="23"></line>
             <line x1="8" y1="23" x2="16" y2="23"></line>
           </svg>
-          <span>Voiceover TTS</span>
+          <span>TTS</span>
           <span class="tts-dot-status" id="ttsColabDotStatus" title="Status koneksi Colab"></span>
         </button>
 
@@ -125,7 +125,7 @@
             <line x1="2" y1="12" x2="22" y2="12"></line>
             <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
           </svg>
-          <span>Translate Global</span>
+          <span>Translate</span>
         </button>
 
         <button type="button" class="btn-subtle" id="btnTogglePrompter" title="Buka Mode Teleprompter Layar Penuh (Shortcut: Alt+P)">
@@ -452,13 +452,22 @@
       <!-- Editorial Toolbar -->
       <div class="editor-toolbar">
         <div class="toolbar-left">
+          <!-- Toggle Left Sidebar Button -->
+          <button type="button" class="tool-btn btn-toggle-sidebar" id="btnToggleSidebar" title="Sembunyikan / Tampilkan Panel Input (Ctrl+B)" aria-pressed="false">
+            <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+              <line x1="9" y1="3" x2="9" y2="21"></line>
+            </svg>
+            <span id="btnToggleSidebarText">Panel Input</span>
+          </button>
+
           <div class="view-mode-toggle" role="tablist" aria-label="Mode Tampilan">
             <button type="button" class="view-btn active" id="viewBtnReader" role="tab" aria-selected="true" title="Klik dan edit langsung naskah pada kertas kanvas">
               <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                 <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
                 <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
               </svg>
-              <span>Canvas Editor (Langsung)</span>
+              <span>Canvas Editor</span>
             </button>
             <button type="button" class="view-btn" id="viewBtnRaw" role="tab" aria-selected="false" title="Mode edit kode markdown mentah">
               <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
@@ -484,7 +493,7 @@
               <path d="M3 6h18"></path>
               <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
             </svg>
-            <span>Hapus Basa-Basi AI</span>
+            <span>Hapus Basa-Basi</span>
           </button>
 
           <!-- Filter Tag Visual Toggle -->
@@ -506,7 +515,7 @@
               <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
               <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
             </svg>
-            <span>Salin Voiceover</span>
+            <span>Salin VO</span>
           </button>
 
           <!-- Translate Global Button -->
@@ -784,12 +793,11 @@
             <div class="effects-mode-tabs" role="tablist">
               <button type="button" class="effect-mode-tab active" id="tabModeManualRack" role="tab" aria-selected="true">
                 <span class="mode-tab-icon">🎛️</span>
-                <span>Modul Efek Manual (Channel Strip)</span>
-                <span class="pill-chip-badge">Bisa Diatur Sendiri</span>
+                <span>Manual DSP Rack</span>
               </button>
               <button type="button" class="effect-mode-tab" id="tabModeQuickPresets" role="tab" aria-selected="false">
                 <span class="mode-tab-icon">⚡</span>
-                <span>Preset Karakter Cepat (1-Klik)</span>
+                <span>1-Klik Preset</span>
               </button>
             </div>
 
@@ -1194,14 +1202,14 @@
         </div>
 
         <!-- Action Buttons -->
-        <div class="footer-btn-group" style="display: flex; gap: 8px; align-items: center;">
+        <div class="dock-footer-actions footer-btn-group">
           <button type="button" class="btn-subtle" id="btnCloseAudioSuiteFooter">Tutup</button>
           <button type="button" class="btn-secondary" id="btnAttachAudioToProject">
             <span>✅ Pasang ke Proyek</span>
           </button>
           <button type="button" class="btn-primary" id="btnDownloadMasteredAudio">
             <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-            <span id="btnDownloadMasterText">⬇️ Unduh Audio Master (WAV)</span>
+            <span id="btnDownloadMasterText">⬇️ Unduh Master (WAV)</span>
           </button>
         </div>
           </div>
