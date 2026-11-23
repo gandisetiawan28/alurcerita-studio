@@ -140,6 +140,25 @@ db.exec(`
   INSERT OR IGNORE INTO app_settings (id, default_wpm, max_hook_seconds, default_gemini_model, default_language)
   VALUES (1, 140, 30, 'auto', 'id');
 
+  
+  CREATE TABLE IF NOT EXISTS project_media (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id INTEGER DEFAULT 0,
+    filename TEXT NOT NULL,
+    original_name TEXT NOT NULL,
+    file_type TEXT NOT NULL,
+    category TEXT DEFAULT 'general',
+    file_size INTEGER DEFAULT 0,
+    duration_seconds REAL DEFAULT 0,
+    resolution TEXT DEFAULT '',
+    mime_type TEXT DEFAULT '',
+    file_url TEXT NOT NULL,
+    tags TEXT DEFAULT '',
+    notes TEXT DEFAULT '',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
   CREATE TABLE IF NOT EXISTS audio_master_presets (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     preset_key TEXT UNIQUE NOT NULL,
@@ -1639,6 +1658,115 @@ const SettingsRepo = {
   }
 })();
 
+
+// Repository for Project Media & File Manager CRUD
+const MediaRepo = {
+  getAll({ projectId = null, fileType = null, category = null, search = null } = {}) {
+    let sql = 'SELECT * FROM project_media WHERE 1=1';
+    const params = [];
+
+    if (projectId !== null && projectId !== undefined && projectId !== '') {
+      sql += ' AND (project_id = ? OR project_id = 0)';
+      params.push(Number(projectId));
+    }
+    if (fileType && fileType !== 'all') {
+      sql += ' AND file_type = ?';
+      params.push(String(fileType));
+    }
+    if (category && category !== 'all') {
+      sql += ' AND category = ?';
+      params.push(String(category));
+    }
+    if (search && search.trim()) {
+      sql += ' AND (original_name LIKE ? OR filename LIKE ? OR tags LIKE ? OR notes LIKE ?)';
+      const term = '%' + search.trim() + '%';
+      params.push(term, term, term, term);
+    }
+
+    sql += ' ORDER BY id DESC';
+    const stmt = db.prepare(sql);
+    return stmt.all(...params);
+  },
+
+  getById(id) {
+    const stmt = db.prepare('SELECT * FROM project_media WHERE id = ?');
+    return stmt.get(Number(id));
+  },
+
+  create(data) {
+    const now = new Date().toISOString();
+    const stmt = db.prepare(`
+      INSERT INTO project_media (
+        project_id, filename, original_name, file_type, category,
+        file_size, duration_seconds, resolution, mime_type, file_url,
+        tags, notes, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    const res = stmt.run(
+      Number(data.project_id || 0),
+      String(data.filename || '').trim(),
+      String(data.original_name || data.filename || 'Untitled').trim(),
+      String(data.file_type || 'other').trim(),
+      String(data.category || 'general').trim(),
+      Number(data.file_size || 0),
+      Number(data.duration_seconds || 0),
+      String(data.resolution || ''),
+      String(data.mime_type || ''),
+      String(data.file_url || ''),
+      String(data.tags || ''),
+      String(data.notes || ''),
+      now,
+      now
+    );
+    return this.getById(res.lastInsertRowid);
+  },
+
+  update(id, data) {
+    const now = new Date().toISOString();
+    const stmt = db.prepare(`
+      UPDATE project_media SET
+        original_name = COALESCE(?, original_name),
+        category = COALESCE(?, category),
+        tags = COALESCE(?, tags),
+        notes = COALESCE(?, notes),
+        updated_at = ?
+      WHERE id = ?
+    `);
+    stmt.run(
+      data.original_name ? data.original_name.trim() : null,
+      data.category ? data.category.trim() : null,
+      data.tags !== undefined ? data.tags.trim() : null,
+      data.notes !== undefined ? data.notes.trim() : null,
+      now,
+      Number(id)
+    );
+    return this.getById(id);
+  },
+
+  delete(id) {
+    const item = this.getById(id);
+    if (!item) return null;
+    const stmt = db.prepare('DELETE FROM project_media WHERE id = ?');
+    stmt.run(Number(id));
+    return item;
+  },
+
+  getStats(projectId = null) {
+    let sql = `SELECT 
+      COUNT(*) as total_files,
+      COALESCE(SUM(CASE WHEN file_type = 'video' THEN 1 ELSE 0 END), 0) as video_count,
+      COALESCE(SUM(CASE WHEN file_type = 'audio' THEN 1 ELSE 0 END), 0) as audio_count,
+      COALESCE(SUM(CASE WHEN category = 'footage_sliced' THEN 1 ELSE 0 END), 0) as sliced_count,
+      COALESCE(SUM(file_size), 0) as total_size_bytes
+    FROM project_media`;
+    if (projectId !== null && projectId !== undefined && projectId !== '') {
+      sql += ' WHERE project_id = ? OR project_id = 0';
+      return db.prepare(sql).get(Number(projectId));
+    }
+    return db.prepare(sql).get();
+  }
+};
+
 module.exports = {
   db,
   ProjectRepo,
@@ -1651,5 +1779,6 @@ module.exports = {
   SettingsRepo,
   AudioPresetRepo,
   AudioRecordingRepo,
+  MediaRepo,
   DEFAULT_AUDIO_PRESETS
 };

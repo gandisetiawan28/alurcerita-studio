@@ -235,7 +235,7 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
 
   // Application State
   const state = {
-    activeView: 'studio', // 'home' | 'studio'
+    activeView: 'studio', // 'home' | 'studio' | 'media'
     currentProjectId: 1,
     projectsList: [],
     channelsList: [],
@@ -245,6 +245,17 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     appSettings: { default_wpm: 140, max_hook_seconds: 30, default_gemini_model: 'auto', default_language: 'id' },
     editorialSentences: [],
     apiKeys: [],
+    // Media Studio & File Manager State
+    mediaItems: [],
+    mediaStats: null,
+    selectedSlicerMedia: null,
+    selectedSlicerFile: null,
+    slicedResultMedia: null,
+    fmFilter: 'all',
+    fmSearch: '',
+    fmViewMode: 'grid', // 'grid' | 'table'
+    slicerSourceMode: 'manager', // 'manager' | 'upload'
+    previewModeSource: 'sliced', // 'sliced' | 'raw'
     ttsConfig: {
       colab_url: '',
       model: 'kokoro',
@@ -545,8 +556,10 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     // Navigation & Views
     navBtnHome: document.getElementById('navBtnHome'),
     navBtnStudio: document.getElementById('navBtnStudio'),
+    navBtnMediaStudio: document.getElementById('navBtnMediaStudio'),
     homeWorkspace: document.getElementById('homeWorkspace'),
     studioWorkspace: document.getElementById('studioWorkspace'),
+    mediaWorkspace: document.getElementById('mediaWorkspace'),
     activeProjectPill: document.getElementById('activeProjectPill'),
     activeProjectTitleDisplay: document.getElementById('activeProjectTitleDisplay'),
     headerPresetBox: document.getElementById('headerPresetBox'),
@@ -554,6 +567,112 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     studioHeaderActions: document.getElementById('studioHeaderActions'),
     homeHeaderActions: document.getElementById('homeHeaderActions'),
     btnHeaderNewProject: document.getElementById('btnHeaderNewProject'),
+
+    // Media Workspace & Sub-Nav Elements
+    tabMediaSlicer: document.getElementById('tabMediaSlicer'),
+    tabMediaFiles: document.getElementById('tabMediaFiles'),
+    mediaSlicerSection: document.getElementById('mediaSlicerSection'),
+    mediaFilesSection: document.getElementById('mediaFilesSection'),
+    mediaHeaderStats: document.getElementById('mediaHeaderStats'),
+    mediaStatsSummaryText: document.getElementById('mediaStatsSummaryText'),
+    btnRefreshMedia: document.getElementById('btnRefreshMedia'),
+    btnOpenUploadModal: document.getElementById('btnOpenUploadModal'),
+
+    // Video Slicer Controls
+    btnSourceFromManager: document.getElementById('btnSourceFromManager'),
+    btnSourceFromUpload: document.getElementById('btnSourceFromUpload'),
+    boxSourceFromManager: document.getElementById('boxSourceFromManager'),
+    boxSourceFromUpload: document.getElementById('boxSourceFromUpload'),
+    slicerSelectVideo: document.getElementById('slicerSelectVideo'),
+    slicerDropzone: document.getElementById('slicerDropzone'),
+    slicerFileInput: document.getElementById('slicerFileInput'),
+    slicerSelectedPill: document.getElementById('slicerSelectedPill'),
+    slicerSelectedTitle: document.getElementById('slicerSelectedTitle'),
+    slicerSelectedMeta: document.getElementById('slicerSelectedMeta'),
+    btnClearSelectedVideo: document.getElementById('btnClearSelectedVideo'),
+    sliderKeepSeconds: document.getElementById('sliderKeepSeconds'),
+    inputKeepSeconds: document.getElementById('inputKeepSeconds'),
+    chipKeepVal: document.getElementById('chipKeepVal'),
+    sliderSkipSeconds: document.getElementById('sliderSkipSeconds'),
+    inputSkipSeconds: document.getElementById('inputSkipSeconds'),
+    chipSkipVal: document.getElementById('chipSkipVal'),
+    formulaSummaryTitle: document.getElementById('formulaSummaryTitle'),
+    formulaSummaryDesc: document.getElementById('formulaSummaryDesc'),
+    checkMuteAudio: document.getElementById('checkMuteAudio'),
+    checkMirrorVideo: document.getElementById('checkMirrorVideo'),
+    selectVideoSpeed: document.getElementById('selectVideoSpeed'),
+    inputCustomOutputName: document.getElementById('inputCustomOutputName'),
+    btnStartSlicing: document.getElementById('btnStartSlicing'),
+    btnStartSlicingText: document.getElementById('btnStartSlicingText'),
+    slicerProgressContainer: document.getElementById('slicerProgressContainer'),
+    slicerProgressBar: document.getElementById('slicerProgressBar'),
+    slicerProgressStatus: document.getElementById('slicerProgressStatus'),
+
+    // Slicer Player & Result
+    slicerPreviewVideo: document.getElementById('slicerPreviewVideo'),
+    playerEmptyPlaceholder: document.getElementById('playerEmptyPlaceholder'),
+    badgePreviewMode: document.getElementById('badgePreviewMode'),
+    btnTogglePreviewSource: document.getElementById('btnTogglePreviewSource'),
+    slicingResultStats: document.getElementById('slicingResultStats'),
+    statSourceDuration: document.getElementById('statSourceDuration'),
+    statSlicedDuration: document.getElementById('statSlicedDuration'),
+    statSavedPercent: document.getElementById('statSavedPercent'),
+    statResolutionSize: document.getElementById('statResolutionSize'),
+    previewFooterActions: document.getElementById('previewFooterActions'),
+    btnDownloadSlicedVideo: document.getElementById('btnDownloadSlicedVideo'),
+    btnOpenInFileManager: document.getElementById('btnOpenInFileManager'),
+    btnCopyVideoUrl: document.getElementById('btnCopyVideoUrl'),
+
+    // File Manager Elements
+    fmFilterBtns: document.querySelectorAll('.fm-filter-btn'),
+    fmSearchInput: document.getElementById('fmSearchInput'),
+    btnFmClearSearch: document.getElementById('btnFmClearSearch'),
+    btnViewGrid: document.getElementById('btnViewGrid'),
+    btnViewTable: document.getElementById('btnViewTable'),
+    fmMediaGrid: document.getElementById('fmMediaGrid'),
+    fmMediaTableContainer: document.getElementById('fmMediaTableContainer'),
+    fmMediaTableBody: document.getElementById('fmMediaTableBody'),
+    fmEmptyState: document.getElementById('fmEmptyState'),
+    btnEmptyUpload: document.getElementById('btnEmptyUpload'),
+    fmTotalFiles: document.getElementById('fmTotalFiles'),
+    fmVideoRawCount: document.getElementById('fmVideoRawCount'),
+    fmVideoSlicedCount: document.getElementById('fmVideoSlicedCount'),
+    fmAudioCount: document.getElementById('fmAudioCount'),
+    fmTotalStorageSize: document.getElementById('fmTotalStorageSize'),
+
+    // Media Modals
+    mediaUploadModal: document.getElementById('mediaUploadModal'),
+    btnCloseUploadModal: document.getElementById('btnCloseUploadModal'),
+    btnCancelUploadModal: document.getElementById('btnCancelUploadModal'),
+    formUploadMedia: document.getElementById('formUploadMedia'),
+    modalMediaFileInput: document.getElementById('modalMediaFileInput'),
+    modalMediaDropzone: document.getElementById('modalMediaDropzone'),
+    modalDropzoneMainText: document.getElementById('modalDropzoneMainText'),
+    uploadCategorySelect: document.getElementById('uploadCategorySelect'),
+    uploadTagsInput: document.getElementById('uploadTagsInput'),
+    uploadNotesInput: document.getElementById('uploadNotesInput'),
+    btnSubmitUploadMedia: document.getElementById('btnSubmitUploadMedia'),
+
+    mediaEditModal: document.getElementById('mediaEditModal'),
+    btnCloseEditMediaModal: document.getElementById('btnCloseEditMediaModal'),
+    btnCancelEditMedia: document.getElementById('btnCancelEditMedia'),
+    formEditMedia: document.getElementById('formEditMedia'),
+    editMediaId: document.getElementById('editMediaId'),
+    editOriginalName: document.getElementById('editOriginalName'),
+    editCategorySelect: document.getElementById('editCategorySelect'),
+    editTagsInput: document.getElementById('editTagsInput'),
+    editNotesInput: document.getElementById('editNotesInput'),
+    btnSaveEditMedia: document.getElementById('btnSaveEditMedia'),
+
+    mediaPreviewModal: document.getElementById('mediaPreviewModal'),
+    btnClosePreviewModal: document.getElementById('btnClosePreviewModal'),
+    btnClosePreviewBottom: document.getElementById('btnClosePreviewBottom'),
+    modalPreviewMediaTitle: document.getElementById('modalPreviewMediaTitle'),
+    previewModalTypeIcon: document.getElementById('previewModalTypeIcon'),
+    modalPlayerBox: document.getElementById('modalPlayerBox'),
+    modalPlayerMeta: document.getElementById('modalPlayerMeta'),
+    btnModalSendToSlicer: document.getElementById('btnModalSendToSlicer'),
+    btnModalDownload: document.getElementById('btnModalDownload'),
 
     // Home View Elements
     btnOpenNewProjectModal: document.getElementById('btnOpenNewProjectModal'),
@@ -817,16 +936,18 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
       .replace(/'/g, '&#039;');
   }
 
-  // --- View Switcher (Home vs Studio) ---
+  // --- View Switcher (Home vs Studio vs Media) ---
   function switchView(targetView) {
     state.activeView = targetView;
     if (targetView === 'home') {
       elements.homeWorkspace.hidden = false;
       elements.studioWorkspace.hidden = true;
+      if (elements.mediaWorkspace) elements.mediaWorkspace.hidden = true;
       if (elements.mobileNavBar) elements.mobileNavBar.hidden = true;
 
       elements.navBtnHome.classList.add('active');
       elements.navBtnStudio.classList.remove('active');
+      if (elements.navBtnMediaStudio) elements.navBtnMediaStudio.classList.remove('active');
 
       elements.headerPresetBox.hidden = true;
       elements.headerCenterBox.hidden = true;
@@ -835,13 +956,34 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
       elements.activeProjectPill.hidden = true;
 
       fetchProjectsList();
+    } else if (targetView === 'media') {
+      elements.homeWorkspace.hidden = true;
+      elements.studioWorkspace.hidden = true;
+      if (elements.mediaWorkspace) elements.mediaWorkspace.hidden = false;
+      if (elements.mobileNavBar) elements.mobileNavBar.hidden = true;
+
+      if (elements.navBtnMediaStudio) elements.navBtnMediaStudio.classList.add('active');
+      elements.navBtnHome.classList.remove('active');
+      elements.navBtnStudio.classList.remove('active');
+
+      elements.headerPresetBox.hidden = true;
+      elements.headerCenterBox.hidden = true;
+      elements.studioHeaderActions.hidden = true;
+      elements.homeHeaderActions.hidden = true;
+      elements.activeProjectPill.hidden = false;
+
+      fetchMediaList();
+      fetchMediaStats();
+      updateSlicerFormulaText();
     } else {
       elements.homeWorkspace.hidden = true;
       elements.studioWorkspace.hidden = false;
+      if (elements.mediaWorkspace) elements.mediaWorkspace.hidden = true;
       if (elements.mobileNavBar) elements.mobileNavBar.hidden = false;
 
       elements.navBtnStudio.classList.add('active');
       elements.navBtnHome.classList.remove('active');
+      if (elements.navBtnMediaStudio) elements.navBtnMediaStudio.classList.remove('active');
 
       elements.headerPresetBox.hidden = false;
       elements.headerCenterBox.hidden = false;
@@ -4956,12 +5098,857 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     } catch (e) {}
   }
 
+  // =========================================================================
+  // MEDIA STUDIO & FAIR-USE VIDEO SLICER (3s/10s) + FILE MANAGER CRUD
+  // =========================================================================
+
+  function formatDuration(sec) {
+    if (!sec || isNaN(sec) || sec <= 0) return '00:00';
+    const totalSec = Math.round(sec);
+    const h = Math.floor(totalSec / 3600);
+    const m = Math.floor((totalSec % 3600) / 60);
+    const s = totalSec % 60;
+    const mm = String(m).padStart(2, '0');
+    const ss = String(s).padStart(2, '0');
+    return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
+  }
+
+  function formatBytes(bytes) {
+    if (!bytes || isNaN(bytes) || bytes <= 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+  }
+
+  function formatDateShort(iso) {
+    if (!iso) return '-';
+    try {
+      const d = new Date(iso);
+      return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+    } catch (e) {
+      return iso;
+    }
+  }
+
+  // Subnav switcher: Slicer vs File Manager
+  function switchMediaTab(tabName) {
+    if (tabName === 'slicer') {
+      if (elements.tabMediaSlicer) elements.tabMediaSlicer.classList.add('active');
+      if (elements.tabMediaFiles) elements.tabMediaFiles.classList.remove('active');
+      if (elements.mediaSlicerSection) elements.mediaSlicerSection.hidden = false;
+      if (elements.mediaFilesSection) elements.mediaFilesSection.hidden = true;
+    } else {
+      if (elements.tabMediaFiles) elements.tabMediaFiles.classList.add('active');
+      if (elements.tabMediaSlicer) elements.tabMediaSlicer.classList.remove('active');
+      if (elements.mediaFilesSection) elements.mediaFilesSection.hidden = false;
+      if (elements.mediaSlicerSection) elements.mediaSlicerSection.hidden = true;
+      fetchMediaList();
+    }
+  }
+
+  // Update real-time formula banner calculations
+  function updateSlicerFormulaText() {
+    const keep = parseFloat(elements.inputKeepSeconds ? elements.inputKeepSeconds.value : 3) || 3;
+    const skip = parseFloat(elements.inputSkipSeconds ? elements.inputSkipSeconds.value : 10) || 10;
+    const period = keep + skip;
+    const pct = Math.round((skip / period) * 100);
+
+    if (elements.chipKeepVal) elements.chipKeepVal.textContent = `${keep} Detik`;
+    if (elements.chipSkipVal) elements.chipSkipVal.textContent = `${skip} Detik`;
+
+    if (elements.formulaSummaryTitle) {
+      elements.formulaSummaryTitle.textContent = `Pola Siklus: Ambil ${keep}s lalu Buang ${skip}s (Tiap ${period}s)`;
+    }
+
+    let estText = `Dari video 10 menit, hasil potongan otomatis menjadi ~${formatDuration(600 * (keep / period))} (-${pct}% footage dipangkas).`;
+    if (state.selectedSlicerMedia && state.selectedSlicerMedia.duration_seconds > 0) {
+      const origDur = state.selectedSlicerMedia.duration_seconds;
+      const slicedDur = origDur * (keep / period);
+      estText = `Video sumber "${state.selectedSlicerMedia.original_name}" (${formatDuration(origDur)}) akan dipangkas menjadi ~${formatDuration(slicedDur)} (-${pct}% footage mentah).`;
+    }
+    if (elements.formulaSummaryDesc) elements.formulaSummaryDesc.textContent = estText;
+  }
+
+  // Switch between selecting from manager or uploading new file
+  function switchSlicerSourceMode(mode) {
+    state.slicerSourceMode = mode;
+    if (mode === 'manager') {
+      if (elements.btnSourceFromManager) elements.btnSourceFromManager.classList.add('active');
+      if (elements.btnSourceFromUpload) elements.btnSourceFromUpload.classList.remove('active');
+      if (elements.boxSourceFromManager) elements.boxSourceFromManager.hidden = false;
+      if (elements.boxSourceFromUpload) elements.boxSourceFromUpload.hidden = true;
+    } else {
+      if (elements.btnSourceFromUpload) elements.btnSourceFromUpload.classList.add('active');
+      if (elements.btnSourceFromManager) elements.btnSourceFromManager.classList.remove('active');
+      if (elements.boxSourceFromUpload) elements.boxSourceFromUpload.hidden = false;
+      if (elements.boxSourceFromManager) elements.boxSourceFromManager.hidden = true;
+    }
+  }
+
+  // Populate slicer dropdown from available videos in SQLite
+  function populateSlicerVideoDropdown() {
+    if (!elements.slicerSelectVideo) return;
+    const videos = state.mediaItems.filter(m => m.file_type === 'video');
+    elements.slicerSelectVideo.innerHTML = '<option value="">-- Pilih video dari daftar (' + videos.length + ' video) --</option>';
+    videos.forEach(v => {
+      const opt = document.createElement('option');
+      opt.value = v.id;
+      const durStr = v.duration_seconds > 0 ? ` (${formatDuration(v.duration_seconds)})` : '';
+      const catBadge = v.category === 'footage_sliced' ? ' [✂️ Sliced]' : ' [Raw]';
+      opt.textContent = `${v.original_name}${durStr}${catBadge}`;
+      elements.slicerSelectVideo.appendChild(opt);
+    });
+
+    if (state.selectedSlicerMedia) {
+      elements.slicerSelectVideo.value = state.selectedSlicerMedia.id;
+    }
+  }
+
+  // Set selected video for slicing
+  function selectSlicerMediaItem(item) {
+    state.selectedSlicerMedia = item;
+    state.selectedSlicerFile = null;
+    if (elements.slicerSelectedPill) elements.slicerSelectedPill.hidden = false;
+    if (elements.slicerSelectedTitle) elements.slicerSelectedTitle.textContent = item.original_name;
+    if (elements.slicerSelectedMeta) {
+      elements.slicerSelectedMeta.textContent = `Durasi: ${formatDuration(item.duration_seconds)} • ${item.resolution || 'HD'} • ${formatBytes(item.file_size)}`;
+    }
+    updateSlicerFormulaText();
+
+    // If no sliced video is loaded in player, show raw video in player
+    if (!state.slicedResultMedia && elements.slicerPreviewVideo) {
+      elements.slicerPreviewVideo.src = item.file_url;
+      if (elements.playerEmptyPlaceholder) elements.playerEmptyPlaceholder.classList.add('hidden');
+      if (elements.badgePreviewMode) elements.badgePreviewMode.textContent = 'Video Asli Mentah';
+    }
+  }
+
+  // Set directly uploaded file for slicing
+  function selectSlicerFileDirect(file) {
+    state.selectedSlicerFile = file;
+    state.selectedSlicerMedia = null;
+    if (elements.slicerSelectedPill) elements.slicerSelectedPill.hidden = false;
+    if (elements.slicerSelectedTitle) elements.slicerSelectedTitle.textContent = file.name;
+    if (elements.slicerSelectedMeta) {
+      elements.slicerSelectedMeta.textContent = `File Lokal: ${formatBytes(file.size)} • Siap dipotong`;
+    }
+    updateSlicerFormulaText();
+
+    // Local object URL for immediate player preview
+    if (elements.slicerPreviewVideo) {
+      elements.slicerPreviewVideo.src = URL.createObjectURL(file);
+      if (elements.playerEmptyPlaceholder) elements.playerEmptyPlaceholder.classList.add('hidden');
+      if (elements.badgePreviewMode) elements.badgePreviewMode.textContent = 'Video Lokal (Pratinjau)';
+    }
+  }
+
+  function clearSlicerSelectedMedia() {
+    state.selectedSlicerMedia = null;
+    state.selectedSlicerFile = null;
+    if (elements.slicerSelectedPill) elements.slicerSelectedPill.hidden = true;
+    if (elements.slicerSelectVideo) elements.slicerSelectVideo.value = '';
+    updateSlicerFormulaText();
+  }
+
+  // Execute FFmpeg Slicing Process ("Ambil 3s, Buang 10s")
+  async function startVideoSlicing() {
+    if (!state.selectedSlicerMedia && !state.selectedSlicerFile) {
+      showToast('Silakan pilih video dari File Manager atau unggah file video terlebih dahulu.', 'error');
+      return;
+    }
+
+    const keepSeconds = parseFloat(elements.inputKeepSeconds ? elements.inputKeepSeconds.value : 3) || 3;
+    const skipSeconds = parseFloat(elements.inputSkipSeconds ? elements.inputSkipSeconds.value : 10) || 10;
+    const muteAudio = elements.checkMuteAudio ? elements.checkMuteAudio.checked : true;
+    const mirror = elements.checkMirrorVideo ? elements.checkMirrorVideo.checked : false;
+    const speed = parseFloat(elements.selectVideoSpeed ? elements.selectVideoSpeed.value : 1.0) || 1.0;
+    const customName = elements.inputCustomOutputName ? elements.inputCustomOutputName.value.trim() : '';
+
+    const formData = new FormData();
+    formData.append('keepSeconds', keepSeconds);
+    formData.append('skipSeconds', skipSeconds);
+    formData.append('muteAudio', muteAudio);
+    formData.append('mirror', mirror);
+    formData.append('speed', speed);
+    formData.append('projectId', state.currentProjectId || 0);
+    if (customName) formData.append('customName', customName);
+
+    if (state.selectedSlicerFile) {
+      formData.append('file', state.selectedSlicerFile);
+    } else if (state.selectedSlicerMedia) {
+      formData.append('mediaId', state.selectedSlicerMedia.id);
+    }
+
+    // UI Loading state
+    if (elements.btnStartSlicing) elements.btnStartSlicing.disabled = true;
+    if (elements.btnStartSlicingText) elements.btnStartSlicingText.textContent = '⏳ Sedang Memotong Video (FFmpeg)...';
+    if (elements.slicerProgressContainer) elements.slicerProgressContainer.hidden = false;
+    if (elements.slicerProgressStatus) {
+      elements.slicerProgressStatus.textContent = `Memproses siklus: Ambil ${keepSeconds}s, Buang ${skipSeconds}s... Mohon tunggu.`;
+    }
+
+    try {
+      const res = await fetch('/api/media/slice-video', {
+        method: 'POST',
+        body: formData
+      });
+      const json = await res.json();
+
+      if (json.success && json.data) {
+        state.slicedResultMedia = json.data;
+        showToast(json.message || 'Video berhasil dipotong secara berkala!');
+
+        // Update Video Player with sliced result
+        if (elements.slicerPreviewVideo) {
+          elements.slicerPreviewVideo.src = json.data.file_url;
+          elements.slicerPreviewVideo.load();
+          elements.slicerPreviewVideo.play().catch(() => {});
+        }
+        if (elements.playerEmptyPlaceholder) elements.playerEmptyPlaceholder.classList.add('hidden');
+        if (elements.badgePreviewMode) elements.badgePreviewMode.textContent = 'Hasil Potongan (Montage)';
+
+        // Update Result Comparison Metrics Card
+        if (elements.slicingResultStats) elements.slicingResultStats.hidden = false;
+        if (elements.statSourceDuration) {
+          elements.statSourceDuration.textContent = formatDuration(json.summary.source_duration);
+        }
+        if (elements.statSlicedDuration) {
+          elements.statSlicedDuration.textContent = formatDuration(json.summary.sliced_duration);
+        }
+        if (elements.statSavedPercent) {
+          elements.statSavedPercent.textContent = `-${json.summary.time_saved_percent}%`;
+        }
+        if (elements.statResolutionSize) {
+          elements.statResolutionSize.textContent = `${json.data.resolution || '1080p'} • ${formatBytes(json.data.file_size)}`;
+        }
+
+        // Enable footer action links
+        if (elements.previewFooterActions) elements.previewFooterActions.hidden = false;
+        if (elements.btnDownloadSlicedVideo) {
+          elements.btnDownloadSlicedVideo.href = json.data.file_url;
+          elements.btnDownloadSlicedVideo.download = json.data.filename;
+        }
+
+        // Refresh media list and stats in background
+        fetchMediaList();
+        fetchMediaStats();
+      } else {
+        showToast(json.error || 'Gagal memotong video.', 'error');
+      }
+    } catch (err) {
+      console.error('Error slicing video:', err);
+      showToast(`Error: ${err.message}`, 'error');
+    } finally {
+      if (elements.btnStartSlicing) elements.btnStartSlicing.disabled = false;
+      if (elements.btnStartSlicingText) elements.btnStartSlicingText.textContent = '🎬 Mulai Potong Video (FFmpeg Slicer)';
+      if (elements.slicerProgressContainer) elements.slicerProgressContainer.hidden = true;
+    }
+  }
+
+  // Toggle video player between Sliced result and Raw source
+  function togglePreviewSource() {
+    if (!elements.slicerPreviewVideo) return;
+    if (state.previewModeSource === 'sliced') {
+      // Switch to raw
+      if (state.selectedSlicerMedia && state.selectedSlicerMedia.file_url) {
+        state.previewModeSource = 'raw';
+        elements.slicerPreviewVideo.src = state.selectedSlicerMedia.file_url;
+        elements.slicerPreviewVideo.load();
+        if (elements.badgePreviewMode) elements.badgePreviewMode.textContent = 'Video Asli Mentah';
+        if (elements.btnTogglePreviewSource) elements.btnTogglePreviewSource.textContent = '🔄 Lihat Hasil Potongan';
+      } else {
+        showToast('Tidak ada video asli mentah yang tersimpan.');
+      }
+    } else {
+      // Switch back to sliced
+      if (state.slicedResultMedia && state.slicedResultMedia.file_url) {
+        state.previewModeSource = 'sliced';
+        elements.slicerPreviewVideo.src = state.slicedResultMedia.file_url;
+        elements.slicerPreviewVideo.load();
+        if (elements.badgePreviewMode) elements.badgePreviewMode.textContent = 'Hasil Potongan (Montage)';
+        if (elements.btnTogglePreviewSource) elements.btnTogglePreviewSource.textContent = '🔄 Lihat Video Mentah';
+      }
+    }
+  }
+
+  // --- File Manager Media CRUD Methods ---
+
+  async function fetchMediaList() {
+    try {
+      const res = await fetch(`/api/media?projectId=${state.currentProjectId || 0}`);
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data)) {
+        state.mediaItems = json.data;
+        populateSlicerVideoDropdown();
+        renderMediaItems();
+      }
+    } catch (err) {
+      console.error('Error fetching media list:', err);
+    }
+  }
+
+  async function fetchMediaStats() {
+    try {
+      const res = await fetch(`/api/media/stats?projectId=${state.currentProjectId || 0}`);
+      const json = await res.json();
+      if (json.success && json.data) {
+        state.mediaStats = json.data;
+        const s = json.data;
+        if (elements.fmTotalFiles) elements.fmTotalFiles.textContent = s.total_files || 0;
+        if (elements.fmVideoRawCount) elements.fmVideoRawCount.textContent = (s.video_count - s.sliced_count) || 0;
+        if (elements.fmVideoSlicedCount) elements.fmVideoSlicedCount.textContent = s.sliced_count || 0;
+        if (elements.fmAudioCount) elements.fmAudioCount.textContent = s.audio_count || 0;
+        if (elements.fmTotalStorageSize) elements.fmTotalStorageSize.textContent = formatBytes(s.total_size_bytes);
+
+        if (elements.mediaStatsSummaryText) {
+          elements.mediaStatsSummaryText.textContent = `${s.total_files || 0} File • ${s.video_count || 0} Video • ${s.audio_count || 0} Audio • ${formatBytes(s.total_size_bytes)}`;
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching media stats:', err);
+    }
+  }
+
+  // Render media cards (Grid) and rows (Table)
+  function renderMediaItems() {
+    let items = state.mediaItems || [];
+
+    // Filter by Category
+    if (state.fmFilter !== 'all') {
+      if (state.fmFilter === 'footage_raw') {
+        items = items.filter(m => m.category === 'raw_footage' || (m.file_type === 'video' && m.category !== 'footage_sliced'));
+      } else if (state.fmFilter === 'footage_sliced') {
+        items = items.filter(m => m.category === 'footage_sliced');
+      } else if (state.fmFilter === 'audio_voiceover') {
+        items = items.filter(m => m.category === 'voiceover' || m.category === 'audio_voiceover' || (m.file_type === 'audio' && m.category !== 'bgm' && m.category !== 'audio_bgm'));
+      } else if (state.fmFilter === 'audio_bgm') {
+        items = items.filter(m => m.category === 'bgm' || m.category === 'audio_bgm');
+      }
+    }
+
+    // Filter by Search Query
+    if (state.fmSearch && state.fmSearch.trim()) {
+      const term = state.fmSearch.toLowerCase().trim();
+      items = items.filter(m =>
+        (m.original_name && m.original_name.toLowerCase().includes(term)) ||
+        (m.tags && m.tags.toLowerCase().includes(term)) ||
+        (m.notes && m.notes.toLowerCase().includes(term))
+      );
+    }
+
+    // Toggle Empty State
+    if (items.length === 0) {
+      if (elements.fmEmptyState) elements.fmEmptyState.hidden = false;
+      if (elements.fmMediaGrid) elements.fmMediaGrid.innerHTML = '';
+      if (elements.fmMediaTableBody) elements.fmMediaTableBody.innerHTML = '';
+      return;
+    } else {
+      if (elements.fmEmptyState) elements.fmEmptyState.hidden = true;
+    }
+
+    // Render Grid Cards
+    if (elements.fmMediaGrid) {
+      elements.fmMediaGrid.innerHTML = '';
+      items.forEach(item => {
+        const card = document.createElement('div');
+        card.className = 'media-file-card';
+
+        const isVideo = item.file_type === 'video';
+        const isSliced = item.category === 'footage_sliced';
+        let badgeClass = 'badge-raw';
+        let badgeLabel = 'Video Raw';
+        if (isSliced) {
+          badgeClass = 'badge-sliced';
+          badgeLabel = '✂️ Sliced 3s/10s';
+        } else if (item.category === 'bgm' || item.category === 'audio_bgm') {
+          badgeClass = 'badge-bgm';
+          badgeLabel = '🎵 BGM';
+        } else if (!isVideo) {
+          badgeClass = 'badge-voiceover';
+          badgeLabel = '🎙️ Voiceover';
+        }
+
+        card.innerHTML = `
+          <div class="media-card-preview" data-id="${item.id}">
+            ${isVideo
+              ? `<video src="${item.file_url}#t=0.5" preload="metadata" muted playsinline></video>`
+              : `<div class="audio-wave-placeholder">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg>
+                  <span>Audio Track</span>
+                 </div>`
+            }
+            <div class="play-hover-btn" title="Klik untuk memutar pratinjau">
+              <svg style="width: 20px; height: 20px; margin-left: 2px;" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+            </div>
+            <span class="type-chip ${badgeClass}">${badgeLabel}</span>
+            <span class="duration-chip">${formatDuration(item.duration_seconds)}</span>
+          </div>
+          <div class="media-card-content">
+            <h4 class="media-card-title" title="${escapeHtml(item.original_name)}">${escapeHtml(item.original_name)}</h4>
+            <div class="media-card-meta">
+              <span>${item.resolution || (isVideo ? 'HD' : 'Audio')}</span>
+              <span>•</span>
+              <span>${formatBytes(item.file_size)}</span>
+              <span>•</span>
+              <span>${formatDateShort(item.created_at)}</span>
+            </div>
+            ${item.notes ? `<p class="media-card-notes">${escapeHtml(item.notes)}</p>` : ''}
+          </div>
+          <div class="media-card-actions">
+            <div class="actions-left">
+              ${isVideo ? `
+                <button type="button" class="btn-subtle btn-xs btn-card-slice" data-id="${item.id}" title="Kirim video ini ke Slicer 3s/10s">
+                  ✂️ Potong
+                </button>
+              ` : ''}
+              <button type="button" class="btn-subtle btn-xs btn-card-edit" data-id="${item.id}" title="Edit metadata & nama">
+                ✏️ Edit
+              </button>
+            </div>
+            <div class="actions-right">
+              <a href="${item.file_url}" download="${item.filename}" class="btn-subtle btn-xs" title="Unduh file">
+                ⬇️
+              </a>
+              <button type="button" class="btn-subtle btn-xs btn-card-delete" data-id="${item.id}" data-name="${escapeHtml(item.original_name)}" title="Hapus file permanen" style="color: #DC2626;">
+                🗑️
+              </button>
+            </div>
+          </div>
+        `;
+
+        // Card Preview click
+        card.querySelector('.media-card-preview').addEventListener('click', () => openMediaPreviewModal(item));
+
+        // Slice button click
+        const btnSlice = card.querySelector('.btn-card-slice');
+        if (btnSlice) {
+          btnSlice.addEventListener('click', (e) => {
+            e.stopPropagation();
+            sendMediaToSlicer(item);
+          });
+        }
+
+        // Edit button click
+        const btnEdit = card.querySelector('.btn-card-edit');
+        if (btnEdit) {
+          btnEdit.addEventListener('click', (e) => {
+            e.stopPropagation();
+            openMediaEditModal(item);
+          });
+        }
+
+        // Delete button click
+        const btnDelete = card.querySelector('.btn-card-delete');
+        if (btnDelete) {
+          btnDelete.addEventListener('click', (e) => {
+            e.stopPropagation();
+            deleteMediaItem(item.id, item.original_name);
+          });
+        }
+
+        elements.fmMediaGrid.appendChild(card);
+      });
+    }
+
+    // Render Table Rows
+    if (elements.fmMediaTableBody) {
+      elements.fmMediaTableBody.innerHTML = '';
+      items.forEach(item => {
+        const tr = document.createElement('tr');
+        const isVideo = item.file_type === 'video';
+        const isSliced = item.category === 'footage_sliced';
+
+        tr.innerHTML = `
+          <td>${isVideo ? (isSliced ? '✂️' : '🎬') : '🎙️'}</td>
+          <td><strong>${escapeHtml(item.original_name)}</strong></td>
+          <td><span class="badge ${isSliced ? 'badge-success' : 'badge-subtle'}">${item.category}</span></td>
+          <td>${formatDuration(item.duration_seconds)}</td>
+          <td>${item.resolution || '-'}</td>
+          <td>${formatBytes(item.file_size)}</td>
+          <td>${formatDateShort(item.created_at)}</td>
+          <td style="text-align: right;">
+            <div style="display: inline-flex; gap: 4px;">
+              <button type="button" class="btn-subtle btn-xs btn-table-play" title="Putar">▶️</button>
+              ${isVideo ? `<button type="button" class="btn-subtle btn-xs btn-table-slice" title="Potong Fair-Use">✂️</button>` : ''}
+              <button type="button" class="btn-subtle btn-xs btn-table-edit" title="Edit">✏️</button>
+              <a href="${item.file_url}" download class="btn-subtle btn-xs" title="Unduh">⬇️</a>
+              <button type="button" class="btn-subtle btn-xs btn-table-del" title="Hapus" style="color: #DC2626;">🗑️</button>
+            </div>
+          </td>
+        `;
+
+        tr.querySelector('.btn-table-play').addEventListener('click', () => openMediaPreviewModal(item));
+        const btnSlice = tr.querySelector('.btn-table-slice');
+        if (btnSlice) btnSlice.addEventListener('click', () => sendMediaToSlicer(item));
+        tr.querySelector('.btn-table-edit').addEventListener('click', () => openMediaEditModal(item));
+        tr.querySelector('.btn-table-del').addEventListener('click', () => deleteMediaItem(item.id, item.original_name));
+
+        elements.fmMediaTableBody.appendChild(tr);
+      });
+    }
+  }
+
+  // Send video directly to slicer tab
+  function sendMediaToSlicer(item) {
+    switchMediaTab('slicer');
+    switchSlicerSourceMode('manager');
+    selectSlicerMediaItem(item);
+    if (elements.slicerSelectVideo) elements.slicerSelectVideo.value = item.id;
+    showToast(`Video "${item.original_name}" berhasil dimuat ke Slicer Fair-Use!`);
+  }
+
+  // Open Full Preview Modal (Lightbox)
+  function openMediaPreviewModal(item) {
+    if (!elements.mediaPreviewModal) return;
+    const isVideo = item.file_type === 'video';
+    if (elements.modalPreviewMediaTitle) elements.modalPreviewMediaTitle.textContent = item.original_name;
+    if (elements.previewModalTypeIcon) elements.previewModalTypeIcon.textContent = isVideo ? '🎬' : '🎙️';
+
+    if (elements.modalPlayerBox) {
+      if (isVideo) {
+        elements.modalPlayerBox.innerHTML = `
+          <video src="${item.file_url}" controls autoplay playsinline style="width: 100%; height: 100%; object-fit: contain;">
+            Browser Anda tidak mendukung tag video.
+          </video>
+        `;
+      } else {
+        elements.modalPlayerBox.innerHTML = `
+          <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; height: 100%; gap: 16px;">
+            <svg style="width: 48px; height: 48px; color: #38BDF8;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg>
+            <audio src="${item.file_url}" controls autoplay style="width: 80%;"></audio>
+          </div>
+        `;
+      }
+    }
+
+    if (elements.modalPlayerMeta) {
+      elements.modalPlayerMeta.innerHTML = `
+        <div class="meta-item">
+          <strong>Durasi</strong>
+          <span>${formatDuration(item.duration_seconds)}</span>
+        </div>
+        <div class="meta-item">
+          <strong>Resolusi</strong>
+          <span>${item.resolution || (isVideo ? 'HD' : 'N/A')}</span>
+        </div>
+        <div class="meta-item">
+          <strong>Ukuran File</strong>
+          <span>${formatBytes(item.file_size)}</span>
+        </div>
+        <div class="meta-item">
+          <strong>Kategori</strong>
+          <span>${item.category}</span>
+        </div>
+      `;
+    }
+
+    if (elements.btnModalSendToSlicer) {
+      elements.btnModalSendToSlicer.hidden = !isVideo;
+      elements.btnModalSendToSlicer.onclick = () => {
+        closeMediaPreviewModal();
+        sendMediaToSlicer(item);
+      };
+    }
+
+    if (elements.btnModalDownload) {
+      elements.btnModalDownload.href = item.file_url;
+      elements.btnModalDownload.download = item.filename;
+    }
+
+    elements.mediaPreviewModal.hidden = false;
+  }
+
+  function closeMediaPreviewModal() {
+    if (elements.mediaPreviewModal) {
+      elements.mediaPreviewModal.hidden = true;
+      if (elements.modalPlayerBox) elements.modalPlayerBox.innerHTML = '';
+    }
+  }
+
+  // Open Edit Metadata Modal
+  function openMediaEditModal(item) {
+    if (!elements.mediaEditModal) return;
+    if (elements.editMediaId) elements.editMediaId.value = item.id;
+    if (elements.editOriginalName) elements.editOriginalName.value = item.original_name;
+    if (elements.editCategorySelect) elements.editCategorySelect.value = item.category || 'raw_footage';
+    if (elements.editTagsInput) elements.editTagsInput.value = item.tags || '';
+    if (elements.editNotesInput) elements.editNotesInput.value = item.notes || '';
+    elements.mediaEditModal.hidden = false;
+  }
+
+  function closeMediaEditModal() {
+    if (elements.mediaEditModal) elements.mediaEditModal.hidden = true;
+  }
+
+  // Handle Edit Media Submit
+  async function handleEditMediaSubmit(e) {
+    e.preventDefault();
+    const id = elements.editMediaId ? elements.editMediaId.value : null;
+    if (!id) return;
+
+    const payload = {
+      original_name: elements.editOriginalName ? elements.editOriginalName.value.trim() : '',
+      category: elements.editCategorySelect ? elements.editCategorySelect.value : 'raw_footage',
+      tags: elements.editTagsInput ? elements.editTagsInput.value.trim() : '',
+      notes: elements.editNotesInput ? elements.editNotesInput.value.trim() : ''
+    };
+
+    try {
+      const res = await fetch(`/api/media/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const json = await res.json();
+      if (json.success) {
+        showToast('Metadata media berhasil disimpan!');
+        closeMediaEditModal();
+        fetchMediaList();
+      } else {
+        showToast(json.error || 'Gagal menyimpan metadata.', 'error');
+      }
+    } catch (err) {
+      showToast(`Error: ${err.message}`, 'error');
+    }
+  }
+
+  // Delete Media Item
+  async function deleteMediaItem(id, name) {
+    if (!confirm(`Hapus file "${name}" dari database dan penyimpanan lokal secara permanen?`)) {
+      return;
+    }
+    try {
+      const res = await fetch(`/api/media/${id}`, { method: 'DELETE' });
+      const json = await res.json();
+      if (json.success) {
+        showToast(json.message || 'File media berhasil dihapus.');
+        if (state.selectedSlicerMedia && state.selectedSlicerMedia.id === id) {
+          clearSlicerSelectedMedia();
+        }
+        fetchMediaList();
+        fetchMediaStats();
+      } else {
+        showToast(json.error || 'Gagal menghapus file.', 'error');
+      }
+    } catch (err) {
+      showToast(`Error: ${err.message}`, 'error');
+    }
+  }
+
+  // Upload Media Modal Handlers
+  function openMediaUploadModal() {
+    if (elements.mediaUploadModal) elements.mediaUploadModal.hidden = false;
+  }
+
+  function closeMediaUploadModal() {
+    if (elements.mediaUploadModal) elements.mediaUploadModal.hidden = true;
+    if (elements.formUploadMedia) elements.formUploadMedia.reset();
+    if (elements.modalDropzoneMainText) elements.modalDropzoneMainText.textContent = 'Klik untuk memilih file atau seret ke sini';
+  }
+
+  async function handleUploadMediaSubmit(e) {
+    e.preventDefault();
+    const fileInput = elements.modalMediaFileInput;
+    if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+      showToast('Silakan pilih file video atau audio terlebih dahulu.', 'error');
+      return;
+    }
+
+    const file = fileInput.files[0];
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('projectId', state.currentProjectId || 0);
+    if (elements.uploadCategorySelect) formData.append('category', elements.uploadCategorySelect.value);
+    if (elements.uploadTagsInput) formData.append('tags', elements.uploadTagsInput.value.trim());
+    if (elements.uploadNotesInput) formData.append('notes', elements.uploadNotesInput.value.trim());
+
+    if (elements.btnSubmitUploadMedia) {
+      elements.btnSubmitUploadMedia.disabled = true;
+      elements.btnSubmitUploadMedia.textContent = '⏳ Mengunggah file...';
+    }
+
+    try {
+      const res = await fetch('/api/media/upload', {
+        method: 'POST',
+        body: formData
+      });
+      const json = await res.json();
+      if (json.success) {
+        showToast(json.message || 'File berhasil diunggah!');
+        closeMediaUploadModal();
+        fetchMediaList();
+        fetchMediaStats();
+      } else {
+        showToast(json.error || 'Gagal mengunggah file.', 'error');
+      }
+    } catch (err) {
+      showToast(`Error: ${err.message}`, 'error');
+    } finally {
+      if (elements.btnSubmitUploadMedia) {
+        elements.btnSubmitUploadMedia.disabled = false;
+        elements.btnSubmitUploadMedia.textContent = 'Mulai Unggah File';
+      }
+    }
+  }
+
   // --- Event Listeners Initialization ---
   function initEvents() {
     // Top Navigation Tabs
     elements.navBtnHome.addEventListener('click', () => switchView('home'));
     elements.navBtnStudio.addEventListener('click', () => switchView('studio'));
+    if (elements.navBtnMediaStudio) elements.navBtnMediaStudio.addEventListener('click', () => switchView('media'));
     elements.activeProjectPill.addEventListener('click', () => switchView('home'));
+
+    // Media Studio & File Manager Events
+    if (elements.tabMediaSlicer) elements.tabMediaSlicer.addEventListener('click', () => switchMediaTab('slicer'));
+    if (elements.tabMediaFiles) elements.tabMediaFiles.addEventListener('click', () => switchMediaTab('files'));
+    if (elements.btnRefreshMedia) elements.btnRefreshMedia.addEventListener('click', () => { fetchMediaList(); fetchMediaStats(); });
+    if (elements.btnOpenUploadModal) elements.btnOpenUploadModal.addEventListener('click', openMediaUploadModal);
+    if (elements.btnEmptyUpload) elements.btnEmptyUpload.addEventListener('click', openMediaUploadModal);
+
+    // Slicer Controls & Source Selector
+    if (elements.btnSourceFromManager) elements.btnSourceFromManager.addEventListener('click', () => switchSlicerSourceMode('manager'));
+    if (elements.btnSourceFromUpload) elements.btnSourceFromUpload.addEventListener('click', () => switchSlicerSourceMode('upload'));
+    if (elements.slicerSelectVideo) {
+      elements.slicerSelectVideo.addEventListener('change', (e) => {
+        const val = e.target.value;
+        const item = state.mediaItems.find(m => String(m.id) === String(val));
+        if (item) selectSlicerMediaItem(item);
+        else clearSlicerSelectedMedia();
+      });
+    }
+
+    // Slicer Dropzone & File Input
+    if (elements.slicerDropzone && elements.slicerFileInput) {
+      elements.slicerDropzone.addEventListener('click', () => elements.slicerFileInput.click());
+      elements.slicerFileInput.addEventListener('change', (e) => {
+        if (e.target.files && e.target.files[0]) selectSlicerFileDirect(e.target.files[0]);
+      });
+      elements.slicerDropzone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        elements.slicerDropzone.classList.add('dragover');
+      });
+      elements.slicerDropzone.addEventListener('dragleave', () => {
+        elements.slicerDropzone.classList.remove('dragover');
+      });
+      elements.slicerDropzone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        elements.slicerDropzone.classList.remove('dragover');
+        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+          selectSlicerFileDirect(e.dataTransfer.files[0]);
+        }
+      });
+    }
+    if (elements.btnClearSelectedVideo) elements.btnClearSelectedVideo.addEventListener('click', clearSlicerSelectedMedia);
+
+    // Slicer Parameter Slider & Number Inputs Sync
+    if (elements.sliderKeepSeconds && elements.inputKeepSeconds) {
+      elements.sliderKeepSeconds.addEventListener('input', (e) => {
+        elements.inputKeepSeconds.value = e.target.value;
+        updateSlicerFormulaText();
+      });
+      elements.inputKeepSeconds.addEventListener('input', (e) => {
+        elements.sliderKeepSeconds.value = e.target.value;
+        updateSlicerFormulaText();
+      });
+    }
+    if (elements.sliderSkipSeconds && elements.inputSkipSeconds) {
+      elements.sliderSkipSeconds.addEventListener('input', (e) => {
+        elements.inputSkipSeconds.value = e.target.value;
+        updateSlicerFormulaText();
+      });
+      elements.inputSkipSeconds.addEventListener('input', (e) => {
+        elements.sliderSkipSeconds.value = e.target.value;
+        updateSlicerFormulaText();
+      });
+    }
+
+    // Slicer Action & Player Buttons
+    if (elements.btnStartSlicing) elements.btnStartSlicing.addEventListener('click', startVideoSlicing);
+    if (elements.btnTogglePreviewSource) elements.btnTogglePreviewSource.addEventListener('click', togglePreviewSource);
+    if (elements.btnOpenInFileManager) elements.btnOpenInFileManager.addEventListener('click', () => switchMediaTab('files'));
+    if (elements.btnCopyVideoUrl) {
+      elements.btnCopyVideoUrl.addEventListener('click', () => {
+        if (state.slicedResultMedia && state.slicedResultMedia.file_url) {
+          navigator.clipboard.writeText(window.location.origin + state.slicedResultMedia.file_url);
+          showToast('Tautan video berhasil disalin ke clipboard!');
+        }
+      });
+    }
+
+    // File Manager Filter Pills & Search
+    if (elements.fmFilterBtns) {
+      elements.fmFilterBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          elements.fmFilterBtns.forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          state.fmFilter = btn.dataset.filter || 'all';
+          renderMediaItems();
+        });
+      });
+    }
+    if (elements.fmSearchInput) {
+      elements.fmSearchInput.addEventListener('input', (e) => {
+        state.fmSearch = e.target.value;
+        if (elements.btnFmClearSearch) elements.btnFmClearSearch.hidden = !e.target.value;
+        renderMediaItems();
+      });
+    }
+    if (elements.btnFmClearSearch) {
+      elements.btnFmClearSearch.addEventListener('click', () => {
+        elements.fmSearchInput.value = '';
+        state.fmSearch = '';
+        elements.btnFmClearSearch.hidden = true;
+        renderMediaItems();
+      });
+    }
+
+    // File Manager View Modes (Grid vs Table)
+    if (elements.btnViewGrid) {
+      elements.btnViewGrid.addEventListener('click', () => {
+        state.fmViewMode = 'grid';
+        elements.btnViewGrid.classList.add('active');
+        if (elements.btnViewTable) elements.btnViewTable.classList.remove('active');
+        if (elements.fmMediaGrid) elements.fmMediaGrid.hidden = false;
+        if (elements.fmMediaTableContainer) elements.fmMediaTableContainer.hidden = true;
+        renderMediaItems();
+      });
+    }
+    if (elements.btnViewTable) {
+      elements.btnViewTable.addEventListener('click', () => {
+        state.fmViewMode = 'table';
+        elements.btnViewTable.classList.add('active');
+        if (elements.btnViewGrid) elements.btnViewGrid.classList.remove('active');
+        if (elements.fmMediaGrid) elements.fmMediaGrid.hidden = true;
+        if (elements.fmMediaTableContainer) elements.fmMediaTableContainer.hidden = false;
+        renderMediaItems();
+      });
+    }
+
+    // Media Modals: Upload
+    if (elements.btnCloseUploadModal) elements.btnCloseUploadModal.addEventListener('click', closeMediaUploadModal);
+    if (elements.btnCancelUploadModal) elements.btnCancelUploadModal.addEventListener('click', closeMediaUploadModal);
+    if (elements.formUploadMedia) elements.formUploadMedia.addEventListener('submit', handleUploadMediaSubmit);
+    if (elements.modalMediaDropzone && elements.modalMediaFileInput) {
+      elements.modalMediaDropzone.addEventListener('click', () => elements.modalMediaFileInput.click());
+      elements.modalMediaFileInput.addEventListener('change', (e) => {
+        if (e.target.files && e.target.files[0]) {
+          if (elements.modalDropzoneMainText) {
+            elements.modalDropzoneMainText.textContent = `File dipilih: ${e.target.files[0].name} (${formatBytes(e.target.files[0].size)})`;
+          }
+        }
+      });
+    }
+
+    // Media Modals: Edit Metadata
+    if (elements.btnCloseEditMediaModal) elements.btnCloseEditMediaModal.addEventListener('click', closeMediaEditModal);
+    if (elements.btnCancelEditMedia) elements.btnCancelEditMedia.addEventListener('click', closeMediaEditModal);
+    if (elements.formEditMedia) elements.formEditMedia.addEventListener('submit', handleEditMediaSubmit);
+
+    // Media Modals: Full Preview Lightbox
+    if (elements.btnClosePreviewModal) elements.btnClosePreviewModal.addEventListener('click', closeMediaPreviewModal);
+    if (elements.btnClosePreviewBottom) elements.btnClosePreviewBottom.addEventListener('click', closeMediaPreviewModal);
 
     // Home Project Search
     elements.projectSearchInput.addEventListener('input', () => {

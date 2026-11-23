@@ -12,30 +12,61 @@ const cors = require('cors');
 const path = require('node:path');
 const fs = require('node:fs');
 const { spawn, execSync } = require('node:child_process');
-const { ProjectRepo, ApiKeyRepo, TtsRepo, ChannelRepo, PersonaRepo, TtsVoiceRepo, PromptTemplateRepo, SettingsRepo, AudioPresetRepo, AudioRecordingRepo } = require('./db');
+const { ProjectRepo, ApiKeyRepo, TtsRepo, ChannelRepo, PersonaRepo, TtsVoiceRepo, PromptTemplateRepo, SettingsRepo, AudioPresetRepo, AudioRecordingRepo, MediaRepo } = require('./db');
 const { GEMINI_MODELS, runGeminiGeneration, runGeminiTranscreation, testGeminiApiKey } = require('./geminiService');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Ensure audio storage directory exists
+const multer = require('multer');
+
+// Ensure audio and video storage directories exist
 const publicAudioDir = path.join(__dirname, 'public', 'audio');
 const publicBgmDir = path.join(publicAudioDir, 'bgm');
-if (!fs.existsSync(publicAudioDir)) {
-  fs.mkdirSync(publicAudioDir, { recursive: true });
-}
-if (!fs.existsSync(publicBgmDir)) {
-  fs.mkdirSync(publicBgmDir, { recursive: true });
-}
+const publicVideosDir = path.join(__dirname, 'public', 'videos');
+const publicVideosRawDir = path.join(publicVideosDir, 'raw');
+const publicVideosProcessedDir = path.join(publicVideosDir, 'processed');
+
+[publicAudioDir, publicBgmDir, publicVideosDir, publicVideosRawDir, publicVideosProcessedDir].forEach(dir => {
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+});
+
+// Configure Multer for video & audio upload storage
+const mediaStorage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const isVideo = file.mimetype.startsWith('video/') || /\.(mp4|mkv|webm|mov|avi|flv|wmv|m4v)$/i.test(file.originalname);
+    const isAudio = file.mimetype.startsWith('audio/') || /\.(mp3|wav|ogg|aac|m4a|flac)$/i.test(file.originalname);
+    if (isVideo) {
+      cb(null, publicVideosRawDir);
+    } else if (isAudio) {
+      cb(null, publicAudioDir);
+    } else {
+      cb(null, publicVideosRawDir);
+    }
+  },
+  filename: function (req, file, cb) {
+    const ext = path.extname(file.originalname) || '.mp4';
+    const base = path.basename(file.originalname, ext).replace(/[^a-zA-Z0-9_\-\.]/g, '_').substring(0, 50);
+    const unique = `${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    cb(null, `${base}_${unique}${ext}`);
+  }
+});
+const uploadMedia = multer({
+  storage: mediaStorage,
+  limits: { fileSize: 2048 * 1024 * 1024 } // 2GB max file size for high-res movie raw files
+});
 
 // Middlewares
 app.use(cors());
-app.use(express.json({ limit: '20mb' }));
-app.use(express.urlencoded({ extended: true, limit: '20mb' }));
+app.use(express.json({ limit: '30mb' }));
+app.use(express.urlencoded({ extended: true, limit: '30mb' }));
 
-// Serve frontend static files and audio files directly
+// Serve frontend static files and media files directly
 app.use(express.static(path.join(__dirname)));
 app.use('/audio', express.static(publicAudioDir));
+app.use('/videos', express.static(publicVideosDir));
 
 // ---------------------------------------------------------------------------
 // Health & Environment Status
@@ -1344,6 +1375,339 @@ app.post('/api/projects/:id/transcreate', async (req, res) => {
     });
   } catch (error) {
     console.error('Error in transcreation:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Media Management & Fair-Use Video Slicer Studio (FFmpeg Native + SQLite)
+// ---------------------------------------------------------------------------
+
+/**
+ * Extract media metadata (duration, resolution, streams) using native ffprobe
+ */
+function probeMediaFile(filePath) {
+  try {
+    if (!fs.existsSync(filePath)) {
+      return { duration_seconds: 0, resolution: '', file_size: 0, hasVideo: false, hasAudio: false };
+    }
+    const fileSize = fs.statSync(filePath).size;
+    const stdout = execSync(`ffprobe -v error -show_entries stream=width,height,codec_type -show_entries format=duration,size -of json "${filePath}"`, {
+      encoding: 'utf8',
+      timeout: 15000,
+      windowsHide: true
+    });
+    const parsed = JSON.parse(stdout || '{}');
+    let duration = 0;
+    if (parsed.format && parsed.format.duration) {
+      duration = parseFloat(parsed.format.duration) || 0;
+    }
+    let resolution = '';
+    let hasVideo = false;
+    let hasAudio = false;
+
+    if (Array.isArray(parsed.streams)) {
+      for (const st of parsed.streams) {
+        if (st.codec_type === 'video' && st.width && st.height && !resolution) {
+          resolution = `${st.width}x${st.height}`;
+          hasVideo = true;
+        }
+        if (st.codec_type === 'audio') {
+          hasAudio = true;
+        }
+      }
+    }
+
+    return {
+      duration_seconds: Math.round(duration * 100) / 100,
+      resolution,
+      file_size: Number(fileSize),
+      hasVideo,
+      hasAudio
+    };
+  } catch (err) {
+    console.warn(`[ffprobe] Gagal membaca metadata ${filePath}:`, err.message);
+    const size = fs.existsSync(filePath) ? fs.statSync(filePath).size : 0;
+    return {
+      duration_seconds: 0,
+      resolution: '',
+      file_size: size,
+      hasVideo: false,
+      hasAudio: false
+    };
+  }
+}
+
+// 1. List all media with optional filters
+app.get('/api/media', (req, res) => {
+  try {
+    const { projectId, fileType, category, search } = req.query;
+    const items = MediaRepo.getAll({ projectId, fileType, category, search });
+    res.json({ success: true, data: items, count: items.length });
+  } catch (error) {
+    console.error('Error fetching media list:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 2. Media storage stats
+app.get('/api/media/stats', (req, res) => {
+  try {
+    const stats = MediaRepo.getStats(req.query.projectId);
+    res.json({ success: true, data: stats });
+  } catch (error) {
+    console.error('Error fetching media stats:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 3. Get single media item
+app.get('/api/media/:id', (req, res) => {
+  try {
+    const item = MediaRepo.getById(req.params.id);
+    if (!item) return res.status(404).json({ success: false, error: 'File media tidak ditemukan.' });
+    res.json({ success: true, data: item });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 4. Upload raw video or audio file
+app.post('/api/media/upload', uploadMedia.single('file'), (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, error: 'Tidak ada file yang diunggah.' });
+    }
+
+    const { projectId = 0, category = 'raw_footage', tags = '', notes = '' } = req.body;
+    const filePath = req.file.path;
+    const isVideo = req.file.mimetype.startsWith('video/') || /\.(mp4|mkv|webm|mov|avi|flv|wmv|m4v)$/i.test(req.file.originalname);
+    const isAudio = req.file.mimetype.startsWith('audio/') || /\.(mp3|wav|ogg|aac|m4a|flac)$/i.test(req.file.originalname);
+
+    const probed = probeMediaFile(filePath);
+    const fileType = isVideo ? 'video' : (isAudio ? 'audio' : 'other');
+    const relativeUrl = isVideo ? `/videos/raw/${req.file.filename}` : `/audio/${req.file.filename}`;
+
+    const record = MediaRepo.create({
+      project_id: projectId,
+      filename: req.file.filename,
+      original_name: req.file.originalname,
+      file_type: fileType,
+      category: category || (isVideo ? 'raw_footage' : 'audio_misc'),
+      file_size: probed.file_size || req.file.size,
+      duration_seconds: probed.duration_seconds || 0,
+      resolution: probed.resolution || '',
+      mime_type: req.file.mimetype,
+      file_url: relativeUrl,
+      tags: tags || (isVideo ? 'video, mentah' : 'audio'),
+      notes: notes || `Diunggah manual pada ${new Date().toLocaleString('id-ID')}`
+    });
+
+    res.status(201).json({
+      success: true,
+      data: record,
+      message: `File "${req.file.originalname}" berhasil disimpan dan dicatat di database SQLite.`
+    });
+  } catch (error) {
+    console.error('Error in media upload:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 5. Fair-Use Video Slicer (Ambil X detik, Buang Y detik) via native FFmpeg
+app.post('/api/media/slice-video', uploadMedia.single('file'), async (req, res) => {
+  try {
+    const keep = Math.max(1, parseInt(req.body.keepSeconds, 10) || 3);
+    const skip = Math.max(1, parseInt(req.body.skipSeconds, 10) || 10);
+    const period = keep + skip;
+    const muteAudio = req.body.muteAudio === 'true' || req.body.muteAudio === true || req.body.muteAudio === undefined;
+    const mirror = req.body.mirror === 'true' || req.body.mirror === true;
+    const speed = Math.max(0.5, Math.min(2.0, parseFloat(req.body.speed) || 1.0));
+    const projectId = Number(req.body.projectId || 0);
+
+    let inputPath = null;
+    let originalName = 'video.mp4';
+    let sourceMediaRecord = null;
+
+    if (req.file) {
+      // Direct file upload into slicer
+      inputPath = req.file.path;
+      originalName = req.file.originalname;
+    } else if (req.body.mediaId) {
+      // Existing video from File Manager
+      sourceMediaRecord = MediaRepo.getById(req.body.mediaId);
+      if (!sourceMediaRecord) {
+        return res.status(404).json({ success: false, error: 'Video sumber tidak ditemukan di database.' });
+      }
+      originalName = sourceMediaRecord.original_name;
+      // Resolve path
+      if (sourceMediaRecord.file_url.startsWith('/videos/raw/')) {
+        inputPath = path.join(publicVideosRawDir, sourceMediaRecord.filename);
+      } else if (sourceMediaRecord.file_url.startsWith('/videos/processed/')) {
+        inputPath = path.join(publicVideosProcessedDir, sourceMediaRecord.filename);
+      } else {
+        inputPath = path.join(__dirname, 'public', sourceMediaRecord.file_url.replace(/^\//, ''));
+      }
+    } else if (req.body.videoPath) {
+      inputPath = path.resolve(__dirname, req.body.videoPath.replace(/^\//, ''));
+      originalName = path.basename(inputPath);
+    }
+
+    if (!inputPath || !fs.existsSync(inputPath)) {
+      return res.status(400).json({ success: false, error: 'File video sumber tidak ditemukan atau belum dipilih.' });
+    }
+
+    // Inspect source metadata
+    const sourceProbed = probeMediaFile(inputPath);
+
+    // Prepare output filename
+    const cleanBase = path.basename(originalName, path.extname(originalName)).replace(/[^a-zA-Z0-9_\-\.]/g, '_').substring(0, 40);
+    const outFilename = `sliced_${keep}s_${skip}s_${cleanBase}_${Date.now()}.mp4`;
+    const outputPath = path.join(publicVideosProcessedDir, outFilename);
+
+    // Construct FFmpeg select filter
+    // Video: select='lt(mod(t\,period)\,keep)'
+    let videoFilters = [`select='lt(mod(t\\,${period})\\,${keep})'`];
+    if (mirror) {
+      videoFilters.push('hflip');
+    }
+    if (speed !== 1.0) {
+      const speedFactor = (1.0 / speed).toFixed(4);
+      videoFilters.push(`setpts=${speedFactor}*N/FRAME_RATE/TB`);
+    } else {
+      videoFilters.push('setpts=N/FRAME_RATE/TB');
+    }
+
+    const ffmpegArgs = [
+      '-y',
+      '-i', inputPath,
+      '-vf', videoFilters.join(','),
+      '-c:v', 'libx264',
+      '-preset', 'veryfast',
+      '-crf', '22',
+      '-pix_fmt', 'yuv420p'
+    ];
+
+    if (muteAudio) {
+      ffmpegArgs.push('-an');
+    } else {
+      let audioFilters = [`aselect='lt(mod(t\\,${period})\\,${keep})'`, 'asetpts=N/SR/TB'];
+      if (speed !== 1.0) {
+        audioFilters.push(`atempo=${speed.toFixed(2)}`);
+      }
+      ffmpegArgs.push('-af', audioFilters.join(','), '-c:a', 'aac', '-b:a', '192k');
+    }
+
+    ffmpegArgs.push(outputPath);
+
+    console.log(`[FFmpeg Slicer] Memproses video: ${inputPath} -> ${outputPath}`);
+    console.log(`[FFmpeg Slicer] Parameter: Ambil ${keep}s, Lewati ${skip}s (Siklus ${period}s), Mute: ${muteAudio}, Mirror: ${mirror}, Speed: ${speed}x`);
+
+    // Run FFmpeg in spawn process
+    await new Promise((resolve, reject) => {
+      const proc = spawn('ffmpeg', ffmpegArgs, { windowsHide: true });
+      let stderrData = '';
+      proc.stderr.on('data', chunk => {
+        stderrData += chunk.toString();
+      });
+      proc.on('close', code => {
+        if (code === 0 && fs.existsSync(outputPath)) {
+          resolve(true);
+        } else {
+          console.error('[FFmpeg Error Output]:', stderrData.slice(-1000));
+          reject(new Error(`FFmpeg slicing gagal dengan kode keluar ${code}. Detail: ${stderrData.slice(-400)}`));
+        }
+      });
+      proc.on('error', err => reject(err));
+    });
+
+    // Probe the sliced result
+    const slicedProbed = probeMediaFile(outputPath);
+
+    // Save record to SQLite
+    const slicedRecord = MediaRepo.create({
+      project_id: projectId,
+      filename: outFilename,
+      original_name: req.body.customName || `✂️ Sliced (${keep}s/${skip}s) - ${originalName}`,
+      file_type: 'video',
+      category: 'footage_sliced',
+      file_size: slicedProbed.file_size,
+      duration_seconds: slicedProbed.duration_seconds,
+      resolution: slicedProbed.resolution || sourceProbed.resolution,
+      mime_type: 'video/mp4',
+      file_url: `/videos/processed/${outFilename}`,
+      tags: `sliced, ${keep}s-${skip}s, fair-use${mirror ? ', mirror' : ''}`,
+      notes: `Montage fair-use: ambil ${keep}s, buang ${skip}s secara otomatis. Durasi: ${sourceProbed.duration_seconds}s -> ${slicedProbed.duration_seconds}s.`
+    });
+
+    res.json({
+      success: true,
+      data: slicedRecord,
+      summary: {
+        source_name: originalName,
+        source_duration: sourceProbed.duration_seconds,
+        sliced_duration: slicedProbed.duration_seconds,
+        time_saved_percent: sourceProbed.duration_seconds > 0
+          ? Math.round((1 - (slicedProbed.duration_seconds / sourceProbed.duration_seconds)) * 100)
+          : 0,
+        keep_seconds: keep,
+        skip_seconds: skip,
+        mirror,
+        mute_audio: muteAudio,
+        speed
+      },
+      message: `Berhasil memotong video! Durasi terpangkas menjadi ${slicedProbed.duration_seconds} detik montage fair-use.`
+    });
+
+  } catch (error) {
+    console.error('Error slicing video:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 6. Update media metadata (Name, Category, Tags, Notes)
+app.put('/api/media/:id', (req, res) => {
+  try {
+    const updated = MediaRepo.update(req.params.id, req.body);
+    if (!updated) return res.status(404).json({ success: false, error: 'File media tidak ditemukan.' });
+    res.json({ success: true, data: updated, message: 'Metadata media berhasil diperbarui.' });
+  } catch (error) {
+    console.error('Error updating media:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 7. Delete media file & DB record
+app.delete('/api/media/:id', (req, res) => {
+  try {
+    const item = MediaRepo.getById(req.params.id);
+    if (!item) return res.status(404).json({ success: false, error: 'File media tidak ditemukan.' });
+
+    // Try deleting physical file on disk
+    let diskPath = null;
+    if (item.file_url) {
+      if (item.file_url.startsWith('/videos/raw/')) {
+        diskPath = path.join(publicVideosRawDir, item.filename);
+      } else if (item.file_url.startsWith('/videos/processed/')) {
+        diskPath = path.join(publicVideosProcessedDir, item.filename);
+      } else if (item.file_url.startsWith('/audio/')) {
+        diskPath = path.join(publicAudioDir, item.filename);
+      }
+    }
+
+    if (diskPath && fs.existsSync(diskPath)) {
+      try {
+        fs.unlinkSync(diskPath);
+        console.log(`[Media Delete] File fisik dihapus: ${diskPath}`);
+      } catch (e) {
+        console.warn(`[Media Delete] Gagal menghapus file fisik ${diskPath}:`, e.message);
+      }
+    }
+
+    MediaRepo.delete(req.params.id);
+    res.json({ success: true, message: `File "${item.original_name}" berhasil dihapus dari database dan penyimpanan.` });
+  } catch (error) {
+    console.error('Error deleting media:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });

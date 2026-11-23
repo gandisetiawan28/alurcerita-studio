@@ -16,6 +16,12 @@ public/audio/*
 !public/audio/bgm/**
 !public/audio/bgm/
 
+# Uploaded & Processed Video Files
+public/videos/raw/*
+!public/videos/raw/.gitkeep
+public/videos/processed/*
+!public/videos/processed/.gitkeep
+
 # Temporary & Scratch Files
 scratch/
 test_gpu.py

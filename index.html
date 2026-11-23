@@ -25,7 +25,7 @@
         </div>
       </div>
 
-      <!-- Navigation Pill Switcher: Home vs Studio -->
+      <!-- Navigation Pill Switcher: Home vs Studio vs Media -->
       <nav class="header-nav-pills" aria-label="Navigasi Utama">
         <button type="button" class="nav-pill-btn" id="navBtnHome">
           <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
@@ -34,6 +34,13 @@
         <button type="button" class="nav-pill-btn active" id="navBtnStudio">
           <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
           <span>Studio</span>
+        </button>
+        <button type="button" class="nav-pill-btn" id="navBtnMediaStudio" title="Video Slicer Fair-Use 3s/10s & File Manager Media">
+          <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <polygon points="23 7 16 12 23 17 23 7"></polygon>
+            <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
+          </svg>
+          <span>🎬 Video & File Manager</span>
         </button>
       </nav>
 
@@ -1232,6 +1239,526 @@
     </section>
 
   </main>
+
+  <!-- =======================================================================
+       VIEW 3: MEDIA STUDIO WORKSPACE (Video Slicer 3s/10s & File Manager CRUD)
+       ======================================================================= -->
+  <section class="media-workspace" id="mediaWorkspace" hidden>
+    <div class="media-container">
+      
+      <!-- Media Header & Sub-Nav Toolbar -->
+      <header class="media-toolbar">
+        <div class="media-toolbar-left">
+          <div class="media-subnav-pills" role="tablist">
+            <button type="button" class="media-tab-btn active" id="tabMediaSlicer" role="tab" aria-selected="true" aria-controls="mediaSlicerSection">
+              <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="6" cy="6" r="3"></circle><circle cx="6" cy="18" r="3"></circle><line x1="20" y1="4" x2="8.12" y2="15.88"></line><line x1="14.47" y1="14.48" x2="20" y2="20"></line><line x1="8.12" y1="8.12" x2="12" y2="12"></line></svg>
+              <span>Fair-Use Video Slicer (3s / 10s)</span>
+            </button>
+            <button type="button" class="media-tab-btn" id="tabMediaFiles" role="tab" aria-selected="false" aria-controls="mediaFilesSection">
+              <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+              <span>File Manager Media & Storage</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="media-toolbar-center">
+          <div class="media-stats-badge" id="mediaHeaderStats">
+            <span class="dot-online"></span>
+            <span id="mediaStatsSummaryText">Memuat statistik media...</span>
+          </div>
+        </div>
+
+        <div class="media-toolbar-right">
+          <button type="button" class="btn-subtle" id="btnRefreshMedia">
+            <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"></path><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+            <span>Segarkan</span>
+          </button>
+          <button type="button" class="btn-primary" id="btnOpenUploadModal">
+            <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+            <span>+ Unggah Media</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- ===================================================================
+           TAB 1: FAIR-USE VIDEO SLICER ("Ambil 3 Detik, Buang 10 Detik")
+           =================================================================== -->
+      <div class="media-tab-panel" id="mediaSlicerSection" role="tabpanel">
+        <div class="slicer-layout">
+          
+          <!-- Slicer Left Column: Controls & Configuration -->
+          <div class="slicer-controls-pane">
+            <div class="pane-card">
+              <div class="pane-card-header">
+                <span class="step-badge">1</span>
+                <div>
+                  <h3 class="pane-card-title">Pilih Video Sumber</h3>
+                  <p class="pane-card-desc">Pilih video yang sudah tersimpan di database atau unggah baru dari komputer.</p>
+                </div>
+              </div>
+
+              <div class="slicer-source-selector">
+                <div class="segmented-control" role="tablist">
+                  <button type="button" class="segmented-btn active" id="btnSourceFromManager">Pilih dari File Manager</button>
+                  <button type="button" class="segmented-btn" id="btnSourceFromUpload">Unggah Video Baru</button>
+                </div>
+
+                <!-- Option A: Select from Manager -->
+                <div class="source-mode-box" id="boxSourceFromManager">
+                  <label for="slicerSelectVideo" class="form-label">Daftar Video di Proyek:</label>
+                  <select id="slicerSelectVideo" class="form-select">
+                    <option value="">-- Pilih video dari daftar --</option>
+                  </select>
+                </div>
+
+                <!-- Option B: Direct Upload -->
+                <div class="source-mode-box" id="boxSourceFromUpload" hidden>
+                  <div class="dropzone" id="slicerDropzone">
+                    <input type="file" id="slicerFileInput" accept="video/mp4,video/mkv,video/webm,video/mov,video/avi" hidden>
+                    <svg class="dropzone-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                    <div class="dropzone-text">
+                      <strong>Tarik & lepas file video film di sini</strong>
+                      <span>atau klik untuk memilih file dari komputer (MP4, MKV, WebM, MOV)</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Active Selected Video Info Pill -->
+                <div class="selected-video-pill" id="slicerSelectedPill" hidden>
+                  <span class="file-icon">🎬</span>
+                  <div class="file-details">
+                    <strong id="slicerSelectedTitle">video_sample.mp4</strong>
+                    <span id="slicerSelectedMeta">Durasi: 00:00 • 1920x1080 • 45 MB</span>
+                  </div>
+                  <button type="button" class="btn-icon btn-xs" id="btnClearSelectedVideo" title="Batalkan pilihan">&times;</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Configuration: Slicing Parameters -->
+            <div class="pane-card">
+              <div class="pane-card-header">
+                <span class="step-badge">2</span>
+                <div>
+                  <h3 class="pane-card-title">Formula Pemotongan Fair-Use</h3>
+                  <p class="pane-card-desc">Sistem memotong video secara berkala: ambil potongan cuplikan pendek dan buang jeda di antaranya.</p>
+                </div>
+              </div>
+
+              <div class="slicer-params-grid">
+                <!-- Keep seconds input -->
+                <div class="param-box">
+                  <div class="param-header">
+                    <label for="inputKeepSeconds" class="param-label">Ambil Setiap (Keep):</label>
+                    <span class="param-value-chip" id="chipKeepVal">3 Detik</span>
+                  </div>
+                  <input type="range" id="sliderKeepSeconds" min="1" max="15" step="0.5" value="3" class="param-range">
+                  <input type="number" id="inputKeepSeconds" min="1" max="30" step="0.5" value="3" class="form-input param-num-input">
+                  <span class="param-hint">Panjang cuplikan film yang disimpan (standar fair-use alur cerita: 2 - 4 detik).</span>
+                </div>
+
+                <!-- Skip seconds input -->
+                <div class="param-box">
+                  <div class="param-header">
+                    <label for="inputSkipSeconds" class="param-label">Buang/Lewati (Skip):</label>
+                    <span class="param-value-chip" id="chipSkipVal">10 Detik</span>
+                  </div>
+                  <input type="range" id="sliderSkipSeconds" min="2" max="60" step="1" value="10" class="param-range">
+                  <input type="number" id="inputSkipSeconds" min="1" max="120" step="1" value="10" class="form-input param-num-input">
+                  <span class="param-hint">Berapa detik footage film yang dilompati dan dibuang setiap siklus.</span>
+                </div>
+              </div>
+
+              <!-- Realtime Slicer Formula Indicator -->
+              <div class="formula-banner">
+                <div class="formula-banner-icon">💡</div>
+                <div class="formula-banner-text">
+                  <strong id="formulaSummaryTitle">Pola Siklus: Ambil 3s lalu Buang 10s (Tiap 13s)</strong>
+                  <p id="formulaSummaryDesc">Dari video berdurasi 10 menit, hasil potongan montage otomatis menjadi sekitar ~2 menit 18 detik (-77% footage mentah terpotong).</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Configuration: Anti-Copyright Options -->
+            <div class="pane-card">
+              <div class="pane-card-header">
+                <span class="step-badge">3</span>
+                <div>
+                  <h3 class="pane-card-title">Opsi Fair-Use Anti-Copyright</h3>
+                  <p class="pane-card-desc">Pengaturan tambahan untuk memastikan video aman dari Content ID YouTube.</p>
+                </div>
+              </div>
+
+              <div class="slicer-options-list">
+                <label class="toggle-control-label">
+                  <input type="checkbox" id="checkMuteAudio" checked>
+                  <span class="toggle-slider"></span>
+                  <div class="toggle-text">
+                    <strong>Bisukan Audio Asli Film (Mute)</strong>
+                    <span>Rekomendasi utama: buang track dialog/suara film asli agar video bebas hak cipta dan siap diisi voiceover alur cerita.</span>
+                  </div>
+                </label>
+
+                <label class="toggle-control-label">
+                  <input type="checkbox" id="checkMirrorVideo">
+                  <span class="toggle-slider"></span>
+                  <div class="toggle-text">
+                    <strong>Mirror / Balik Horizontal (Flip Horizontal)</strong>
+                    <span>Membalik sudut gambar secara horizontal untuk mengacaukan pemindaian sistem pendeteksi visual otomatis.</span>
+                  </div>
+                </label>
+
+                <div class="option-row">
+                  <label for="selectVideoSpeed" class="form-label">Kecepatan Video:</label>
+                  <select id="selectVideoSpeed" class="form-select">
+                    <option value="1.0" selected>1.0x (Kecepatan Asli)</option>
+                    <option value="1.05">1.05x (Sedikit Lebih Cepat - Anti Detect)</option>
+                    <option value="1.10">1.10x (Lebih Dinamis & Padat)</option>
+                    <option value="1.15">1.15x (Tempo Cepat)</option>
+                    <option value="1.25">1.25x (Cuplikan Cepat / Recap)</option>
+                  </select>
+                </div>
+
+                <div class="option-row">
+                  <label for="inputCustomOutputName" class="form-label">Nama File Hasil (Opsional):</label>
+                  <input type="text" id="inputCustomOutputName" placeholder="Contoh: Sliced Resident Evil - Babak 1" class="form-input">
+                </div>
+              </div>
+
+              <div class="slicer-action-box">
+                <button type="button" class="btn-primary btn-lg btn-block" id="btnStartSlicing">
+                  <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                  <span id="btnStartSlicingText">🎬 Mulai Potong Video (FFmpeg Slicer)</span>
+                </button>
+              </div>
+
+              <!-- Processing Progress & Status -->
+              <div class="slicer-progress-container" id="slicerProgressContainer" hidden>
+                <div class="progress-bar-wrapper">
+                  <div class="progress-bar-fill animated" id="slicerProgressBar" style="width: 100%;"></div>
+                </div>
+                <div class="progress-status-row">
+                  <span class="progress-spinner">⏳</span>
+                  <span id="slicerProgressStatus">Sedang memproses FFmpeg slicing... Mohon tunggu.</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Slicer Right Column: Interactive Player & Result Showcase -->
+          <div class="slicer-preview-pane">
+            <div class="pane-card preview-card">
+              <div class="preview-header">
+                <div class="preview-title-group">
+                  <h3 class="pane-card-title">Pratinjau Video Player</h3>
+                  <div class="preview-mode-tags">
+                    <span class="badge badge-success" id="badgePreviewMode">Hasil Potongan (Montage)</span>
+                  </div>
+                </div>
+                <div class="preview-actions-group">
+                  <button type="button" class="btn-subtle btn-xs" id="btnTogglePreviewSource" title="Ganti antara video hasil potongan vs video mentah">
+                    🔄 Lihat Video Mentah
+                  </button>
+                </div>
+              </div>
+
+              <!-- HTML5 Video Player Container -->
+              <div class="video-player-wrapper" id="videoPlayerWrapper">
+                <video id="slicerPreviewVideo" controls playsinline preload="metadata">
+                  Browser Anda tidak mendukung tag video HTML5.
+                </video>
+                <div class="player-empty-placeholder" id="playerEmptyPlaceholder">
+                  <svg class="placeholder-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>
+                  <h4>Belum Ada Video yang Dipotong</h4>
+                  <p>Pilih video dari daftar di sebelah kiri atau unggah file baru, lalu klik "Mulai Potong Video". Video hasil potongan fair-use (3s/10s) akan langsung diputar di sini.</p>
+                </div>
+              </div>
+
+              <!-- Result Metrics Comparison Card -->
+              <div class="slicing-result-stats" id="slicingResultStats" hidden>
+                <div class="stat-box">
+                  <span class="stat-label">Durasi Mentah</span>
+                  <strong class="stat-val" id="statSourceDuration">00:00</strong>
+                </div>
+                <div class="stat-arrow">➔</div>
+                <div class="stat-box highlight">
+                  <span class="stat-label">Durasi Hasil</span>
+                  <strong class="stat-val" id="statSlicedDuration">00:00</strong>
+                </div>
+                <div class="stat-box">
+                  <span class="stat-label">Efisiensi Footage</span>
+                  <strong class="stat-val green" id="statSavedPercent">-0%</strong>
+                </div>
+                <div class="stat-box">
+                  <span class="stat-label">Resolusi & Ukuran</span>
+                  <strong class="stat-val" id="statResolutionSize">1920x1080 • 0 MB</strong>
+                </div>
+              </div>
+
+              <!-- Sliced Video Footer Actions -->
+              <div class="preview-footer-actions" id="previewFooterActions" hidden>
+                <a href="#" download class="btn-primary" id="btnDownloadSlicedVideo">
+                  <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                  <span>Unduh Video Hasil (.MP4)</span>
+                </a>
+                <button type="button" class="btn-subtle" id="btnOpenInFileManager">
+                  <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                  <span>Buka di File Manager</span>
+                </button>
+                <button type="button" class="btn-subtle" id="btnCopyVideoUrl" title="Salin URL Video">
+                  <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                  <span>Salin Tautan</span>
+                </button>
+              </div>
+
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ===================================================================
+           TAB 2: PROJECT MEDIA FILE MANAGER (Full CRUD Storage & Metadata)
+           =================================================================== -->
+      <div class="media-tab-panel" id="mediaFilesSection" role="tabpanel" hidden>
+        <div class="file-manager-layout">
+          
+          <!-- Filter & Search Toolbar -->
+          <div class="fm-toolbar">
+            <div class="fm-filter-pills">
+              <button type="button" class="fm-filter-btn active" data-filter="all">Semua File</button>
+              <button type="button" class="fm-filter-btn" data-filter="footage_raw">🎬 Video Raw</button>
+              <button type="button" class="fm-filter-btn" data-filter="footage_sliced">✂️ Video Sliced (3s/10s)</button>
+              <button type="button" class="fm-filter-btn" data-filter="audio_voiceover">🎙️ Voiceover</button>
+              <button type="button" class="fm-filter-btn" data-filter="audio_bgm">🎵 Musik BGM</button>
+            </div>
+
+            <div class="fm-search-box">
+              <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+              <input type="text" id="fmSearchInput" placeholder="Cari nama video, tag, audio..." class="search-field">
+              <button type="button" class="btn-clear-search" id="btnFmClearSearch" hidden>&times;</button>
+            </div>
+
+            <div class="fm-view-switcher">
+              <button type="button" class="btn-icon active" id="btnViewGrid" title="Tampilan Kisi / Grid">
+                <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+              </button>
+              <button type="button" class="btn-icon" id="btnViewTable" title="Tampilan Daftar / Tabel">
+                <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Storage Breakdown Bar -->
+          <div class="fm-stats-strip">
+            <div class="fm-stat-item">
+              <span class="label">Total File:</span>
+              <strong id="fmTotalFiles">0</strong>
+            </div>
+            <span class="divider">•</span>
+            <div class="fm-stat-item">
+              <span class="label">Video Mentah:</span>
+              <strong id="fmVideoRawCount">0</strong>
+            </div>
+            <span class="divider">•</span>
+            <div class="fm-stat-item">
+              <span class="label">Video Sliced (3s/10s):</span>
+              <strong id="fmVideoSlicedCount">0</strong>
+            </div>
+            <span class="divider">•</span>
+            <div class="fm-stat-item">
+              <span class="label">Audio & Voiceover:</span>
+              <strong id="fmAudioCount">0</strong>
+            </div>
+            <span class="divider">•</span>
+            <div class="fm-stat-item">
+              <span class="label">Total Ukuran Penyimpanan:</span>
+              <strong id="fmTotalStorageSize">0 MB</strong>
+            </div>
+          </div>
+
+          <!-- Container for Media Cards (Grid View) -->
+          <div class="fm-grid-container" id="fmMediaGrid">
+            <!-- Rendered dynamically via app.js -->
+          </div>
+
+          <!-- Container for Media Table (List View) -->
+          <div class="fm-table-container" id="fmMediaTableContainer" hidden>
+            <table class="fm-table" id="fmMediaTable">
+              <thead>
+                <tr>
+                  <th style="width: 60px;">Tipe</th>
+                  <th>Nama File / Judul</th>
+                  <th>Kategori</th>
+                  <th>Durasi</th>
+                  <th>Resolusi</th>
+                  <th>Ukuran</th>
+                  <th>Waktu Dibuat</th>
+                  <th style="width: 180px; text-align: right;">Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="fmMediaTableBody">
+                <!-- Rendered dynamically via app.js -->
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Empty State -->
+          <div class="fm-empty-state" id="fmEmptyState" hidden>
+            <div class="empty-icon">📁</div>
+            <h3>Belum Ada File Media</h3>
+            <p>Unggah file video footage atau audio, atau gunakan fitur Video Slicer untuk membuat potongan cuplikan fair-use.</p>
+            <button type="button" class="btn-primary" id="btnEmptyUpload">
+              <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+              <span>+ Unggah Media Sekarang</span>
+            </button>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- =======================================================================
+       MODAL: UPLOAD FILE MEDIA KE FILE MANAGER
+       ======================================================================= -->
+  <div class="modal-overlay" id="mediaUploadModal" hidden role="dialog" aria-modal="true" aria-labelledby="modalUploadTitle">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <span class="modal-icon">📤</span>
+          <h2 class="modal-title" id="modalUploadTitle">Unggah File Media</h2>
+        </div>
+        <button type="button" class="modal-close-btn" id="btnCloseUploadModal" aria-label="Tutup modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="formUploadMedia" enctype="multipart/form-data">
+          <div class="form-group">
+            <label class="form-label">Pilih File (Video atau Audio):</label>
+            <div class="dropzone modal-dropzone" id="modalMediaDropzone">
+              <input type="file" id="modalMediaFileInput" accept="video/*,audio/*" required hidden>
+              <svg class="dropzone-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+              <div class="dropzone-text">
+                <strong id="modalDropzoneMainText">Klik untuk memilih file atau seret ke sini</strong>
+                <span id="modalDropzoneSubText">Mendukung MP4, MKV, WebM, MOV, MP3, WAV (hingga 2 GB)</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="uploadCategorySelect" class="form-label">Kategori File:</label>
+              <select id="uploadCategorySelect" class="form-select">
+                <option value="raw_footage">🎬 Video Raw / Mentah</option>
+                <option value="footage_sliced">✂️ Video Sliced (Fair-Use)</option>
+                <option value="audio_voiceover">🎙️ Suara Voiceover</option>
+                <option value="audio_bgm">🎵 Musik BGM</option>
+                <option value="other">📦 Lainnya</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="uploadTagsInput" class="form-label">Tag (Pisahkan koma):</label>
+              <input type="text" id="uploadTagsInput" placeholder="Contoh: resident evil, babak 1" class="form-input">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="uploadNotesInput" class="form-label">Catatan Tambahan:</label>
+            <input type="text" id="uploadNotesInput" placeholder="Keterangan singkat tentang file ini..." class="form-input">
+          </div>
+
+          <div class="modal-actions">
+            <button type="button" class="btn-subtle" id="btnCancelUploadModal">Batal</button>
+            <button type="submit" class="btn-primary" id="btnSubmitUploadMedia">
+              <span>Mulai Unggah File</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- =======================================================================
+       MODAL: EDIT METADATA MEDIA (CRUD Update)
+       ======================================================================= -->
+  <div class="modal-overlay" id="mediaEditModal" hidden role="dialog" aria-modal="true" aria-labelledby="modalEditMediaTitle">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <span class="modal-icon">✏️</span>
+          <h2 class="modal-title" id="modalEditMediaTitle">Edit Metadata File Media</h2>
+        </div>
+        <button type="button" class="modal-close-btn" id="btnCloseEditMediaModal" aria-label="Tutup modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="formEditMedia">
+          <input type="hidden" id="editMediaId">
+          
+          <div class="form-group">
+            <label for="editOriginalName" class="form-label">Nama Tampilan File:</label>
+            <input type="text" id="editOriginalName" class="form-input" required>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="editCategorySelect" class="form-label">Kategori:</label>
+              <select id="editCategorySelect" class="form-select">
+                <option value="raw_footage">🎬 Video Raw / Mentah</option>
+                <option value="footage_sliced">✂️ Video Sliced (Fair-Use)</option>
+                <option value="audio_voiceover">🎙️ Suara Voiceover</option>
+                <option value="audio_bgm">🎵 Musik BGM</option>
+                <option value="other">📦 Lainnya</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="editTagsInput" class="form-label">Tag:</label>
+              <input type="text" id="editTagsInput" class="form-input" placeholder="Tag pencarian...">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="editNotesInput" class="form-label">Catatan:</label>
+            <textarea id="editNotesInput" rows="3" class="form-textarea" placeholder="Tambahkan catatan..."></textarea>
+          </div>
+
+          <div class="modal-actions">
+            <button type="button" class="btn-subtle" id="btnCancelEditMedia">Batal</button>
+            <button type="submit" class="btn-primary" id="btnSaveEditMedia">Simpan Perubahan</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- =======================================================================
+       MODAL: FULL PREVIEW MEDIA LIGHTBOX (Video / Audio Player)
+       ======================================================================= -->
+  <div class="modal-overlay" id="mediaPreviewModal" hidden role="dialog" aria-modal="true" aria-labelledby="modalPreviewMediaTitle">
+    <div class="modal-card modal-lg">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <span class="modal-icon" id="previewModalTypeIcon">🎬</span>
+          <h2 class="modal-title" id="modalPreviewMediaTitle">Pratinjau File Media</h2>
+        </div>
+        <button type="button" class="modal-close-btn" id="btnClosePreviewModal" aria-label="Tutup modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-player-container" id="modalPlayerBox">
+          <!-- Dynamic video or audio tag inserted here -->
+        </div>
+        <div class="modal-meta-grid" id="modalPlayerMeta">
+          <!-- Metadata details: duration, resolution, size, URL -->
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn-subtle" id="btnClosePreviewBottom">Tutup</button>
+        <button type="button" class="btn-subtle" id="btnModalSendToSlicer">✂️ Kirim ke Slicer</button>
+        <a href="#" download class="btn-primary" id="btnModalDownload">⬇️ Unduh File</a>
+      </div>
+    </div>
+  </div>
 
   <!-- =======================================================================
        MODAL: BUAT PROYEK FILM BARU (SQL)
