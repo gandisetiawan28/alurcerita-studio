@@ -663,9 +663,20 @@ Produce the full, complete transcreated script in clean Markdown without convers
   };
 }
 
+// Helper format seconds to timecode HH:MM:SS.mmm
+function formatSecondsToTimecode(totalSec) {
+  const s = Math.max(0, parseFloat(totalSec) || 0);
+  const hrs = Math.floor(s / 3600);
+  const mins = Math.floor((s % 3600) / 60);
+  const secs = Math.floor(s % 60);
+  const ms = Math.floor((s - Math.floor(s)) * 1000);
+  return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}.${String(ms).padStart(3, '0')}`;
+}
+
 /**
  * AI Smart Cut Scene Detector: Analisis Subtitle / Dialog Film menggunakan Gemini
  * Memilih momen dramatis, punchline, dialog kunci, dan klimaks untuk dipotong jadi cut scene fair-use.
+ * SYARAT MUTLAK: Durasi setiap klip adegan TIDAK BOLEH LEBIH DARI 3 DETIK (WAJIB DI BAWAH 3 DETIK).
  */
 async function analyzeSrtForCutScenes({
   srtEntries = [],
@@ -690,12 +701,15 @@ Tugas Anda: Dari data subtitle & dialog film "${movieTitle}" berikut, pilih ${Ma
 
 ${focusHint ? `FOKUS KHUSUS PEMILIHAN DARI PENGGUNA:\n"${focusHint}"\n` : ''}
 
-KRITERIA WAJIB PEMILIHAN CUT SCENE:
-1. PUNCHLINE & PLOT TWIST: Dialog pengungkapan rahasia, momen kejutan, atau fakta baru yang mengubah arah cerita.
-2. MOMEN EMOSIONAL / DILEMA: Kalimat penuh ketakutan, keputusasaan, kemarahan, atau pengakuan mendalam tokoh.
-3. KATA KUNCI PERISTIWA (EVENT TRIGGER): Adegan ledakan wabah, keputusan berbahaya, atau konfrontasi puncak.
-4. DURASI KLIP IDEAL: Antara 2.5 hingga 6 detik per adegan (sangat aman untuk fair-use YouTube dan tidak membosankan).
-5. BUFFER WAKTU: Pastikan start_seconds diberi jeda ~0.3s sebelum dialog mulai dan end_seconds diberi jeda ~0.4s setelah dialog selesai agar suara/gerakan tidak terpotong kaku.
+KRITERIA WAJIB & ATURAN MUTLAK PEMILIHAN CUT SCENE:
+1. ATURAN DURASI MUTLAK: DURASI SETIAP SCENE TIDAK BOLEH LEBIH DARI 3 DETIK! WAJIB DI BAWAH 3 DETIK (DURASI MAKSIMAL 2.0 HINGGA 2.85 DETIK, DILARANG MENCAPAI ATAU MELEBIHI 3.0 DETIK).
+   - Rumus wajib: (end_seconds - start_seconds) <= 2.85 detik.
+   - Jika dialog asli di subtitle lebih panjang dari 3 detik, Anda WAJIB memotong dan mengambil HANYA kata kunci atau punchline terpentingnya saja (misal 2.0s - 2.8s) agar durasinya tetap DI BAWAH 3 DETIK.
+   - Ini adalah aturan wajib Fair-Use YouTube agar channel alur cerita bebas 100% dari klaim hak cipta (Content ID).
+2. PUNCHLINE & PLOT TWIST: Dialog pengungkapan rahasia, momen kejutan, atau kata-kata penentu cerita.
+3. MOMEN EMOSIONAL / DILEMA: Kalimat penuh ketakutan, keputusasaan, kemarahan, atau pengakuan mendalam tokoh.
+4. KATA KUNCI PERISTIWA (EVENT TRIGGER): Titik balik wabah, keputusan berbahaya, atau ancaman monster/musuh.
+5. BUFFER WAKTU CEPAT: Sesuaikan start_seconds dan end_seconds secara presisi sehingga durasi total klip berkisar 1.5 s/d 2.85 detik (TIDAK BOLEH LEBIH DARI 3 DETIK).
 
 SUBTITLE & TIMECODE FILM (${movieTitle}):
 ${condensedDialog}
@@ -703,16 +717,16 @@ ${condensedDialog}
 FORMAT OUTPUT WAJIB:
 Hasilkan HANYA JSON VALID murni (tanpa format markdown tambahan seperti \`\`\`json):
 {
-  "summary": "Ringkasan kurasi: mengapa adegan-adegan ini dipilih untuk memperkuat alur cerita film ini",
+  "summary": "Ringkasan kurasi: mengapa adegan-adegan ini dipilih untuk memperkuat alur cerita film ini (seluruh klip dipastikan berdurasi di bawah 3 detik)",
   "scenes": [
     {
       "clip_number": 1,
       "title": "Judul Adegan Singkat & Padat",
       "start_time": "00:03:14.500",
-      "end_time": "00:03:18.800",
+      "end_time": "00:03:17.300",
       "start_seconds": 194.5,
-      "end_seconds": 198.8,
-      "dialogue": "Teks dialog asli dalam film",
+      "end_seconds": 197.3,
+      "dialogue": "Teks dialog atau potongan kalimat kunci dalam film",
       "dialogue_translated": "Terjemahan dialog bahasa Indonesia",
       "narrative_role": "Hook Pembuka / Titik Balik / Momen Emosional / Klimaks",
       "reason": "Alasan singkat mengapa adegan ini sangat krusial dimasukkan ke video alur cerita"
@@ -721,7 +735,7 @@ Hasilkan HANYA JSON VALID murni (tanpa format markdown tambahan seperti \`\`\`js
 }
 `;
 
-  console.log(`🤖 [AI Cut Scene Engine] Menganalisis subtitle untuk "${movieTitle}" (${srtEntries.length} baris)...`);
+  console.log(`🤖 [AI Cut Scene Engine] Menganalisis subtitle untuk "${movieTitle}" (${srtEntries.length} baris, wajib < 3 detik)...`);
   const result = await callGeminiSmartStage(prompt, `AI Cut Scene Detector (${movieTitle})`, preferredModel);
 
   if (!result || !result.text) {
@@ -746,9 +760,36 @@ Hasilkan HANYA JSON VALID murni (tanpa format markdown tambahan seperti \`\`\`js
     }
   }
 
+  // Enforce strict durasi klip < 3 detik di level data
+  const rawScenes = Array.isArray(parsedJson.scenes) ? parsedJson.scenes : [];
+  const sanitizedScenes = rawScenes.map((sc, idx) => {
+    let startSec = Math.max(0, parseFloat(sc.start_seconds) || 0);
+    let endSec = parseFloat(sc.end_seconds) || (startSec + 2.8);
+    let diff = endSec - startSec;
+
+    // Strict enforcement: Tidak boleh >= 3.0 detik, wajib di bawah 3 detik (max 2.85s)
+    if (diff >= 3.0 || diff <= 0.3) {
+      endSec = Math.round((startSec + Math.min(2.85, Math.max(1.2, diff))) * 100) / 100;
+      if (endSec - startSec >= 3.0) {
+        endSec = Math.round((startSec + 2.85) * 100) / 100;
+      }
+    }
+
+    const finalDur = Math.round((endSec - startSec) * 100) / 100;
+    return {
+      ...sc,
+      clip_number: sc.clip_number || (idx + 1),
+      start_seconds: startSec,
+      end_seconds: endSec,
+      start_time: formatSecondsToTimecode(startSec),
+      end_time: formatSecondsToTimecode(endSec),
+      duration: finalDur
+    };
+  });
+
   return {
-    summary: parsedJson.summary || 'Koleksi cut scene kunci berhasil dianalisis oleh Gemini.',
-    scenes: Array.isArray(parsedJson.scenes) ? parsedJson.scenes : [],
+    summary: parsedJson.summary || 'Koleksi cut scene kunci berhasil dianalisis oleh Gemini (durasi teruji < 3 detik).',
+    scenes: sanitizedScenes,
     active_model: result.modelName,
     used_key: result.keyInfo
   };

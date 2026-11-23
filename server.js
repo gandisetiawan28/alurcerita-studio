@@ -1880,7 +1880,15 @@ app.post('/api/media/ai-batch-cut', async (req, res) => {
     for (let i = 0; i < scenes.length; i++) {
       const sc = scenes[i];
       const startSec = Math.max(0, parseFloat(sc.start_seconds) || 0);
-      const endSec = Math.max(startSec + 0.5, parseFloat(sc.end_seconds) || (startSec + 3));
+      let endSec = parseFloat(sc.end_seconds) || (startSec + 2.8);
+      
+      // SYARAT MUTLAK: Durasi scene cut-scene TIDAK BOLEH LEBIH DARI 3 DETIK (wajib di bawah 3 detik)
+      const MAX_SCENE_DURATION = 2.85; // Maksimal 2.85 detik (< 3s)
+      if ((endSec - startSec) >= 3.0) {
+        endSec = Math.round((startSec + MAX_SCENE_DURATION) * 100) / 100;
+      } else if ((endSec - startSec) < 0.5) {
+        endSec = Math.round((startSec + 1.5) * 100) / 100;
+      }
       const duration = Math.round((endSec - startSec) * 100) / 100;
 
       const cleanTitle = (sc.title || `Clip_${i+1}`).replace(/[^a-zA-Z0-9_\-\.]/g, '_').substring(0, 30);

@@ -5898,7 +5898,8 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
       const card = document.createElement('div');
       card.className = `ai-scene-item ${isSelected ? 'selected' : ''}`;
 
-      const durSec = Math.max(1, Math.round((parseFloat(scene.end_seconds) - parseFloat(scene.start_seconds)) * 10) / 10);
+      // Enforce < 3s display
+      const durSec = Math.max(0.5, Math.min(2.85, Math.round((parseFloat(scene.end_seconds) - parseFloat(scene.start_seconds)) * 100) / 100));
       const roleBadge = scene.narrative_role ? `<span class="badge badge-subtle" style="font-size: 10px;">${escapeHtml(scene.narrative_role)}</span>` : '';
 
       card.innerHTML = `
@@ -5909,7 +5910,7 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
             <strong class="scene-title-text">${escapeHtml(scene.title || `Adegan ${index + 1}`)}</strong>
             ${roleBadge}
           </div>
-          <span class="scene-timecode-chip">${scene.start_time} - ${scene.end_time} (${durSec}s)</span>
+          <span class="scene-timecode-chip">${scene.start_time} - ${scene.end_time} (⏱️ ${durSec}s • &lt; 3s)</span>
         </div>
 
         <div class="scene-dialogue-box">
@@ -5921,7 +5922,7 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
 
         <div class="scene-actions-row">
           <button type="button" class="btn-subtle btn-xs btn-preview-scene" data-index="${index}">
-            ▶️ Putar Detik Ini (${scene.start_time})
+            ▶️ Putar Detik Ini (${scene.start_time} • ${durSec}s)
           </button>
         </div>
       `;
@@ -5947,7 +5948,8 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     });
   }
 
-  // Preview specific scene on video player
+  let aiCutPreviewTimer = null;
+  // Preview specific scene on video player with automatic cut stop (< 3s)
   function previewAiScene(scene) {
     if (!elements.aiCutPreviewVideo) return;
     if (!state.aiCutSelectedMedia) {
@@ -5955,14 +5957,29 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
       return;
     }
 
+    if (aiCutPreviewTimer) {
+      clearTimeout(aiCutPreviewTimer);
+      aiCutPreviewTimer = null;
+    }
+
     const startSec = Math.max(0, parseFloat(scene.start_seconds) || 0);
+    const endSec = Math.min(startSec + 2.85, Math.max(startSec + 0.5, parseFloat(scene.end_seconds) || (startSec + 2.85)));
+    const clipDurationMs = (endSec - startSec) * 1000;
+    const durDisplay = Math.round((endSec - startSec) * 10) / 10;
+
     elements.aiCutPreviewVideo.currentTime = startSec;
     elements.aiCutPreviewVideo.play().catch(e => console.log('Autoplay prevented:', e));
 
     if (elements.badgeAiPlayerTimecode) {
-      elements.badgeAiPlayerTimecode.textContent = `${scene.start_time} (Klip #${scene.clip_number})`;
+      elements.badgeAiPlayerTimecode.textContent = `${scene.start_time} (${durDisplay}s • < 3s)`;
     }
-    showToast(`Memutar: "${scene.title}" (${scene.start_time})`);
+    showToast(`Memutar klip: "${scene.title}" (${durDisplay}s < 3s)`);
+
+    aiCutPreviewTimer = setTimeout(() => {
+      if (elements.aiCutPreviewVideo && !elements.aiCutPreviewVideo.paused) {
+        elements.aiCutPreviewVideo.pause();
+      }
+    }, clipDurationMs);
   }
 
   // Execute batch cut via FFmpeg
