@@ -1408,9 +1408,14 @@ function probeMediaFile(filePath) {
 
     if (Array.isArray(parsed.streams)) {
       for (const st of parsed.streams) {
-        if (st.codec_type === 'video' && st.width && st.height && !resolution) {
-          resolution = `${st.width}x${st.height}`;
-          hasVideo = true;
+        if (st.codec_type === 'video') {
+          if (st.duration && parseFloat(st.duration) > 0) {
+            duration = parseFloat(st.duration);
+          }
+          if (st.width && st.height && !resolution) {
+            resolution = `${st.width}x${st.height}`;
+            hasVideo = true;
+          }
         }
         if (st.codec_type === 'audio') {
           hasAudio = true;
@@ -1580,6 +1585,7 @@ app.post('/api/media/slice-video', uploadMedia.single('file'), async (req, res) 
 
     const ffmpegArgs = [
       '-y',
+      '-threads', '0',
       '-i', inputPath,
       '-vf', videoFilters.join(','),
       '-c:v', 'libx264',
