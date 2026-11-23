@@ -5267,6 +5267,7 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
 
   // Set selected video for slicing
   function selectSlicerMediaItem(item) {
+    if (!item) return;
     state.selectedSlicerMedia = item;
     state.selectedSlicerFile = null;
     if (elements.slicerSelectedPill) elements.slicerSelectedPill.hidden = false;
@@ -5276,11 +5277,48 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     }
     updateSlicerFormulaText();
 
-    // If no sliced video is loaded in player, show raw video in player
-    if (!state.slicedResultMedia && elements.slicerPreviewVideo) {
+    // If selected item is already a sliced montage, display it directly in player and stats
+    if (item.category === 'footage_sliced') {
+      displaySlicedResultInPlayer(item);
+    } else if (elements.slicerPreviewVideo) {
+      // If it's raw footage, preview the raw video in player
       elements.slicerPreviewVideo.src = item.file_url;
+      elements.slicerPreviewVideo.load();
       if (elements.playerEmptyPlaceholder) elements.playerEmptyPlaceholder.classList.add('hidden');
       if (elements.badgePreviewMode) elements.badgePreviewMode.textContent = 'Video Asli Mentah';
+    }
+  }
+
+  // Display a sliced montage result in the player, stats cards, and enable download button
+  function displaySlicedResultInPlayer(mediaItem, summary = null) {
+    if (!mediaItem) return;
+    state.slicedResultMedia = mediaItem;
+
+    if (elements.slicerPreviewVideo) {
+      elements.slicerPreviewVideo.src = mediaItem.file_url;
+      elements.slicerPreviewVideo.load();
+    }
+    if (elements.playerEmptyPlaceholder) elements.playerEmptyPlaceholder.classList.add('hidden');
+    if (elements.badgePreviewMode) elements.badgePreviewMode.textContent = 'Hasil Potongan (Montage)';
+
+    if (elements.slicingResultStats) elements.slicingResultStats.hidden = false;
+    if (elements.statSlicedDuration) {
+      elements.statSlicedDuration.textContent = formatDuration(mediaItem.duration_seconds);
+    }
+    if (summary && summary.source_duration && elements.statSourceDuration) {
+      elements.statSourceDuration.textContent = formatDuration(summary.source_duration);
+    }
+    if (summary && summary.time_saved_percent && elements.statSavedPercent) {
+      elements.statSavedPercent.textContent = `-${summary.time_saved_percent}%`;
+    }
+    if (elements.statResolutionSize) {
+      elements.statResolutionSize.textContent = `${mediaItem.resolution || '1080p'} • ${formatBytes(mediaItem.file_size)}`;
+    }
+
+    if (elements.previewFooterActions) elements.previewFooterActions.hidden = false;
+    if (elements.btnDownloadSlicedVideo) {
+      elements.btnDownloadSlicedVideo.href = `/api/media/${mediaItem.id}/download`;
+      elements.btnDownloadSlicedVideo.download = mediaItem.filename;
     }
   }
 
@@ -5369,36 +5407,7 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
         state.slicedResultMedia = json.data;
         showToast(json.message || 'Video berhasil dipotong secara berkala!');
 
-        // Update Video Player with sliced result
-        if (elements.slicerPreviewVideo) {
-          elements.slicerPreviewVideo.src = json.data.file_url;
-          elements.slicerPreviewVideo.load();
-          elements.slicerPreviewVideo.play().catch(() => {});
-        }
-        if (elements.playerEmptyPlaceholder) elements.playerEmptyPlaceholder.classList.add('hidden');
-        if (elements.badgePreviewMode) elements.badgePreviewMode.textContent = 'Hasil Potongan (Montage)';
-
-        // Update Result Comparison Metrics Card
-        if (elements.slicingResultStats) elements.slicingResultStats.hidden = false;
-        if (elements.statSourceDuration) {
-          elements.statSourceDuration.textContent = formatDuration(json.summary.source_duration);
-        }
-        if (elements.statSlicedDuration) {
-          elements.statSlicedDuration.textContent = formatDuration(json.summary.sliced_duration);
-        }
-        if (elements.statSavedPercent) {
-          elements.statSavedPercent.textContent = `-${json.summary.time_saved_percent}%`;
-        }
-        if (elements.statResolutionSize) {
-          elements.statResolutionSize.textContent = `${json.data.resolution || '1080p'} • ${formatBytes(json.data.file_size)}`;
-        }
-
-        // Enable footer action links
-        if (elements.previewFooterActions) elements.previewFooterActions.hidden = false;
-        if (elements.btnDownloadSlicedVideo) {
-          elements.btnDownloadSlicedVideo.href = json.data.file_url;
-          elements.btnDownloadSlicedVideo.download = json.data.filename;
-        }
+        displaySlicedResultInPlayer(json.data, json.summary);
 
         // Refresh media list and stats in background
         fetchMediaList();
@@ -5446,13 +5455,21 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
 
   async function fetchMediaList() {
     try {
-      const res = await fetch(`/api/media?projectId=${state.currentProjectId || 0}`);
+      const res = await fetch('/api/media');
       const json = await res.json();
       if (json.success && Array.isArray(json.data)) {
         state.mediaItems = json.data;
         populateSlicerVideoDropdown();
         populateAiCutVideoDropdown();
         renderMediaItems();
+
+        // If player has no sliced result currently shown, load latest sliced montage
+        if (!state.slicedResultMedia) {
+          const latestSliced = state.mediaItems.find(m => m.category === 'footage_sliced');
+          if (latestSliced) {
+            displaySlicedResultInPlayer(latestSliced);
+          }
+        }
       }
     } catch (err) {
       console.error('Error fetching media list:', err);
@@ -5461,7 +5478,7 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
 
   async function fetchMediaStats() {
     try {
-      const res = await fetch(`/api/media/stats?projectId=${state.currentProjectId || 0}`);
+      const res = await fetch('/api/media/stats');
       const json = await res.json();
       if (json.success && json.data) {
         state.mediaStats = json.data;
@@ -5581,7 +5598,7 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
               </button>
             </div>
             <div class="actions-right">
-              <a href="${item.file_url}" download="${item.filename}" class="btn-subtle btn-xs" title="Unduh file">
+              <a href="/api/media/${item.id}/download" download="${item.filename}" class="btn-subtle btn-xs" title="Unduh file">
                 ⬇️
               </a>
               <button type="button" class="btn-subtle btn-xs btn-card-delete" data-id="${item.id}" data-name="${escapeHtml(item.original_name)}" title="Hapus file permanen" style="color: #DC2626;">
@@ -5658,7 +5675,7 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
                 <button type="button" class="btn-subtle btn-xs btn-table-aicut" title="AI Cut Scene (SRT)">🤖</button>
               ` : ''}
               <button type="button" class="btn-subtle btn-xs btn-table-edit" title="Edit">✏️</button>
-              <a href="${item.file_url}" download class="btn-subtle btn-xs" title="Unduh">⬇️</a>
+              <a href="/api/media/${item.id}/download" download="${item.filename}" class="btn-subtle btn-xs" title="Unduh">⬇️</a>
               <button type="button" class="btn-subtle btn-xs btn-table-del" title="Hapus" style="color: #DC2626;">🗑️</button>
             </div>
           </td>
@@ -6136,7 +6153,7 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     }
 
     if (elements.btnModalDownload) {
-      elements.btnModalDownload.href = item.file_url;
+      elements.btnModalDownload.href = `/api/media/${item.id}/download`;
       elements.btnModalDownload.download = item.filename;
     }
 

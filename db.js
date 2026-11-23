@@ -1665,7 +1665,7 @@ const MediaRepo = {
     let sql = 'SELECT * FROM project_media WHERE 1=1';
     const params = [];
 
-    if (projectId !== null && projectId !== undefined && projectId !== '') {
+    if (projectId !== null && projectId !== undefined && projectId !== '' && projectId !== 'all' && Number(projectId) > 0) {
       sql += ' AND (project_id = ? OR project_id = 0)';
       params.push(Number(projectId));
     }
@@ -1759,7 +1759,7 @@ const MediaRepo = {
       COALESCE(SUM(CASE WHEN category = 'footage_sliced' THEN 1 ELSE 0 END), 0) as sliced_count,
       COALESCE(SUM(file_size), 0) as total_size_bytes
     FROM project_media`;
-    if (projectId !== null && projectId !== undefined && projectId !== '') {
+    if (projectId !== null && projectId !== undefined && projectId !== '' && projectId !== 'all' && Number(projectId) > 0) {
       sql += ' WHERE project_id = ? OR project_id = 0';
       return db.prepare(sql).get(Number(projectId));
     }

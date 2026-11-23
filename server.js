@@ -1392,7 +1392,7 @@ function probeMediaFile(filePath) {
       return { duration_seconds: 0, resolution: '', file_size: 0, hasVideo: false, hasAudio: false };
     }
     const fileSize = fs.statSync(filePath).size;
-    const stdout = execSync(`ffprobe -v error -show_entries stream=width,height,codec_type -show_entries format=duration,size -of json "${filePath}"`, {
+    const stdout = execSync(`ffprobe -v error -show_entries stream=width,height,codec_type,duration -show_entries format=duration,size -of json "${filePath}"`, {
       encoding: 'utf8',
       timeout: 15000,
       windowsHide: true
@@ -1477,6 +1477,40 @@ app.get('/api/media/:id', (req, res) => {
   }
 });
 
+// 3b. Direct Media Download Endpoint with Content-Disposition Attachment
+app.get('/api/media/:id/download', (req, res) => {
+  try {
+    const item = MediaRepo.getById(req.params.id);
+    if (!item) {
+      return res.status(404).send('File media tidak ditemukan di database.');
+    }
+    let filePath = null;
+    if (item.file_url.startsWith('/videos/raw/')) {
+      filePath = path.join(publicVideosRawDir, item.filename);
+    } else if (item.file_url.startsWith('/videos/processed/')) {
+      filePath = path.join(publicVideosProcessedDir, item.filename);
+    } else if (item.file_url.startsWith('/audio/')) {
+      filePath = path.join(publicAudioDir, item.filename);
+    } else {
+      filePath = path.join(__dirname, 'public', item.file_url.replace(/^\//, ''));
+    }
+
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).send('File fisik tidak ditemukan pada disk penyimpanan.');
+    }
+
+    let downloadName = item.original_name || item.filename;
+    if (!path.extname(downloadName)) {
+      downloadName += path.extname(item.filename) || '.mp4';
+    }
+
+    res.download(filePath, downloadName);
+  } catch (err) {
+    console.error('Error downloading media:', err);
+    res.status(500).send('Gagal mengunduh file media.');
+  }
+});
+
 // 4. Upload raw video or audio file
 app.post('/api/media/upload', uploadMedia.single('file'), (req, res) => {
   try {
@@ -1538,6 +1572,27 @@ app.post('/api/media/slice-video', uploadMedia.single('file'), async (req, res) 
       // Direct file upload into slicer
       inputPath = req.file.path;
       originalName = req.file.originalname;
+
+      // Register raw video into MediaRepo if not exists
+      try {
+        const rawProbed = probeMediaFile(inputPath);
+        sourceMediaRecord = MediaRepo.create({
+          project_id: projectId || 0,
+          filename: req.file.filename,
+          original_name: originalName,
+          file_type: 'video',
+          category: 'raw_footage',
+          file_size: rawProbed.file_size || req.file.size,
+          duration_seconds: rawProbed.duration_seconds || 0,
+          resolution: rawProbed.resolution || '1080p',
+          mime_type: req.file.mimetype || 'video/mp4',
+          file_url: `/videos/raw/${req.file.filename}`,
+          tags: 'uploaded, raw footage',
+          notes: `Video sumber diunggah langsung ke Slicer.`
+        });
+      } catch (errReg) {
+        console.warn('[Slicer] Info registrasi raw video:', errReg.message);
+      }
     } else if (req.body.mediaId) {
       // Existing video from File Manager
       sourceMediaRecord = MediaRepo.getById(req.body.mediaId);
@@ -1597,11 +1652,15 @@ app.post('/api/media/slice-video', uploadMedia.single('file'), async (req, res) 
     if (muteAudio) {
       ffmpegArgs.push('-an');
     } else {
-      let audioFilters = [`aselect='lt(mod(t\\,${period})\\,${keep})'`, 'asetpts=N/SR/TB'];
+      let audioFilters = [
+        `aselect='lt(mod(t\\,${period})\\,${keep})'`,
+        'asetpts=N/SR/TB',
+        'aresample=async=1000:first_pts=0'
+      ];
       if (speed !== 1.0) {
         audioFilters.push(`atempo=${speed.toFixed(2)}`);
       }
-      ffmpegArgs.push('-af', audioFilters.join(','), '-c:a', 'aac', '-b:a', '192k');
+      ffmpegArgs.push('-af', audioFilters.join(','), '-c:a', 'aac', '-b:a', '192k', '-shortest');
     }
 
     ffmpegArgs.push(outputPath);
