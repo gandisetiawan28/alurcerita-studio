@@ -617,6 +617,7 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     aiBatchCutProgressBar: document.getElementById('aiBatchCutProgressBar'),
     aiBatchCutStatusText: document.getElementById('aiBatchCutStatusText'),
     badgeAiPlayerTimecode: document.getElementById('badgeAiPlayerTimecode'),
+    badgeAiPlayerMode: document.getElementById('badgeAiPlayerMode'),
     btnAiPlayerMuteToggle: document.getElementById('btnAiPlayerMuteToggle'),
     aiCutPreviewVideo: document.getElementById('aiCutPreviewVideo'),
     aiCutPlayerPlaceholder: document.getElementById('aiCutPlayerPlaceholder'),
@@ -5990,7 +5991,7 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
   }
 
   let aiCutPreviewTimer = null;
-  // Preview specific scene on video player with automatic cut stop (< 3s)
+  // Preview specific scene on video player with automatic cut stop
   function previewAiScene(scene) {
     if (!elements.aiCutPreviewVideo) return;
     if (!state.aiCutSelectedMedia) {
@@ -6003,18 +6004,31 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
       aiCutPreviewTimer = null;
     }
 
+    // Ensure video player is connected to the raw source video
+    const sourceUrl = state.aiCutSelectedMedia.file_url;
+    if (!elements.aiCutPreviewVideo.src || !elements.aiCutPreviewVideo.src.includes(sourceUrl)) {
+      elements.aiCutPreviewVideo.src = sourceUrl;
+    }
+
+    const maxLimit = elements.aiCutMaxDuration ? parseFloat(elements.aiCutMaxDuration.value) || 5.0 : 5.0;
+    const upperCap = maxLimit <= 3.0 ? 2.85 : 4.85;
+
     const startSec = Math.max(0, parseFloat(scene.start_seconds) || 0);
-    const endSec = Math.min(startSec + 2.85, Math.max(startSec + 0.5, parseFloat(scene.end_seconds) || (startSec + 2.85)));
+    const endSec = Math.min(startSec + upperCap, Math.max(startSec + 0.5, parseFloat(scene.end_seconds) || (startSec + upperCap)));
     const clipDurationMs = (endSec - startSec) * 1000;
     const durDisplay = Math.round((endSec - startSec) * 10) / 10;
 
     elements.aiCutPreviewVideo.currentTime = startSec;
     elements.aiCutPreviewVideo.play().catch(e => console.log('Autoplay prevented:', e));
 
-    if (elements.badgeAiPlayerTimecode) {
-      elements.badgeAiPlayerTimecode.textContent = `${scene.start_time} (${durDisplay}s • < 3s)`;
+    if (elements.badgeAiPlayerMode) {
+      elements.badgeAiPlayerMode.textContent = '🎞️ Video Sumber (Navigasi Adegan)';
+      elements.badgeAiPlayerMode.className = 'badge badge-subtle';
     }
-    showToast(`Memutar klip: "${scene.title}" (${durDisplay}s < 3s)`);
+    if (elements.badgeAiPlayerTimecode) {
+      elements.badgeAiPlayerTimecode.textContent = `${scene.start_time} (${durDisplay}s • < ${Math.ceil(upperCap)}s)`;
+    }
+    showToast(`Memutar pratinjau adegan mentah: "${scene.title}" (${durDisplay}s)`);
 
     aiCutPreviewTimer = setTimeout(() => {
       if (elements.aiCutPreviewVideo && !elements.aiCutPreviewVideo.paused) {
@@ -6067,6 +6081,30 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
       renderAiCutResults(data.clips || []);
       showToast(`🎉 Sukses! ${data.count} klip video berhasil dipotong & tersimpan di File Manager.`);
 
+      // Auto-preview first sliced clip in player
+      if (data.clips && data.clips.length > 0) {
+        const first = data.clips[0];
+        if (elements.aiCutPreviewVideo) {
+          if (aiCutPreviewTimer) {
+            clearTimeout(aiCutPreviewTimer);
+            aiCutPreviewTimer = null;
+          }
+          elements.aiCutPreviewVideo.src = first.file_url;
+          elements.aiCutPreviewVideo.currentTime = 0;
+          elements.aiCutPreviewVideo.play().catch(() => {});
+          if (elements.badgeAiPlayerMode) {
+            elements.badgeAiPlayerMode.textContent = '✂️ Hasil Klip Terpotong';
+            elements.badgeAiPlayerMode.className = 'badge badge-success';
+          }
+          if (elements.badgeAiPlayerTimecode) {
+            elements.badgeAiPlayerTimecode.textContent = `${formatDuration(first.duration_seconds)} (Klip #${first.id})`;
+          }
+        }
+        if (elements.aiCutResultsBox) {
+          elements.aiCutResultsBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+      }
+
       fetchMediaList();
       fetchMediaStats();
     } catch (err) {
@@ -6088,15 +6126,38 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
       const badge = document.createElement('div');
       badge.className = 'ai-cut-clip-badge';
       badge.innerHTML = `
-        <div style="overflow: hidden; text-overflow: ellipsis;">
+        <div style="overflow: hidden; text-overflow: ellipsis; cursor: pointer; flex: 1;" class="btn-play-clip" title="Klik untuk putar klip ini">
           <strong>🎬 ${escapeHtml(clip.original_name)}</strong>
-          <div style="font-size: 10.5px; color: #15803D;">Durasi: ${formatDuration(clip.duration_seconds)} • ${formatBytes(clip.file_size)}</div>
+          <div style="font-size: 10.5px; color: #15803D; font-weight: 600;">Durasi: ${formatDuration(clip.duration_seconds)} • ${formatBytes(clip.file_size)}</div>
         </div>
-        <div style="display: flex; gap: 4px; flex-shrink: 0;">
-          <a href="${clip.file_url}" download class="btn-subtle btn-xs" title="Unduh Klip">⬇️</a>
+        <div style="display: flex; gap: 4px; flex-shrink: 0; align-items: center;">
+          <button type="button" class="btn-primary btn-xs btn-play-clip" title="Putar Klip Ini di Player">▶️ Putar</button>
+          <a href="${clip.file_url}" download class="btn-subtle btn-xs" title="Unduh Klip Ini Langsung">⬇️ Unduh</a>
           <button type="button" class="btn-subtle btn-xs btn-open-clip" title="Buka di File Manager">📁</button>
         </div>
       `;
+
+      const playThisClip = () => {
+        if (elements.aiCutPreviewVideo) {
+          if (aiCutPreviewTimer) {
+            clearTimeout(aiCutPreviewTimer);
+            aiCutPreviewTimer = null;
+          }
+          elements.aiCutPreviewVideo.src = clip.file_url;
+          elements.aiCutPreviewVideo.currentTime = 0;
+          elements.aiCutPreviewVideo.play().catch(() => {});
+          if (elements.badgeAiPlayerMode) {
+            elements.badgeAiPlayerMode.textContent = '✂️ Hasil Klip Terpotong';
+            elements.badgeAiPlayerMode.className = 'badge badge-success';
+          }
+          if (elements.badgeAiPlayerTimecode) {
+            elements.badgeAiPlayerTimecode.textContent = `${formatDuration(clip.duration_seconds)} (Klip Terpotong)`;
+          }
+          showToast(`Memutar hasil potong: ${clip.original_name}`);
+        }
+      };
+
+      badge.querySelectorAll('.btn-play-clip').forEach(btn => btn.addEventListener('click', playThisClip));
 
       badge.querySelector('.btn-open-clip').addEventListener('click', () => {
         switchMediaTab('files');

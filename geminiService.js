@@ -673,6 +673,92 @@ function formatSecondsToTimecode(totalSec) {
   return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}.${String(ms).padStart(3, '0')}`;
 }
 
+// Parser JSON robust dengan pemulihan cerdas untuk respons JSON Gemini yang terpotong (truncated)
+function parseGeminiCutScenesJson(rawText) {
+  if (!rawText || typeof rawText !== 'string') {
+    throw new Error('Respons teks dari Gemini kosong.');
+  }
+
+  let text = rawText.trim();
+  // Bersihkan markdown code fences
+  text = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+
+  // 1. Coba parse langsung
+  try {
+    const direct = JSON.parse(text);
+    if (direct && Array.isArray(direct.scenes)) return direct;
+  } catch (err1) {}
+
+  // 2. Coba potong antara { pertama dan } terakhir
+  const firstBrace = text.indexOf('{');
+  const lastBrace = text.lastIndexOf('}');
+  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+    const candidate = text.substring(firstBrace, lastBrace + 1);
+    try {
+      const parsed = JSON.parse(candidate);
+      if (parsed && Array.isArray(parsed.scenes)) return parsed;
+    } catch (err2) {}
+
+    // Coba perbaiki trailing comma
+    try {
+      const fixedCommas = candidate.replace(/,\s*([}\]])/g, '$1');
+      const parsed = JSON.parse(fixedCommas);
+      if (parsed && Array.isArray(parsed.scenes)) return parsed;
+    } catch (err3) {}
+  }
+
+  // 3. Perbaikan jika JSON terpotong di tengah jalan (truncated response karena batas token)
+  if (firstBrace !== -1) {
+    const lastValidObjEnd = text.lastIndexOf('}');
+    if (lastValidObjEnd > firstBrace) {
+      let repaired = text.substring(firstBrace, lastValidObjEnd + 1);
+      if (!repaired.includes(']')) repaired += ']';
+      if (!repaired.endsWith('}')) repaired += '}';
+      repaired = repaired.replace(/,\s*([}\]])/g, '$1');
+      try {
+        const parsed = JSON.parse(repaired);
+        if (parsed && Array.isArray(parsed.scenes) && parsed.scenes.length > 0) {
+          console.log(`🔧 [JSON Repair] Berhasil memulihkan ${parsed.scenes.length} adegan dari respons JSON terpotong.`);
+          return parsed;
+        }
+      } catch (errRep) {}
+    }
+  }
+
+  // 4. Ekstraksi darurat individual objek scene dengan regex
+  const scenes = [];
+  const objRegex = /\{[^{}]*"(?:clip_number|start_seconds|start_time)"[^{}]*\}/g;
+  let match;
+  while ((match = objRegex.exec(text)) !== null) {
+    let str = match[0].trim().replace(/,\s*}/g, '}');
+    try {
+      const obj = JSON.parse(str);
+      if (obj.start_seconds !== undefined || obj.start_time) {
+        scenes.push(obj);
+      }
+    } catch (e) {
+      try {
+        const sanitized = str.replace(/(:\s*"[^"]*)"([^"]*")/g, '$1\\"$2');
+        const obj = JSON.parse(sanitized);
+        if (obj.start_seconds !== undefined || obj.start_time) {
+          scenes.push(obj);
+        }
+      } catch (e2) {}
+    }
+  }
+
+  if (scenes.length > 0) {
+    console.log(`🔧 [Regex Fallback] Berhasil mengekstrak ${scenes.length} adegan kunci dari teks Gemini.`);
+    let summary = 'Koleksi cut scene kunci berhasil dianalisis oleh Gemini.';
+    const sumMatch = text.match(/"summary"\s*:\s*"([^"\r\n]+)"/);
+    if (sumMatch) summary = sumMatch[1];
+    return { summary, scenes };
+  }
+
+  console.error('[Gemini JSON Parse Error] Cuplikan teks respons:', text.slice(0, 400));
+  throw new Error('Gagal mem-parsing format JSON hasil analisis adegan Gemini.');
+}
+
 /**
  * AI Smart Cut Scene Detector: Analisis Subtitle / Dialog Film menggunakan Gemini
  * Memilih momen dramatis, punchline, dialog kunci, dan klimaks untuk dipotong jadi cut scene fair-use.
@@ -728,7 +814,7 @@ SUBTITLE & TIMECODE FILM (${movieTitle}):
 ${condensedDialog}
 
 FORMAT OUTPUT WAJIB:
-Hasilkan HANYA JSON VALID murni (tanpa format markdown tambahan seperti \`\`\`json):
+Hasilkan HANYA format JSON VALID murni (tanpa tanda kutip markdown tambahan seperti \`\`\`json):
 {
   "summary": "Ringkasan kurasi: mengapa adegan-adegan ini dipilih untuk memperkuat alur cerita film ini (seluruh klip dipastikan berdurasi maksimal ${upperLimit} detik)",
   "scenes": [
@@ -746,6 +832,11 @@ Hasilkan HANYA JSON VALID murni (tanpa format markdown tambahan seperti \`\`\`js
     }
   ]
 }
+
+PANDUAN KETAT AGAR FORMAT JSON VALID:
+- Tulis teks dialogue dan reason secara ringkas dan padat (maksimal 1-2 kalimat) agar seluruh adegan termuat lengkap tanpa terpotong token.
+- JANGAN gunakan tanda petik dua unescaped di dalam string. Jika ada kutipan dalam dialog, gunakan tanda petik satu (') atau escape (\").
+- Hasilkan HANYA JSON, dilarang memberi kata pembuka atau penutup di luar objek JSON.
 `;
 
   console.log(`🤖 [AI Cut Scene Engine] Menganalisis subtitle untuk "${movieTitle}" (${srtEntries.length} baris, target durasi: ${minLimit}s - ${upperLimit}s)...`);
@@ -755,23 +846,8 @@ Hasilkan HANYA JSON VALID murni (tanpa format markdown tambahan seperti \`\`\`js
     throw new Error('Gemini tidak memberikan respons analisis cut scene.');
   }
 
-  // Parse JSON response safely
-  let parsedJson = null;
-  const rawText = result.text.trim();
-  try {
-    parsedJson = JSON.parse(rawText);
-  } catch (e) {
-    const jsonMatch = rawText.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      try {
-        parsedJson = JSON.parse(jsonMatch[0]);
-      } catch (e2) {
-        throw new Error('Gagal mem-parsing format JSON hasil analisis adegan Gemini.');
-      }
-    } else {
-      throw new Error('Format output Gemini bukan JSON yang valid.');
-    }
-  }
+  // Parse JSON response safely with auto-repair and partial recovery support
+  const parsedJson = parseGeminiCutScenesJson(result.text);
 
   // Enforce durasi klip sesuai target batas upperLimit di level data
   const rawScenes = Array.isArray(parsedJson.scenes) ? parsedJson.scenes : [];

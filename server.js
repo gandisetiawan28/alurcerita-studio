@@ -67,6 +67,7 @@ app.use(express.urlencoded({ extended: true, limit: '30mb' }));
 app.use(express.static(path.join(__dirname)));
 app.use('/audio', express.static(publicAudioDir));
 app.use('/videos', express.static(publicVideosDir));
+app.get('/favicon.ico', (req, res) => res.status(204).end());
 
 // ---------------------------------------------------------------------------
 // Health & Environment Status
