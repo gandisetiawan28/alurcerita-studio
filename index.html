@@ -37,10 +37,16 @@
         </button>
         <button type="button" class="nav-pill-btn" id="navBtnMediaStudio" title="Video Slicer Fair-Use 3s/10s & File Manager Media">
           <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-            <polygon points="23 7 16 12 23 17 23 7"></polygon>
-            <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
+            <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"></rect>
+            <line x1="7" y1="2" x2="7" y2="22"></line>
+            <line x1="17" y1="2" x2="17" y2="22"></line>
+            <line x1="2" y1="12" x2="22" y2="12"></line>
+            <line x1="2" y1="7" x2="7" y2="7"></line>
+            <line x1="2" y1="17" x2="7" y2="17"></line>
+            <line x1="17" y1="17" x2="22" y2="17"></line>
+            <line x1="17" y1="7" x2="22" y2="7"></line>
           </svg>
-          <span>🎬 Video & File Manager</span>
+          <span>Video & Files</span>
         </button>
       </nav>
 
@@ -1288,16 +1294,22 @@
           
           <!-- Slicer Left Column: Controls & Configuration -->
           <div class="slicer-controls-pane">
-            <div class="pane-card">
+            <div class="pane-card slicer-main-card">
               <div class="pane-card-header">
-                <span class="step-badge">1</span>
+                <span class="step-badge">✂️</span>
                 <div>
-                  <h3 class="pane-card-title">Pilih Video Sumber</h3>
-                  <p class="pane-card-desc">Pilih video yang sudah tersimpan di database atau unggah baru dari komputer.</p>
+                  <h3 class="pane-card-title">Pengaturan Potong Video (Fair-Use)</h3>
+                  <p class="pane-card-desc">Potong video secara berkala otomatis: ambil cuplikan pendek dan buang jeda di antaranya.</p>
                 </div>
               </div>
 
-              <div class="slicer-source-selector">
+              <!-- 1. Sumber Video -->
+              <div class="slicer-group-box">
+                <div class="group-box-title">
+                  <span class="num-badge">1</span>
+                  <span>Video Sumber Film</span>
+                </div>
+
                 <div class="segmented-control" role="tablist">
                   <button type="button" class="segmented-btn active" id="btnSourceFromManager">Pilih dari File Manager</button>
                   <button type="button" class="segmented-btn" id="btnSourceFromUpload">Unggah Video Baru</button>
@@ -1305,7 +1317,6 @@
 
                 <!-- Option A: Select from Manager -->
                 <div class="source-mode-box" id="boxSourceFromManager">
-                  <label for="slicerSelectVideo" class="form-label">Daftar Video di Proyek:</label>
                   <select id="slicerSelectVideo" class="form-select">
                     <option value="">-- Pilih video dari daftar --</option>
                   </select>
@@ -1313,12 +1324,12 @@
 
                 <!-- Option B: Direct Upload -->
                 <div class="source-mode-box" id="boxSourceFromUpload" hidden>
-                  <div class="dropzone" id="slicerDropzone">
+                  <div class="dropzone compact-dropzone" id="slicerDropzone">
                     <input type="file" id="slicerFileInput" accept="video/mp4,video/mkv,video/webm,video/mov,video/avi" hidden>
                     <svg class="dropzone-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
                     <div class="dropzone-text">
-                      <strong>Tarik & lepas file video film di sini</strong>
-                      <span>atau klik untuk memilih file dari komputer (MP4, MKV, WebM, MOV)</span>
+                      <strong>Klik atau seret file video ke sini</strong>
+                      <span>MP4, MKV, WebM, MOV (hingga 2 GB)</span>
                     </div>
                   </div>
                 </div>
@@ -1333,102 +1344,92 @@
                   <button type="button" class="btn-icon btn-xs" id="btnClearSelectedVideo" title="Batalkan pilihan">&times;</button>
                 </div>
               </div>
-            </div>
 
-            <!-- Configuration: Slicing Parameters -->
-            <div class="pane-card">
-              <div class="pane-card-header">
-                <span class="step-badge">2</span>
-                <div>
-                  <h3 class="pane-card-title">Formula Pemotongan Fair-Use</h3>
-                  <p class="pane-card-desc">Sistem memotong video secara berkala: ambil potongan cuplikan pendek dan buang jeda di antaranya.</p>
+              <!-- 2. Parameter Siklus Pemotongan -->
+              <div class="slicer-group-box">
+                <div class="group-box-title">
+                  <span class="num-badge">2</span>
+                  <span>Formula Siklus (Keep vs Skip)</span>
                 </div>
-              </div>
 
-              <div class="slicer-params-grid">
-                <!-- Keep seconds input -->
-                <div class="param-box">
-                  <div class="param-header">
-                    <label for="inputKeepSeconds" class="param-label">Ambil Setiap (Keep):</label>
-                    <span class="param-value-chip" id="chipKeepVal">3 Detik</span>
+                <div class="slicer-params-grid">
+                  <!-- Keep seconds input -->
+                  <div class="param-box">
+                    <div class="param-header">
+                      <label for="inputKeepSeconds" class="param-label">Ambil (Keep):</label>
+                      <span class="param-value-chip" id="chipKeepVal">3 Detik</span>
+                    </div>
+                    <div class="param-input-combo">
+                      <input type="range" id="sliderKeepSeconds" min="1" max="15" step="0.5" value="3" class="param-range">
+                      <input type="number" id="inputKeepSeconds" min="1" max="30" step="0.5" value="3" class="form-input param-num-input">
+                    </div>
+                    <span class="param-hint">Durasi cuplikan disimpan</span>
                   </div>
-                  <input type="range" id="sliderKeepSeconds" min="1" max="15" step="0.5" value="3" class="param-range">
-                  <input type="number" id="inputKeepSeconds" min="1" max="30" step="0.5" value="3" class="form-input param-num-input">
-                  <span class="param-hint">Panjang cuplikan film yang disimpan (standar fair-use alur cerita: 2 - 4 detik).</span>
-                </div>
 
-                <!-- Skip seconds input -->
-                <div class="param-box">
-                  <div class="param-header">
-                    <label for="inputSkipSeconds" class="param-label">Buang/Lewati (Skip):</label>
-                    <span class="param-value-chip" id="chipSkipVal">10 Detik</span>
+                  <!-- Skip seconds input -->
+                  <div class="param-box">
+                    <div class="param-header">
+                      <label for="inputSkipSeconds" class="param-label">Buang (Skip):</label>
+                      <span class="param-value-chip" id="chipSkipVal">10 Detik</span>
+                    </div>
+                    <div class="param-input-combo">
+                      <input type="range" id="sliderSkipSeconds" min="2" max="60" step="1" value="10" class="param-range">
+                      <input type="number" id="inputSkipSeconds" min="1" max="120" step="1" value="10" class="form-input param-num-input">
+                    </div>
+                    <span class="param-hint">Durasi footage dilewati</span>
                   </div>
-                  <input type="range" id="sliderSkipSeconds" min="2" max="60" step="1" value="10" class="param-range">
-                  <input type="number" id="inputSkipSeconds" min="1" max="120" step="1" value="10" class="form-input param-num-input">
-                  <span class="param-hint">Berapa detik footage film yang dilompati dan dibuang setiap siklus.</span>
                 </div>
-              </div>
 
-              <!-- Realtime Slicer Formula Indicator -->
-              <div class="formula-banner">
-                <div class="formula-banner-icon">💡</div>
-                <div class="formula-banner-text">
-                  <strong id="formulaSummaryTitle">Pola Siklus: Ambil 3s lalu Buang 10s (Tiap 13s)</strong>
-                  <p id="formulaSummaryDesc">Dari video berdurasi 10 menit, hasil potongan montage otomatis menjadi sekitar ~2 menit 18 detik (-77% footage mentah terpotong).</p>
-                </div>
-              </div>
-            </div>
-
-            <!-- Configuration: Anti-Copyright Options -->
-            <div class="pane-card">
-              <div class="pane-card-header">
-                <span class="step-badge">3</span>
-                <div>
-                  <h3 class="pane-card-title">Opsi Fair-Use Anti-Copyright</h3>
-                  <p class="pane-card-desc">Pengaturan tambahan untuk memastikan video aman dari Content ID YouTube.</p>
-                </div>
-              </div>
-
-              <div class="slicer-options-list">
-                <label class="toggle-control-label">
-                  <input type="checkbox" id="checkMuteAudio" checked>
-                  <span class="toggle-slider"></span>
-                  <div class="toggle-text">
-                    <strong>Bisukan Audio Asli Film (Mute)</strong>
-                    <span>Rekomendasi utama: buang track dialog/suara film asli agar video bebas hak cipta dan siap diisi voiceover alur cerita.</span>
+                <!-- Realtime Slicer Formula Indicator -->
+                <div class="formula-banner compact-formula">
+                  <span class="formula-banner-icon">💡</span>
+                  <div class="formula-banner-text">
+                    <strong id="formulaSummaryTitle">Pola Siklus: Ambil 3s lalu Buang 10s (Tiap 13s)</strong>
+                    <p id="formulaSummaryDesc">Dari video 10 menit, hasil potongan otomatis menjadi ~2m 18s (-77% footage dipangkas).</p>
                   </div>
-                </label>
-
-                <label class="toggle-control-label">
-                  <input type="checkbox" id="checkMirrorVideo">
-                  <span class="toggle-slider"></span>
-                  <div class="toggle-text">
-                    <strong>Mirror / Balik Horizontal (Flip Horizontal)</strong>
-                    <span>Membalik sudut gambar secara horizontal untuk mengacaukan pemindaian sistem pendeteksi visual otomatis.</span>
-                  </div>
-                </label>
-
-                <div class="option-row">
-                  <label for="selectVideoSpeed" class="form-label">Kecepatan Video:</label>
-                  <select id="selectVideoSpeed" class="form-select">
-                    <option value="1.0" selected>1.0x (Kecepatan Asli)</option>
-                    <option value="1.05">1.05x (Sedikit Lebih Cepat - Anti Detect)</option>
-                    <option value="1.10">1.10x (Lebih Dinamis & Padat)</option>
-                    <option value="1.15">1.15x (Tempo Cepat)</option>
-                    <option value="1.25">1.25x (Cuplikan Cepat / Recap)</option>
-                  </select>
-                </div>
-
-                <div class="option-row">
-                  <label for="inputCustomOutputName" class="form-label">Nama File Hasil (Opsional):</label>
-                  <input type="text" id="inputCustomOutputName" placeholder="Contoh: Sliced Resident Evil - Babak 1" class="form-input">
                 </div>
               </div>
 
+              <!-- 3. Opsi Anti-Copyright & Audio -->
+              <div class="slicer-group-box">
+                <div class="group-box-title">
+                  <span class="num-badge">3</span>
+                  <span>Opsi Fair-Use & Anti-Copyright</span>
+                </div>
+
+                <div class="options-compact-row">
+                  <label class="toggle-compact" title="Buang track suara film asli agar video bebas hak cipta dan siap diisi voiceover">
+                    <input type="checkbox" id="checkMuteAudio" checked>
+                    <span>Mute Audio Asli</span>
+                  </label>
+
+                  <label class="toggle-compact" title="Membalik sudut gambar horizontal untuk mengurangi deteksi visual otomatis">
+                    <input type="checkbox" id="checkMirrorVideo">
+                    <span>Mirror / Flip Horizontal</span>
+                  </label>
+
+                  <div class="speed-compact">
+                    <label for="selectVideoSpeed" class="speed-label">Speed:</label>
+                    <select id="selectVideoSpeed" class="form-select form-select-xs">
+                      <option value="1.0" selected>1.0x (Normal)</option>
+                      <option value="1.05">1.05x (Anti-detect)</option>
+                      <option value="1.10">1.10x (Padat)</option>
+                      <option value="1.15">1.15x (Cepat)</option>
+                      <option value="1.25">1.25x (Recap)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="output-name-row">
+                  <input type="text" id="inputCustomOutputName" placeholder="Nama file hasil (opsional, misal: resident_evil_babak_1)" class="form-input form-input-sm">
+                </div>
+              </div>
+
+              <!-- Primary Action Button -->
               <div class="slicer-action-box">
                 <button type="button" class="btn-primary btn-lg btn-block" id="btnStartSlicing">
                   <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-                  <span id="btnStartSlicingText">🎬 Mulai Potong Video (FFmpeg Slicer)</span>
+                  <span id="btnStartSlicingText">🎬 Mulai Potong Video (Ambil 3s, Buang 10s)</span>
                 </button>
               </div>
 
@@ -1443,7 +1444,6 @@
                 </div>
               </div>
             </div>
-
           </div>
 
           <!-- Slicer Right Column: Interactive Player & Result Showcase -->
