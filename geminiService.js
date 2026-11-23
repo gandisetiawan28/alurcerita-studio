@@ -130,7 +130,7 @@ async function callGeminiSmartStage(prompt, stageName, preferredModel = 'auto', 
   let lastError = null;
   const modelChain = getModelSequence(preferredModel);
 
-  const generationConfig = {
+  const baseGenConfig = {
     maxOutputTokens: options.maxOutputTokens || 8192,
     ...(options.temperature !== undefined ? { temperature: options.temperature } : {})
   };
@@ -144,8 +144,23 @@ async function callGeminiSmartStage(prompt, stageName, preferredModel = 'auto', 
         for (const modelDef of modelChain) {
           try {
             console.log(`🔑 Menggunakan GEMINI_API_KEY (.env) dengan model ${modelDef.name} untuk ${stageName}...`);
-            const model = genAI.getGenerativeModel({ model: modelDef.id, generationConfig });
-            const result = await model.generateContent(prompt);
+            let currentGenConfig = { ...baseGenConfig };
+            if (options.disableThinking) {
+              currentGenConfig.thinkingConfig = { thinkingBudget: 0 };
+            }
+            let model = genAI.getGenerativeModel({ model: modelDef.id, generationConfig: currentGenConfig });
+            let result;
+            try {
+              result = await model.generateContent(prompt);
+            } catch (errGen) {
+              if (currentGenConfig.thinkingConfig && (errGen.message.includes('thinking') || errGen.message.includes('unknown field'))) {
+                delete currentGenConfig.thinkingConfig;
+                model = genAI.getGenerativeModel({ model: modelDef.id, generationConfig: currentGenConfig });
+                result = await model.generateContent(prompt);
+              } else {
+                throw errGen;
+              }
+            }
             return {
               text: result.response.text(),
               keyInfo: 'Environment Key (.env)',
@@ -174,8 +189,23 @@ async function callGeminiSmartStage(prompt, stageName, preferredModel = 'auto', 
     for (const modelDef of modelChain) {
       try {
         console.log(`🚀 [Smart Model Routing] Mencoba ${modelDef.name} (${modelDef.id}) untuk ${stageName}...`);
-        const model = genAI.getGenerativeModel({ model: modelDef.id, generationConfig });
-        const result = await model.generateContent(prompt);
+        let currentGenConfig = { ...baseGenConfig };
+        if (options.disableThinking) {
+          currentGenConfig.thinkingConfig = { thinkingBudget: 0 };
+        }
+        let model = genAI.getGenerativeModel({ model: modelDef.id, generationConfig: currentGenConfig });
+        let result;
+        try {
+          result = await model.generateContent(prompt);
+        } catch (errGen) {
+          if (currentGenConfig.thinkingConfig && (errGen.message.includes('thinking') || errGen.message.includes('unknown field'))) {
+            delete currentGenConfig.thinkingConfig;
+            model = genAI.getGenerativeModel({ model: modelDef.id, generationConfig: currentGenConfig });
+            result = await model.generateContent(prompt);
+          } else {
+            throw errGen;
+          }
+        }
         const text = result.response.text();
 
         // Rekam penggunaan sukses di SQLite
@@ -854,7 +884,7 @@ PANDUAN KETAT AGAR FORMAT JSON VALID & LENGKAP:
 `;
 
   console.log(`🤖 [AI Cut Scene Engine] Menganalisis subtitle untuk "${movieTitle}" (${srtEntries.length} baris, target: ${isTargetFixed ? parsedMax + ' klip' : 'sebanyak-banyaknya'}, durasi: ${minLimit}s - ${upperLimit}s)...`);
-  const result = await callGeminiSmartStage(prompt, `AI Cut Scene Detector (${movieTitle})`, preferredModel, { maxOutputTokens: 8192, temperature: 0.2 });
+  const result = await callGeminiSmartStage(prompt, `AI Cut Scene Detector (${movieTitle})`, preferredModel, { maxOutputTokens: 8192, temperature: 0.2, disableThinking: true });
 
   if (!result || !result.text) {
     throw new Error('Gemini tidak memberikan respons analisis cut scene.');
@@ -917,7 +947,7 @@ FORMAT OUTPUT (HANYA JSON MURNI):
 `;
 
       try {
-        const pass2Result = await callGeminiSmartStage(pass2Prompt, `AI Cut Scene Detector Pass 2 (${movieTitle})`, preferredModel, { maxOutputTokens: 8192, temperature: 0.2 });
+        const pass2Result = await callGeminiSmartStage(pass2Prompt, `AI Cut Scene Detector Pass 2 (${movieTitle})`, preferredModel, { maxOutputTokens: 8192, temperature: 0.2, disableThinking: true });
         if (pass2Result && pass2Result.text) {
           const pass2Parsed = parseGeminiCutScenesJson(pass2Result.text);
           if (Array.isArray(pass2Parsed.scenes) && pass2Parsed.scenes.length > 0) {
