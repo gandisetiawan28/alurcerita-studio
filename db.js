@@ -1526,6 +1526,47 @@ const SettingsRepo = {
     console.log('🎭 Berhasil inisialisasi persona gaya tutur default di SQLite.');
   }
 
+  // Ensure video_esai_analitis persona exists in SQLite
+  try {
+    const existingEsai = db.prepare(`SELECT * FROM personas WHERE key = 'video_esai_analitis'`).get();
+    if (!existingEsai) {
+      PersonaRepo.create({
+        key: 'video_esai_analitis',
+        name: 'Video Esai Analitis & Simbolik (Mind-Blowing)',
+        description: 'Menenun alur cerita dengan analisis simbolik, metafora monster/konflik batin, dan reinterpretasi ending (ala Video Essay Zack Cregger / Nerdwriter).',
+        tone_prompt: `Gaya Tutur: Video Esai Ekspositoris-Analitis (Mind-Blowing Film Deep Dive).
+- Sudut Pandang: Orang pertama ("Gua") yang santai, cerdas, akrab, dan reflektif tanpa slang canggung atau istilah AI klise.
+- Formula 8 Langkah yang Wajib Diterapkan:
+  1. Hook Pembuka Berbingkai Pertanyaan: Buka dengan kebingungan atau pertanyaan kontemplatif penonton ("Baru selesai nonton [Judul], tapi masih bingung gak sih sama nasib tokohnya? Ini film beneran bad ending ya? Nah pertanyaan itu yang mungkin kita tanyain...").
+  2. Orientasi Perspektif Segar: Soroti keunikan sudut pandang penceritaan (misal: bukan dari kacamata jagoan/polisi, tapi orang biasa/kurir medis/NPC yang biasanya mati duluan).
+  3. Konflik Batin Manusiawi: Tunjukkan bahwa di balik misi fisik/survival, tokoh utama punya konflik batin & ketakutan terbesar yang manusiawi dan relatable (takut perubahan hidup, belum siap jadi ayah/dewasa, trauma masa lalu).
+  4. Alur Cerita Diselingi Analisis Simbolik: Ceritakan alur secara kronologis, tetapi JANGAN cuma rangkuman plot kosong. Setiap rintangan, adegan penting, atau monster WAJIB dibaca sebagai representasi/metafora psikologis dari ketakutan tokoh.
+  5. Detail Visual Kontras & Titik Balik: Soroti detail visual kecil yang kontras (stiker mobil, foto keluarga, benda peninggalan) yang memicu titik balik karakter dari lari menjadi berani menghadapi kenyataan.
+  6. Klimaks Ujian Batin: Ruangan/lokasi pertarungan akhir ditafsirkan maknanya secara simbolik (misal: ruang bersalin = kelahiran kembali / harus melewati ketakutan melahirkan).
+  7. Reinterpretasi Ending: Jangan sekadar menyimpulkan "kalah" atau "bad ending". Berikan pembacaan ulang mendalam atas akhir cerita sebagai penyelesaian ark sang karakter (perubahan fisik menjadi monster adalah wujud konkret bahwa dia akhirnya berhenti lari dari perubahan).
+  8. Meta Konteks Kreator & Ajakan Diskusi: Hubungkan dengan keresahan sang sutradara/pembuat karya di dunia nyata, lalu tutup dengan ajakan diskusi hangat ke penonton.`,
+        is_default: 0
+      });
+      console.log('🎬 Berhasil menambahkan persona Video Esai Analitis & Simbolik ke SQLite.');
+    }
+
+    // Ensure CineThink channel preset exists
+    const existingCineThink = db.prepare(`SELECT * FROM channels WHERE name LIKE '%CineThink%' OR name LIKE '%Video Esai%'`).get();
+    if (!existingCineThink) {
+      ChannelRepo.create({
+        name: 'CineThink (Video Esai Film)',
+        greeting: 'Halo Cinephile',
+        outro_bridge: 'Nah, coba lu renungin satu pertanyaan mendasar ini:',
+        persona_style: 'video_esai_analitis',
+        target_language: 'id',
+        is_default: 0
+      });
+      console.log('📺 Berhasil menambahkan channel preset CineThink (Video Esai Film) ke SQLite.');
+    }
+  } catch (err) {
+    console.warn('Persona video esai migration notice:', err.message);
+  }
+
   // Seed TTS Voices if empty
   const voiceCount = db.prepare(`SELECT COUNT(*) as count FROM tts_voices`).get().count;
   if (voiceCount === 0) {

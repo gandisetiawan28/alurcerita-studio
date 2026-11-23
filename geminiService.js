@@ -287,6 +287,16 @@ Tugas Utama:
 `;
   }
 
+  const isVideoEssay = (personaStyle === 'video_esai_analitis');
+  if (isVideoEssay) {
+    stage1Prompt += `\n\nPETUNJUK KHUSUS GAYA VIDEO ESAI EKSPOSITORIS-ANALITIS (MIND-BLOWING FILM DEEP DIVE):
+1. Buka bagian Opening dengan hook berbingkai pertanyaan reflektif/kebingungan penonton (misal: "Baru selesai nonton ${movieTitle}, tapi masih mikir gak sih sama nasib tokohnya? Ini film beneran bad ending ya? Nah pertanyaan-pertanyaan itu...").
+2. Soroti sudut pandang karakter utama sebagai orang biasa/kurir/NPC dan konflik batinnya yang manusiawi (misal takut perubahan hidup, belum siap mengemban tanggung jawab baru, dll).
+3. Ceritakan alur secara kronologis, tetapi jalin setiap rintangan, perjumpaan monster, atau musuh sebagai simbol psikologis dari ketakutan tokoh utama.
+4. Hadirkan detail visual kontras (stiker, foto keluarga, benda peninggalan) yang menjadi pemicu titik balik batin tokoh.
+5. Puncak ketegangan/survival diuji di lokasi yang memiliki makna simbolik (kelahiran kembali).\n`;
+  }
+
   console.log(`🤖 Menjalankan Stage 1 (Lead Scriptwriter Agent) [Target Model: ${preferredModel}]...`);
   const stage1Result = await callGeminiSmartStage(stage1Prompt, 'Stage 1 (Lead Scriptwriter)', preferredModel);
 
@@ -345,6 +355,29 @@ ${narrativeScript.slice(0, 15000)}
 `;
   }
 
+  if (isVideoEssay) {
+    stage2Prompt = `Anda adalah Storyteller & Analis Film untuk channel "${channelName}".
+Format Analisis: Video Esai Eksploratif & Reinterpretasi Makna (Gaya Zach Cregger / Nerdwriter).
+Aturan:
+1. DILARANG pakai istilah klise AI. Gunakan bahasa Indonesia sehari-hari yang luwes, santai ("Gua-Lu"), tapi kaya wawasan.
+2. Struktur yang wajib dihasilkan:
+## [BEDAH ANALISIS & REINTERPRETASI MAKNA]
+### 1. TESIS UTAMA: RINTANGAN/MONSTER SEBAGAI WUJUD KETAKUTAN BATIN TOKOH
+(Bedah bagaimana ancaman atau monster dalam film bukan cuma musuh fisik, melainkan metafora psikologis atas ketakutan terbesar sang tokoh)
+
+### 2. TITIK BALIK SIMBOLIK & UJIAN KELAHIRAN KEMBALI
+(Jelaskan bagaimana detail visual kontras memicu titik balik, dan bagaimana lokasi pertarungan akhir menyimbolkan ujian batin yang harus dilewati)
+
+### 3. REINTERPRETASI ENDING: BUKAN SEKADAR BAD ENDING, TAPI PENERIMAAN PERUBAHAN
+(Lakukan pembacaan ulang mendalam atas akhir film: kenapa tokoh mengalami nasib tersebut, dan bagaimana itu menjadi wujud konkret bahwa dia akhirnya berhenti lari dari perubahan)
+
+### 4. KERESAHAN META SUTRADARA & KONEKSI KEHIDUPAN NYATA
+(Hubungkan tema film dengan keresahan nyata sutradara/manusia pada umumnya)
+
+Bahan Naskah Cerita yang Dianalisis:
+${narrativeScript.slice(0, 15000)}`;
+  }
+
   console.log('🧠 Menjalankan Stage 2 (Film Analyst Agent)...');
   const stage2Result = await callGeminiSmartStage(stage2Prompt, 'Stage 2 (Film Analyst)', preferredModel);
   const analysisOutput = stripAiConversationalPreamble(stage2Result.text);
@@ -390,6 +423,24 @@ ${analysisOutput}
 
 Hasilkan naskah final utuh dalam format Markdown yang rapi:
 `;
+  }
+
+  if (isVideoEssay) {
+    stage3Prompt = `Tugas Anda: Satukan Narasi Cerita dan Analisis Simbolik di bawah ini menjadi satu Naskah Video Esai Utuh yang mengalir dinamis layaknya esai film bioskop kelas atas.
+
+Instruksi Penyatuan Gaya Video Esai:
+- Tenun argumen simbolik langsung ke dalam perjalanan cerita dan reinterpretasi ending.
+- Buat penonton merasa mendapatkan pencerahan baru ("mind-blown") setelah menonton video ini.
+- Gunakan bahasa "Gua", santai, cerdas, bersahabat, dan reflektif.
+${stage3AntiPreamble}
+
+INPUT 1 (NARASI CERITA):
+${narrativeScript}
+
+INPUT 2 (ANALISIS SIMBOLIK):
+${analysisOutput}
+
+Hasilkan naskah final utuh dalam format Markdown yang rapi:`;
   }
 
   console.log('✨ Menjalankan Stage 3 (Synthesizer Agent)...');
