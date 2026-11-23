@@ -125,10 +125,15 @@ async function testGeminiApiKey(apiKey) {
  * 2. Jika gagal karena server busy (503), kuota penuh/limit habis (429), atau error, otomatis beralih ke model berikutnya dari 8 model resmi.
  * 3. Jika seluruh 8 model gagal pada satu kunci, beralih ke kunci cadangan di database SQLite.
  */
-async function callGeminiSmartStage(prompt, stageName, preferredModel = 'auto') {
+async function callGeminiSmartStage(prompt, stageName, preferredModel = 'auto', options = {}) {
   const triedKeyIds = [];
   let lastError = null;
   const modelChain = getModelSequence(preferredModel);
+
+  const generationConfig = {
+    maxOutputTokens: options.maxOutputTokens || 8192,
+    ...(options.temperature !== undefined ? { temperature: options.temperature } : {})
+  };
 
   while (true) {
     const keyRecord = ApiKeyRepo.getNextSmartKey(triedKeyIds);
@@ -139,7 +144,7 @@ async function callGeminiSmartStage(prompt, stageName, preferredModel = 'auto') 
         for (const modelDef of modelChain) {
           try {
             console.log(`🔑 Menggunakan GEMINI_API_KEY (.env) dengan model ${modelDef.name} untuk ${stageName}...`);
-            const model = genAI.getGenerativeModel({ model: modelDef.id });
+            const model = genAI.getGenerativeModel({ model: modelDef.id, generationConfig });
             const result = await model.generateContent(prompt);
             return {
               text: result.response.text(),
@@ -169,7 +174,7 @@ async function callGeminiSmartStage(prompt, stageName, preferredModel = 'auto') 
     for (const modelDef of modelChain) {
       try {
         console.log(`🚀 [Smart Model Routing] Mencoba ${modelDef.name} (${modelDef.id}) untuk ${stageName}...`);
-        const model = genAI.getGenerativeModel({ model: modelDef.id });
+        const model = genAI.getGenerativeModel({ model: modelDef.id, generationConfig });
         const result = await model.generateContent(prompt);
         const text = result.response.text();
 
@@ -789,10 +794,21 @@ async function analyzeSrtForCutScenes({
 
   let clipInstruction = '';
   const parsedMax = parseInt(maxClips, 10);
-  if (!maxClips || maxClips === 'all' || maxClips === 'max' || isNaN(parsedMax) || parsedMax <= 0 || parsedMax >= 999) {
-    clipInstruction = `Tugas Anda: Dari data subtitle & dialog film "${movieTitle}" berikut, telusuri seluruh alur cerita dari awal sampai akhir film dan pilih SEBANYAK-BANYAKNYA adegan / kalimat kunci penting (TANPA BATASAN JUMLAH KLIP, ekstrak seluruh adegan krusial, hook, punchline, pengungkapan rahasia, momen emosional, dan klimaks yang ada) yang WAJIB dipotong menjadi klip video cut-scene (B-Roll Dramatis / Hook). Deteksi dan masukkan semua adegan penting yang memenuhi kriteria tanpa ragu!`;
+  const isTargetFixed = !isNaN(parsedMax) && parsedMax > 0 && parsedMax < 999;
+  const targetCount = isTargetFixed ? parsedMax : 35;
+
+  if (isTargetFixed) {
+    clipInstruction = `PERINTAH JUMLAH WAJIB (SANGAT KETAT):
+- Anda WAJIB memilih dan menghasilkan TEPAT ${parsedMax} ADEGAN KUNCI di dalam array "scenes".
+- Daftar "scenes" HARUS berisi PERSIS ${parsedMax} objek adegan bernomor dari 1 sampai ${parsedMax}.
+- DILARANG BERHENTI atau memotong respons sebelum nomor ${parsedMax} selesai tertulis!
+- Distribusikan ke-${parsedMax} adegan tersebut secara proporsional dari awal hingga akhir film:
+  * Babak 1 (Awal / Pembukaan / Konflik Awal): ~${Math.ceil(parsedMax * 0.3)} adegan
+  * Babak 2 (Pertengahan / Perkembangan / Titik Balik): ~${Math.ceil(parsedMax * 0.4)} adegan
+  * Babak 3 (Klimaks / Puncak Pertarungan / Ending): ~${Math.ceil(parsedMax * 0.3)} adegan`;
   } else {
-    clipInstruction = `Tugas Anda: Dari data subtitle & dialog film "${movieTitle}" berikut, pilih minimal ${parsedMax} adegan / kalimat kunci paling penting yang WAJIB dipotong menjadi klip video cut-scene (B-Roll Dramatis / Hook).`;
+    clipInstruction = `PERINTAH JUMLAH WAJIB (SANGAT KETAT):
+- Anda WAJIB mengekstrak SEBANYAK-BANYAKNYA adegan kunci (TARGET MINIMAL 35 HINGGA 50 ADEGAN LENGKAP) di dalam array "scenes", mencakup seluruh alur dari awal sampai akhir film tanpa ada babak penting yang terlewat.`;
   }
 
   const prompt = `
@@ -825,22 +841,20 @@ Hasilkan HANYA format JSON VALID murni (tanpa tanda kutip markdown tambahan sepe
       "end_time": "00:03:18.500",
       "start_seconds": 194.5,
       "end_seconds": 198.5,
-      "dialogue": "Teks dialog atau potongan kalimat kunci dalam film",
-      "dialogue_translated": "Terjemahan dialog bahasa Indonesia",
-      "narrative_role": "Hook Pembuka / Titik Balik / Momen Emosional / Klimaks",
-      "reason": "Alasan singkat mengapa adegan ini sangat krusial dimasukkan ke video alur cerita"
+      "dialogue": "Teks dialog atau kalimat kunci film",
+      "reason": "Alasan singkat mengapa adegan ini krusial (1 kalimat padat)"
     }
   ]
 }
 
-PANDUAN KETAT AGAR FORMAT JSON VALID:
-- Tulis teks dialogue dan reason secara ringkas dan padat (maksimal 1-2 kalimat) agar seluruh adegan termuat lengkap tanpa terpotong token.
+PANDUAN KETAT AGAR FORMAT JSON VALID & LENGKAP:
+- Tulis teks dialogue dan reason secara ringkas (1 kalimat pendek) agar seluruh ${isTargetFixed ? parsedMax : 'adegan'} termuat lengkap tanpa terpotong token.
 - JANGAN gunakan tanda petik dua unescaped di dalam string. Jika ada kutipan dalam dialog, gunakan tanda petik satu (') atau escape (\").
 - Hasilkan HANYA JSON, dilarang memberi kata pembuka atau penutup di luar objek JSON.
 `;
 
-  console.log(`🤖 [AI Cut Scene Engine] Menganalisis subtitle untuk "${movieTitle}" (${srtEntries.length} baris, target durasi: ${minLimit}s - ${upperLimit}s)...`);
-  const result = await callGeminiSmartStage(prompt, `AI Cut Scene Detector (${movieTitle})`, preferredModel);
+  console.log(`🤖 [AI Cut Scene Engine] Menganalisis subtitle untuk "${movieTitle}" (${srtEntries.length} baris, target: ${isTargetFixed ? parsedMax + ' klip' : 'sebanyak-banyaknya'}, durasi: ${minLimit}s - ${upperLimit}s)...`);
+  const result = await callGeminiSmartStage(prompt, `AI Cut Scene Detector (${movieTitle})`, preferredModel, { maxOutputTokens: 8192, temperature: 0.2 });
 
   if (!result || !result.text) {
     throw new Error('Gemini tidak memberikan respons analisis cut scene.');
@@ -848,9 +862,76 @@ PANDUAN KETAT AGAR FORMAT JSON VALID:
 
   // Parse JSON response safely with auto-repair and partial recovery support
   const parsedJson = parseGeminiCutScenesJson(result.text);
+  let rawScenes = Array.isArray(parsedJson.scenes) ? parsedJson.scenes : [];
+
+  // Multi-pass recovery: jika target angka spesifik diminta dan hasilnya masih kurang dari target
+  if (isTargetFixed && rawScenes.length < targetCount && rawScenes.length > 0) {
+    const remainingNeeded = targetCount - rawScenes.length;
+    const lastScene = rawScenes[rawScenes.length - 1];
+    const lastSec = lastScene.end_seconds || lastScene.start_seconds || 0;
+
+    console.log(`⚠️ [Multi-Pass Slicer] Pass 1 menghasilkan ${rawScenes.length}/${targetCount} adegan (berakhir di detik ${lastSec} / ${lastScene.end_time || lastScene.start_time}). Mengambil sisa ${remainingNeeded} adegan berikutnya dari paruh kedua film...`);
+
+    const remainingSrt = srtEntries.filter(item => {
+      const parts = (item.startTime || '').split(/[:,]/);
+      let sec = 0;
+      if (parts.length >= 3) {
+        sec = parseInt(parts[0], 10) * 3600 + parseInt(parts[1], 10) * 60 + parseFloat(parts[2] + '.' + (parts[3] || '0'));
+      }
+      return sec >= (lastSec - 10);
+    });
+
+    if (remainingSrt.length > 10) {
+      const condensedRemaining = remainingSrt.slice(0, 3000).map((item, idx) => 
+        `[#${rawScenes.length + idx + 1}] ${item.startTime} -> ${item.endTime} (${item.duration}s) | ${item.text}`
+      ).join('\n');
+
+      const pass2Prompt = `
+Anda adalah Sutradara & Video Editor Profesional YouTube Alur Cerita.
+Pada analisis sebelumnya, Anda telah berhasil memilih ${rawScenes.length} adegan pertama hingga timecode ${lastScene.end_time || lastScene.start_time}.
+Target total pengguna adalah ${targetCount} adegan. Jadi Anda MASIH HARUS MEMILIH PERSIS ${remainingNeeded} ADEGAN LAGI (dimulai dari nomor ${rawScenes.length + 1} hingga ${targetCount}) dari sisa alur film berikut.
+
+SUBTITLE SISA FILM (${movieTitle}):
+${condensedRemaining}
+
+KRITERIA:
+1. Durasi setiap adegan berkisar ${minLimit}s s/d ${upperLimit}s.
+2. Hasilkan PERSIS ${remainingNeeded} objek adegan bernomor ${rawScenes.length + 1} sampai ${targetCount}.
+3. Tulis dialogue dan reason secara ringkas (1 kalimat pendek).
+
+FORMAT OUTPUT (HANYA JSON MURNI):
+{
+  "scenes": [
+    {
+      "clip_number": ${rawScenes.length + 1},
+      "title": "Judul Adegan",
+      "start_time": "01:20:15.000",
+      "end_time": "01:20:19.500",
+      "start_seconds": 4815.0,
+      "end_seconds": 4819.5,
+      "dialogue": "Dialog kunci",
+      "reason": "Alasan singkat"
+    }
+  ]
+}
+`;
+
+      try {
+        const pass2Result = await callGeminiSmartStage(pass2Prompt, `AI Cut Scene Detector Pass 2 (${movieTitle})`, preferredModel, { maxOutputTokens: 8192, temperature: 0.2 });
+        if (pass2Result && pass2Result.text) {
+          const pass2Parsed = parseGeminiCutScenesJson(pass2Result.text);
+          if (Array.isArray(pass2Parsed.scenes) && pass2Parsed.scenes.length > 0) {
+            console.log(`✅ [Multi-Pass Slicer] Pass 2 berhasil menambahkan ${pass2Parsed.scenes.length} adegan!`);
+            rawScenes = rawScenes.concat(pass2Parsed.scenes);
+          }
+        }
+      } catch (pass2Err) {
+        console.warn(`[Multi-Pass Slicer] Pass 2 dilewati (${pass2Err.message}), memakai ${rawScenes.length} adegan yang ada.`);
+      }
+    }
+  }
 
   // Enforce durasi klip sesuai target batas upperLimit di level data
-  const rawScenes = Array.isArray(parsedJson.scenes) ? parsedJson.scenes : [];
   const sanitizedScenes = rawScenes.map((sc, idx) => {
     let startSec = Math.max(0, parseFloat(sc.start_seconds) || 0);
     let endSec = parseFloat(sc.end_seconds) || (startSec + upperLimit);
@@ -867,7 +948,7 @@ PANDUAN KETAT AGAR FORMAT JSON VALID:
     const finalDur = Math.round((endSec - startSec) * 100) / 100;
     return {
       ...sc,
-      clip_number: sc.clip_number || (idx + 1),
+      clip_number: idx + 1,
       start_seconds: startSec,
       end_seconds: endSec,
       start_time: formatSecondsToTimecode(startSec),
@@ -877,7 +958,7 @@ PANDUAN KETAT AGAR FORMAT JSON VALID:
   });
 
   return {
-    summary: parsedJson.summary || 'Koleksi cut scene kunci berhasil dianalisis oleh Gemini (durasi teruji < 3 detik).',
+    summary: parsedJson.summary || `Koleksi ${sanitizedScenes.length} cut scene kunci berhasil dianalisis oleh Gemini.`,
     scenes: sanitizedScenes,
     active_model: result.modelName,
     used_key: result.keyInfo
