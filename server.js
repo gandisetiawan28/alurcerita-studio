@@ -55,7 +55,7 @@ const mediaStorage = multer.diskStorage({
 });
 const uploadMedia = multer({
   storage: mediaStorage,
-  limits: { fileSize: 2048 * 1024 * 1024 } // 2GB max file size for high-res movie raw files
+  limits: { fileSize: 10 * 1024 * 1024 * 1024 } // 10GB max file size for full-length high-res movie files
 });
 
 // Middlewares
@@ -1980,6 +1980,34 @@ app.post('/api/media/ai-batch-cut', async (req, res) => {
     console.error('Error in batch cut:', error);
     res.status(500).json({ success: false, error: error.message });
   }
+});
+
+// Global Error Handler Middleware (Multer, File Size Limits & Unhandled Server Errors)
+app.use((err, req, res, next) => {
+  if (err instanceof multer.MulterError) {
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      console.warn(`[Multer] File upload melebihi batas: ${err.message}`);
+      return res.status(413).json({
+        success: false,
+        error: 'Ukuran file video terlalu besar (melebihi batas sistem 10GB). Silakan gunakan file video dengan resolusi standar atau pilih file yang sudah ada di File Manager.'
+      });
+    }
+    console.warn(`[Multer] Upload error (${err.code}):`, err.message);
+    return res.status(400).json({
+      success: false,
+      error: `Gagal mengunggah file (${err.code}): ${err.message}`
+    });
+  }
+
+  if (err) {
+    console.error('[Server Error] Unhandled error:', err);
+    return res.status(500).json({
+      success: false,
+      error: err.message || 'Terjadi kesalahan internal pada server.'
+    });
+  }
+
+  next();
 });
 
 // Start listening

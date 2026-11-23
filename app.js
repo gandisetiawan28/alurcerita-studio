@@ -1486,7 +1486,7 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
 
     elements.channelListContainer.innerHTML = channels.map(c => {
       const isDefault = Boolean(c.is_default);
-      const personaName = personaLabels[c.persona_style] || c.persona_style || 'Teman Ngopi';
+      const personaName = getPersonaLabel(c.persona_style) || 'Teman Ngopi';
       const langName = langFlags[c.target_language] || c.target_language || '🇮🇩 ID';
 
       return `
@@ -5353,7 +5353,12 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
         method: 'POST',
         body: formData
       });
-      const json = await res.json();
+      let json = null;
+      try {
+        json = await res.json();
+      } catch (parseErr) {
+        throw new Error(`Server (${res.status}): Respons server tidak valid atau ukuran file video melebihi batas upload.`);
+      }
 
       if (json.success && json.data) {
         state.slicedResultMedia = json.data;

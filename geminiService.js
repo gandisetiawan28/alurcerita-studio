@@ -225,7 +225,7 @@ async function runGeminiGeneration(data) {
   // -------------------------------------------------------------------------
   // STAGE 1: Lead Scriptwriter Agent (Chronological Merger + Visual Cues)
   // -------------------------------------------------------------------------
-  const stage1Template = PromptTemplateRepo.getByKey('stage1_story');
+  const stage1Template = PromptTemplateRepo.getByKey('stage1_story')
   let stage1Prompt = '';
   if (stage1Template && stage1Template.prompt_content) {
     stage1Prompt = stage1Template.prompt_content
