@@ -5354,13 +5354,18 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
         body: formData
       });
       let json = null;
+      const resText = await res.text();
       try {
-        json = await res.json();
+        json = JSON.parse(resText);
       } catch (parseErr) {
-        throw new Error(`Server (${res.status}): Respons server tidak valid atau ukuran file video melebihi batas upload.`);
+        throw new Error(`Server (${res.status}): ${resText.slice(0, 150) || 'Gagal memproses video.'}`);
       }
 
-      if (json.success && json.data) {
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || `Gagal memotong video (Kode ${res.status}).`);
+      }
+
+      if (json.data) {
         state.slicedResultMedia = json.data;
         showToast(json.message || 'Video berhasil dipotong secara berkala!');
 
