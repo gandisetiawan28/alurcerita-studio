@@ -600,6 +600,7 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     aiCutSrtTextArea: document.getElementById('aiCutSrtTextArea'),
     aiCutFocusHint: document.getElementById('aiCutFocusHint'),
     aiCutMaxClips: document.getElementById('aiCutMaxClips'),
+    inputCustomMaxClips: document.getElementById('inputCustomMaxClips'),
     btnRunAiSrtAnalysis: document.getElementById('btnRunAiSrtAnalysis'),
     btnRunAiSrtAnalysisText: document.getElementById('btnRunAiSrtAnalysisText'),
     aiCutAnalysisProgress: document.getElementById('aiCutAnalysisProgress'),
@@ -5810,7 +5811,14 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     }
 
     const focusHint = elements.aiCutFocusHint ? elements.aiCutFocusHint.value.trim() : '';
-    const maxClips = elements.aiCutMaxClips ? elements.aiCutMaxClips.value : 8;
+    let maxClips = 'all';
+    if (elements.aiCutMaxClips) {
+      if (elements.aiCutMaxClips.value === 'custom' && elements.inputCustomMaxClips && elements.inputCustomMaxClips.value) {
+        maxClips = parseInt(elements.inputCustomMaxClips.value, 10) || 'all';
+      } else {
+        maxClips = elements.aiCutMaxClips.value || 'all';
+      }
+    }
     const movieTitle = state.aiCutSelectedMedia ? state.aiCutSelectedMedia.original_name : (state.currentProject ? state.currentProject.title : 'Film');
 
     const formData = new FormData();
@@ -6348,6 +6356,15 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     }
     if (elements.btnExtractEmbeddedSubs) {
       elements.btnExtractEmbeddedSubs.addEventListener('click', extractEmbeddedSubsFromVideo);
+    }
+    if (elements.aiCutMaxClips && elements.inputCustomMaxClips) {
+      elements.aiCutMaxClips.addEventListener('change', (e) => {
+        const isCustom = e.target.value === 'custom';
+        elements.inputCustomMaxClips.hidden = !isCustom;
+        if (isCustom) {
+          elements.inputCustomMaxClips.focus();
+        }
+      });
     }
     if (elements.btnRunAiSrtAnalysis) {
       elements.btnRunAiSrtAnalysis.addEventListener('click', runAiSrtAnalysis);

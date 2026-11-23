@@ -1838,7 +1838,7 @@ app.post('/api/media/ai-analyze-srt', uploadMedia.single('file'), async (req, re
     let srtText = '';
     const movieTitle = req.body.movieTitle || 'Film';
     const focusHint = req.body.focusHint || '';
-    const maxClips = parseInt(req.body.maxClips, 10) || 8;
+    const maxClips = req.body.maxClips || 'all';
     const preferredModel = req.body.preferredModel || 'auto';
 
     if (req.file) {

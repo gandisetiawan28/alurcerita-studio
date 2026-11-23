@@ -690,14 +690,22 @@ async function analyzeSrtForCutScenes({
     throw new Error('Data subtitle film kosong atau tidak valid.');
   }
 
-  // Format subtitle entries compactly for prompt efficiency
-  const condensedDialog = srtEntries.slice(0, 1200).map((item, idx) => 
+  // Format subtitle entries compactly for prompt efficiency (dukung hingga 3500 baris subtitle film panjang)
+  const condensedDialog = srtEntries.slice(0, 3500).map((item, idx) => 
     `[#${idx + 1}] ${item.startTime} -> ${item.endTime} (${item.duration}s) | ${item.text}`
   ).join('\n');
 
+  let clipInstruction = '';
+  const parsedMax = parseInt(maxClips, 10);
+  if (!maxClips || maxClips === 'all' || maxClips === 'max' || isNaN(parsedMax) || parsedMax <= 0 || parsedMax >= 999) {
+    clipInstruction = `Tugas Anda: Dari data subtitle & dialog film "${movieTitle}" berikut, telusuri seluruh alur cerita dari awal sampai akhir film dan pilih SEBANYAK-BANYAKNYA adegan / kalimat kunci penting (TANPA BATASAN JUMLAH KLIP, ekstrak seluruh adegan krusial, hook, punchline, pengungkapan rahasia, momen emosional, dan klimaks yang ada) yang WAJIB dipotong menjadi klip video cut-scene (B-Roll Dramatis / Hook). Deteksi dan masukkan semua adegan penting yang memenuhi kriteria tanpa ragu!`;
+  } else {
+    clipInstruction = `Tugas Anda: Dari data subtitle & dialog film "${movieTitle}" berikut, pilih minimal ${parsedMax} adegan / kalimat kunci paling penting yang WAJIB dipotong menjadi klip video cut-scene (B-Roll Dramatis / Hook).`;
+  }
+
   const prompt = `
 Anda adalah Sutradara & Video Editor Profesional khusus YouTube Alur Cerita / Movie Recap.
-Tugas Anda: Dari data subtitle & dialog film "${movieTitle}" berikut, pilih ${Math.min(15, Math.max(5, maxClips))} adegan / kalimat kunci paling penting yang WAJIB dipotong menjadi klip video cut-scene (B-Roll Dramatis / Hook).
+${clipInstruction}
 
 ${focusHint ? `FOKUS KHUSUS PEMILIHAN DARI PENGGUNA:\n"${focusHint}"\n` : ''}
 
