@@ -12,6 +12,7 @@ const cors = require('cors');
 const path = require('node:path');
 const fs = require('node:fs');
 const { spawn, execSync } = require('node:child_process');
+const os = require('node:os');
 const { ProjectRepo, ApiKeyRepo, TtsRepo, ChannelRepo, PersonaRepo, TtsVoiceRepo, PromptTemplateRepo, SettingsRepo, AudioPresetRepo, AudioRecordingRepo, MediaRepo } = require('./db');
 const { GEMINI_MODELS, runGeminiGeneration, runGeminiTranscreation, testGeminiApiKey, analyzeSrtForCutScenes } = require('./geminiService');
 
@@ -1700,72 +1701,141 @@ app.post('/api/media/slice-video', uploadMedia.single('file'), async (req, res) 
 
     // Inspect source metadata
     const sourceProbed = probeMediaFile(inputPath);
+    const totalDuration = Math.max(1, sourceProbed.duration_seconds || 0);
 
     // Prepare output filename
     const cleanBase = path.basename(originalName, path.extname(originalName)).replace(/[^a-zA-Z0-9_\-\.]/g, '_').substring(0, 40);
     const outFilename = `sliced_${keep}s_${skip}s_${cleanBase}_${Date.now()}.mp4`;
     const outputPath = path.join(publicVideosProcessedDir, outFilename);
 
-    // Construct FFmpeg select filter
-    // Video: select='lt(mod(t\,period)\,keep)'
-    let videoFilters = [`select='lt(mod(t\\,${period})\\,${keep})'`];
+    // Build segments for Concat Demuxer (inpoint / outpoint)
+    // Slices audio and video in exact lockstep without stream desync
+    const segments = [];
+    let curTime = 0;
+    while (curTime < totalDuration) {
+      const segEnd = Math.min(curTime + keep, totalDuration);
+      if (segEnd > curTime) {
+        segments.push([curTime, segEnd]);
+      }
+      curTime += period;
+    }
+
+    if (segments.length === 0) {
+      segments.push([0, Math.min(keep, totalDuration)]);
+    }
+
+    // Write temporary concat manifest list
+    const normalizedInputPath = path.resolve(inputPath).replace(/\\/g, '/');
+    const concatListPath = path.join(os.tmpdir(), `slicer_concat_${Date.now()}_${Math.random().toString(36).substring(7)}.txt`);
+    const listContent = segments.map(([start, end]) => 
+      `file '${normalizedInputPath}'\ninpoint ${start.toFixed(3)}\noutpoint ${end.toFixed(3)}`
+    ).join('\n');
+    fs.writeFileSync(concatListPath, listContent, 'utf8');
+
+    // Video filters
+    let videoFilters = [];
     if (mirror) {
       videoFilters.push('hflip');
     }
     if (speed !== 1.0) {
       const speedFactor = (1.0 / speed).toFixed(4);
-      videoFilters.push(`setpts=${speedFactor}*N/FRAME_RATE/TB`);
-    } else {
-      videoFilters.push('setpts=N/FRAME_RATE/TB');
+      videoFilters.push(`setpts=${speedFactor}*PTS`);
     }
 
-    const ffmpegArgs = [
+    // Audio filters
+    let audioFilters = [];
+    if (speed !== 1.0) {
+      audioFilters.push(`atempo=${speed.toFixed(2)}`);
+    }
+
+    console.log(`[FFmpeg Slicer] Memproses video via Concat Demuxer: ${inputPath} -> ${outputPath}`);
+    console.log(`[FFmpeg Slicer] Parameter: Ambil ${keep}s, Lewati ${skip}s (${segments.length} segmen, Total durasi sumber: ${totalDuration.toFixed(1)}s), Mute: ${muteAudio}, Mirror: ${mirror}, Speed: ${speed}x`);
+
+    const runFfmpegProcess = (args) => {
+      return new Promise((resolve, reject) => {
+        const proc = spawn('ffmpeg', args, { windowsHide: true });
+        let stderrData = '';
+        proc.stderr.on('data', chunk => {
+          stderrData += chunk.toString();
+        });
+        proc.on('close', code => {
+          if (code === 0 && fs.existsSync(outputPath)) {
+            resolve(true);
+          } else {
+            reject(new Error(`FFmpeg exited code ${code}: ${stderrData.slice(-500)}`));
+          }
+        });
+        proc.on('error', err => reject(err));
+      });
+    };
+
+    const baseInputArgs = [
       '-y',
-      '-threads', '0',
-      '-i', inputPath,
-      '-vf', videoFilters.join(','),
-      '-c:v', 'libx264',
-      '-preset', 'veryfast',
-      '-crf', '22',
-      '-pix_fmt', 'yuv420p'
+      '-f', 'concat',
+      '-safe', '0',
+      '-i', concatListPath
     ];
 
-    if (muteAudio) {
-      ffmpegArgs.push('-an');
-    } else {
-      let audioFilters = [
-        `aselect='lt(mod(t\\,${period})\\,${keep})'`,
-        'asetpts=N/SR/TB',
-        'aresample=async=1000:first_pts=0'
-      ];
-      if (speed !== 1.0) {
-        audioFilters.push(`atempo=${speed.toFixed(2)}`);
-      }
-      ffmpegArgs.push('-af', audioFilters.join(','), '-c:a', 'aac', '-b:a', '192k', '-shortest');
+    const filterArgs = [];
+    if (videoFilters.length > 0) {
+      filterArgs.push('-vf', videoFilters.join(','));
     }
 
-    ffmpegArgs.push(outputPath);
+    const audioArgs = [];
+    if (muteAudio) {
+      audioArgs.push('-an');
+    } else {
+      if (audioFilters.length > 0) {
+        audioArgs.push('-af', audioFilters.join(','));
+      }
+      audioArgs.push('-c:a', 'aac', '-b:a', '192k');
+    }
 
-    console.log(`[FFmpeg Slicer] Memproses video: ${inputPath} -> ${outputPath}`);
-    console.log(`[FFmpeg Slicer] Parameter: Ambil ${keep}s, Lewati ${skip}s (Siklus ${period}s), Mute: ${muteAudio}, Mirror: ${mirror}, Speed: ${speed}x`);
-
-    // Run FFmpeg in spawn process
-    await new Promise((resolve, reject) => {
-      const proc = spawn('ffmpeg', ffmpegArgs, { windowsHide: true });
-      let stderrData = '';
-      proc.stderr.on('data', chunk => {
-        stderrData += chunk.toString();
-      });
-      proc.on('close', code => {
-        if (code === 0 && fs.existsSync(outputPath)) {
-          resolve(true);
-        } else {
-          console.error('[FFmpeg Error Output]:', stderrData.slice(-1000));
-          reject(new Error(`FFmpeg slicing gagal dengan kode keluar ${code}. Detail: ${stderrData.slice(-400)}`));
+    try {
+      // Attempt 1: NVIDIA NVENC Hardware Accelerated Encoding (Fastest: 300-500 FPS)
+      const nvencArgs = [
+        ...baseInputArgs,
+        ...filterArgs,
+        '-c:v', 'h264_nvenc',
+        '-preset', 'p4',
+        '-cq', '22',
+        '-pix_fmt', 'yuv420p',
+        ...audioArgs,
+        outputPath
+      ];
+      try {
+        console.log('[FFmpeg Slicer] Mencoba encoding GPU NVENC hardware acceleration...');
+        await runFfmpegProcess(nvencArgs);
+        console.log('[FFmpeg Slicer] NVENC encoding berhasil diselesaikan.');
+      } catch (nvencErr) {
+        console.warn('[FFmpeg Slicer] NVENC gagal atau tidak didukung, beralih ke fallback CPU libx264:', nvencErr.message);
+        if (fs.existsSync(outputPath)) {
+          try { fs.unlinkSync(outputPath); } catch (_) {}
         }
-      });
-      proc.on('error', err => reject(err));
-    });
+        // Attempt 2: CPU fallback with libx264
+        const cpuArgs = [
+          ...baseInputArgs,
+          ...filterArgs,
+          '-c:v', 'libx264',
+          '-preset', 'veryfast',
+          '-crf', '22',
+          '-pix_fmt', 'yuv420p',
+          ...audioArgs,
+          outputPath
+        ];
+        await runFfmpegProcess(cpuArgs);
+        console.log('[FFmpeg Slicer] CPU libx264 fallback encoding berhasil.');
+      }
+    } finally {
+      // Clean up temporary manifest list
+      try {
+        if (fs.existsSync(concatListPath)) {
+          fs.unlinkSync(concatListPath);
+        }
+      } catch (errClean) {
+        console.warn('[FFmpeg Slicer] Gagal menghapus concat list sementara:', errClean.message);
+      }
+    }
 
     // Probe the sliced result
     const slicedProbed = probeMediaFile(outputPath);
