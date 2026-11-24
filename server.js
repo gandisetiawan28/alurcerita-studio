@@ -1641,7 +1641,7 @@ app.post('/api/media/slice-video', uploadMedia.single('file'), async (req, res) 
     const keep = Math.max(1, parseInt(req.body.keepSeconds, 10) || 3);
     const skip = Math.max(1, parseInt(req.body.skipSeconds, 10) || 10);
     const period = keep + skip;
-    const muteAudio = req.body.muteAudio === 'true' || req.body.muteAudio === true || req.body.muteAudio === undefined;
+    const muteAudio = req.body.muteAudio === 'true' || req.body.muteAudio === true;
     const mirror = req.body.mirror === 'true' || req.body.mirror === true;
     const speed = Math.max(0.5, Math.min(2.0, parseFloat(req.body.speed) || 1.0));
     const projectId = Number(req.body.projectId || 0);
@@ -1764,35 +1764,65 @@ app.post('/api/media/slice-video', uploadMedia.single('file'), async (req, res) 
           cmdInputs.push('-ss', start.toFixed(3), '-t', (end - start).toFixed(3), '-i', inputPath);
         }
 
-        const concatIns = batchSegs.map((_, i) => `[${i}:v][${i}:a]`).join('');
-        let fc = `${concatIns}concat=n=${batchSegs.length}:v=1:a=1[v][a]`;
+        let currentV = '[v_cat]';
+        let currentA = '[a_cat]';
+        let fc = '';
+        let encodeArgs = [];
 
-        let vFilters = [];
-        if (mirror) vFilters.push('hflip');
-        if (speed !== 1.0) {
-          const speedFactor = (1.0 / speed).toFixed(4);
-          vFilters.push(`setpts=${speedFactor}*PTS`);
-        }
-        if (vFilters.length > 0) {
-          fc += `;[v]${vFilters.join(',')}[v]`;
-        }
-
-        let aFilters = [];
-        if (speed !== 1.0) {
-          aFilters.push(`atempo=${speed.toFixed(2)}`);
-        }
-        if (aFilters.length > 0) {
-          fc += `;[a]${aFilters.join(',')}[a]`;
-        }
-
-        const encodeArgs = [
-          '-filter_complex', fc,
-          '-map', '[v]'
-        ];
         if (muteAudio) {
-          encodeArgs.push('-an');
+          const concatIns = batchSegs.map((_, i) => `[${i}:v]`).join('');
+          fc = `${concatIns}concat=n=${batchSegs.length}:v=1:a=0[v_cat]`;
+          let vFilters = [];
+          if (mirror) vFilters.push('hflip');
+          if (speed !== 1.0) {
+            const speedFactor = (1.0 / speed).toFixed(4);
+            vFilters.push(`setpts=${speedFactor}*PTS`);
+          }
+          if (vFilters.length > 0) {
+            fc += `;[v_cat]${vFilters.join(',')}[v_out]`;
+            currentV = '[v_out]';
+          } else {
+            currentV = '[v_cat]';
+          }
+          encodeArgs = [
+            '-filter_complex', fc,
+            '-map', currentV,
+            '-an'
+          ];
         } else {
-          encodeArgs.push('-map', '[a]', '-c:a', 'aac', '-b:a', '192k');
+          const concatIns = batchSegs.map((_, i) => `[${i}:v][${i}:a]`).join('');
+          fc = `${concatIns}concat=n=${batchSegs.length}:v=1:a=1[v_cat][a_cat]`;
+          let vFilters = [];
+          if (mirror) vFilters.push('hflip');
+          if (speed !== 1.0) {
+            const speedFactor = (1.0 / speed).toFixed(4);
+            vFilters.push(`setpts=${speedFactor}*PTS`);
+          }
+          if (vFilters.length > 0) {
+            fc += `;[v_cat]${vFilters.join(',')}[v_out]`;
+            currentV = '[v_out]';
+          } else {
+            currentV = '[v_cat]';
+          }
+
+          let aFilters = [];
+          if (speed !== 1.0) {
+            aFilters.push(`atempo=${speed.toFixed(2)}`);
+          }
+          if (aFilters.length > 0) {
+            fc += `;[a_cat]${aFilters.join(',')}[a_out]`;
+            currentA = '[a_out]';
+          } else {
+            currentA = '[a_cat]';
+          }
+
+          encodeArgs = [
+            '-filter_complex', fc,
+            '-map', currentV,
+            '-map', currentA,
+            '-c:a', 'aac',
+            '-b:a', '192k'
+          ];
         }
 
         // Try NVENC GPU acceleration first, fallback to CPU libx264
