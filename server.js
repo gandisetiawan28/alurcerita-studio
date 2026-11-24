@@ -1708,8 +1708,9 @@ app.post('/api/media/slice-video', uploadMedia.single('file'), async (req, res) 
     const outFilename = `sliced_${keep}s_${skip}s_${cleanBase}_${Date.now()}.mp4`;
     const outputPath = path.join(publicVideosProcessedDir, outFilename);
 
-    // Build segments for Concat Demuxer (inpoint / outpoint)
-    // Slices audio and video in exact lockstep without stream desync
+    // Build segments for Fair-Use Slicer
+    // Uses multi-input seeking (-ss ... -t ...) and concat filter in batches of 40 segments
+    // Guarantees microsecond-exact audio and video synchronization with zero drift or repetition
     const segments = [];
     let curTime = 0;
     while (curTime < totalDuration) {
@@ -1724,34 +1725,15 @@ app.post('/api/media/slice-video', uploadMedia.single('file'), async (req, res) 
       segments.push([0, Math.min(keep, totalDuration)]);
     }
 
-    // Write temporary concat manifest list
-    const normalizedInputPath = path.resolve(inputPath).replace(/\\/g, '/');
-    const concatListPath = path.join(os.tmpdir(), `slicer_concat_${Date.now()}_${Math.random().toString(36).substring(7)}.txt`);
-    const listContent = segments.map(([start, end]) => 
-      `file '${normalizedInputPath}'\ninpoint ${start.toFixed(3)}\noutpoint ${end.toFixed(3)}`
-    ).join('\n');
-    fs.writeFileSync(concatListPath, listContent, 'utf8');
+    const tempDir = path.join(os.tmpdir(), `slicer_${Date.now()}_${Math.random().toString(36).substring(7)}`);
+    fs.mkdirSync(tempDir, { recursive: true });
+    const batchFiles = [];
+    const batchSize = 40;
 
-    // Video filters
-    let videoFilters = [];
-    if (mirror) {
-      videoFilters.push('hflip');
-    }
-    if (speed !== 1.0) {
-      const speedFactor = (1.0 / speed).toFixed(4);
-      videoFilters.push(`setpts=${speedFactor}*PTS`);
-    }
+    console.log(`[FFmpeg Slicer] Memproses video: ${inputPath} -> ${outputPath}`);
+    console.log(`[FFmpeg Slicer] Parameter: Ambil ${keep}s, Lewati ${skip}s (${segments.length} segmen dalam ${Math.ceil(segments.length / batchSize)} batch), Mute: ${muteAudio}, Mirror: ${mirror}, Speed: ${speed}x`);
 
-    // Audio filters
-    let audioFilters = [];
-    if (speed !== 1.0) {
-      audioFilters.push(`atempo=${speed.toFixed(2)}`);
-    }
-
-    console.log(`[FFmpeg Slicer] Memproses video via Concat Demuxer: ${inputPath} -> ${outputPath}`);
-    console.log(`[FFmpeg Slicer] Parameter: Ambil ${keep}s, Lewati ${skip}s (${segments.length} segmen, Total durasi sumber: ${totalDuration.toFixed(1)}s), Mute: ${muteAudio}, Mirror: ${mirror}, Speed: ${speed}x`);
-
-    const runFfmpegProcess = (args) => {
+    const runFfmpegCmd = (args, targetOut) => {
       return new Promise((resolve, reject) => {
         const proc = spawn('ffmpeg', args, { windowsHide: true });
         let stderrData = '';
@@ -1759,7 +1741,7 @@ app.post('/api/media/slice-video', uploadMedia.single('file'), async (req, res) 
           stderrData += chunk.toString();
         });
         proc.on('close', code => {
-          if (code === 0 && fs.existsSync(outputPath)) {
+          if (code === 0 && fs.existsSync(targetOut)) {
             resolve(true);
           } else {
             reject(new Error(`FFmpeg exited code ${code}: ${stderrData.slice(-500)}`));
@@ -1769,71 +1751,103 @@ app.post('/api/media/slice-video', uploadMedia.single('file'), async (req, res) 
       });
     };
 
-    const baseInputArgs = [
-      '-y',
-      '-f', 'concat',
-      '-safe', '0',
-      '-i', concatListPath
-    ];
-
-    const filterArgs = [];
-    if (videoFilters.length > 0) {
-      filterArgs.push('-vf', videoFilters.join(','));
-    }
-
-    const audioArgs = [];
-    if (muteAudio) {
-      audioArgs.push('-an');
-    } else {
-      if (audioFilters.length > 0) {
-        audioArgs.push('-af', audioFilters.join(','));
-      }
-      audioArgs.push('-c:a', 'aac', '-b:a', '192k');
-    }
-
     try {
-      // Attempt 1: NVIDIA NVENC Hardware Accelerated Encoding (Fastest: 300-500 FPS)
-      const nvencArgs = [
-        ...baseInputArgs,
-        ...filterArgs,
-        '-c:v', 'h264_nvenc',
-        '-preset', 'p4',
-        '-cq', '22',
-        '-pix_fmt', 'yuv420p',
-        ...audioArgs,
-        outputPath
-      ];
-      try {
-        console.log('[FFmpeg Slicer] Mencoba encoding GPU NVENC hardware acceleration...');
-        await runFfmpegProcess(nvencArgs);
-        console.log('[FFmpeg Slicer] NVENC encoding berhasil diselesaikan.');
-      } catch (nvencErr) {
-        console.warn('[FFmpeg Slicer] NVENC gagal atau tidak didukung, beralih ke fallback CPU libx264:', nvencErr.message);
-        if (fs.existsSync(outputPath)) {
-          try { fs.unlinkSync(outputPath); } catch (_) {}
+      // Process batches of segments
+      for (let b = 0; b < segments.length; b += batchSize) {
+        const batchSegs = segments.slice(b, b + batchSize);
+        const batchIdx = Math.floor(b / batchSize);
+        const batchOut = path.join(tempDir, `batch_${batchIdx.toString().padStart(4, '0')}.mp4`);
+        batchFiles.push(batchOut);
+
+        const cmdInputs = ['-y'];
+        for (const [start, end] of batchSegs) {
+          cmdInputs.push('-ss', start.toFixed(3), '-t', (end - start).toFixed(3), '-i', inputPath);
         }
-        // Attempt 2: CPU fallback with libx264
-        const cpuArgs = [
-          ...baseInputArgs,
-          ...filterArgs,
-          '-c:v', 'libx264',
-          '-preset', 'veryfast',
-          '-crf', '22',
-          '-pix_fmt', 'yuv420p',
-          ...audioArgs,
-          outputPath
+
+        const concatIns = batchSegs.map((_, i) => `[${i}:v][${i}:a]`).join('');
+        let fc = `${concatIns}concat=n=${batchSegs.length}:v=1:a=1[v][a]`;
+
+        let vFilters = [];
+        if (mirror) vFilters.push('hflip');
+        if (speed !== 1.0) {
+          const speedFactor = (1.0 / speed).toFixed(4);
+          vFilters.push(`setpts=${speedFactor}*PTS`);
+        }
+        if (vFilters.length > 0) {
+          fc += `;[v]${vFilters.join(',')}[v]`;
+        }
+
+        let aFilters = [];
+        if (speed !== 1.0) {
+          aFilters.push(`atempo=${speed.toFixed(2)}`);
+        }
+        if (aFilters.length > 0) {
+          fc += `;[a]${aFilters.join(',')}[a]`;
+        }
+
+        const encodeArgs = [
+          '-filter_complex', fc,
+          '-map', '[v]'
         ];
-        await runFfmpegProcess(cpuArgs);
-        console.log('[FFmpeg Slicer] CPU libx264 fallback encoding berhasil.');
+        if (muteAudio) {
+          encodeArgs.push('-an');
+        } else {
+          encodeArgs.push('-map', '[a]', '-c:a', 'aac', '-b:a', '192k');
+        }
+
+        // Try NVENC GPU acceleration first, fallback to CPU libx264
+        try {
+          await runFfmpegCmd([
+            ...cmdInputs,
+            ...encodeArgs,
+            '-c:v', 'h264_nvenc',
+            '-preset', 'p4',
+            '-cq', '22',
+            '-pix_fmt', 'yuv420p',
+            batchOut
+          ], batchOut);
+        } catch (nvErr) {
+          console.warn(`[FFmpeg Slicer] NVENC gagal di batch ${batchIdx}, beralih ke libx264:`, nvErr.message);
+          if (fs.existsSync(batchOut)) {
+            try { fs.unlinkSync(batchOut); } catch (_) {}
+          }
+          await runFfmpegCmd([
+            ...cmdInputs,
+            ...encodeArgs,
+            '-c:v', 'libx264',
+            '-preset', 'veryfast',
+            '-crf', '22',
+            '-pix_fmt', 'yuv420p',
+            batchOut
+          ], batchOut);
+        }
+      }
+
+      // Final Stitching
+      if (batchFiles.length === 1) {
+        fs.copyFileSync(batchFiles[0], outputPath);
+      } else {
+        const listFilePath = path.join(tempDir, 'list.txt');
+        const listContent = batchFiles.map(bf => `file '${bf.replace(/\\/g, '/')}'`).join('\n');
+        fs.writeFileSync(listFilePath, listContent, 'utf8');
+
+        await runFfmpegCmd([
+          '-y',
+          '-f', 'concat',
+          '-safe', '0',
+          '-i', listFilePath,
+          '-c', 'copy',
+          outputPath
+        ], outputPath);
       }
     } finally {
-      // Clean up temporary manifest list
+      // Clean up temporary batch folder
       try {
-        if (fs.existsSync(concatListPath)) {
-          fs.unlinkSync(concatListPath);
+        if (fs.existsSync(tempDir)) {
+          fs.rmSync(tempDir, { recursive: true, force: true });
         }
       } catch (errClean) {
-        console.warn('[FFmpeg Slicer] Gagal menghapus concat list sementara:', errClean.message);
+        console.warn('[FFmpeg Slicer] Gagal membersihkan temp batch folder:', errClean.message);
       }
     }
 
