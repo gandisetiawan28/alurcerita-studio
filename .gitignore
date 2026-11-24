@@ -27,3 +27,4 @@ scratch/
 test_gpu.py
 .aider-desk/
 .agents/
+.vscode/

@@ -2162,6 +2162,19 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
 
   // --- TTS Model & Character Voice Catalog ---
   const TTS_VOICE_CATALOG = {
+    capcut: [
+      { id: 'id_male_putra_uranus_bigtts', name: 'Putra (Pria Enerjik / Alur Cerita Populer)', default: true },
+      { id: 'id_female_icha_uranus_bigtts', name: 'Icha (Wanita Lembut / Narator Populer)' },
+      { id: 'id_male_darma', name: 'Darma (Pria Formal / Berwibawa)' },
+      { id: 'id_female_noor', name: 'Noor (Wanita Dewasa / Tenang & Elegan)' },
+      { id: 'id_male_adi', name: 'Adi (Pria Kasual / Santai)' },
+      { id: 'ICL_id_male_deep_god_dsp', name: 'Deep God (Suara Bass Dewa / Horor Thriller)' },
+      { id: 'ICL_id_male_grandpa_sumarno', name: 'Kakek Sumarno (Karakter Orang Tua / Kakek)' },
+      { id: 'ICL_id_female_hantuperempuan', name: 'Hantu Perempuan (Karakter Mistis & Horor)' },
+      { id: 'id_001', name: 'TikTok Legend (Suara Bot Wanita Klasik)' },
+      { id: 'BV138_streaming', name: 'Storyteller Female (Universal English)' },
+      { id: 'en_male_tech_blogger', name: 'Tech Blogger (Universal English)' }
+    ],
     kokoro: [
       { id: 'am_michael', name: 'Pria: am_michael (Dewasa, Tenang & Berwibawa)', default: true },
       { id: 'am_adam', name: 'Pria: am_adam (Muda, Santai Teman Ngopi)' },
@@ -2228,19 +2241,25 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     const cfg = state.ttsConfig || {};
     const hasUrl = Boolean(cfg.colab_url && cfg.colab_url.startsWith('http'));
     const isConnected = Boolean(cfg.is_connected && hasUrl);
+    const currentModel = cfg.model || (elements.ttsModelSelect ? elements.ttsModelSelect.value : 'capcut');
+    const isCapcut = currentModel === 'capcut';
 
     // Header dot indicator
     if (elements.ttsColabDotStatus) {
-      elements.ttsColabDotStatus.classList.toggle('online', isConnected);
-      elements.ttsColabDotStatus.title = isConnected 
-        ? `Colab Terhubung: ${cfg.colab_url}` 
-        : `Colab belum terhubung. Klik untuk konfigurasi.`;
+      elements.ttsColabDotStatus.classList.toggle('online', isConnected || isCapcut);
+      elements.ttsColabDotStatus.title = isCapcut
+        ? `CapCut TTS Aktif: Akun Gandi Setiawan (Siap Langsung)`
+        : (isConnected 
+          ? `Colab Terhubung: ${cfg.colab_url}` 
+          : `Colab belum terhubung. Klik untuk konfigurasi.`);
     }
 
     // Modal banner
     if (elements.ttsColabStatusBanner) {
-      elements.ttsColabStatusBanner.classList.toggle('connected', isConnected);
-      if (isConnected) {
+      elements.ttsColabStatusBanner.classList.toggle('connected', isConnected || isCapcut);
+      if (isCapcut) {
+        elements.ttsBannerText.textContent = `🟢 Terhubung ke CapCut Engine (Akun Gandi Setiawan) — Siap sintesis suara langsung tanpa Colab!`;
+      } else if (isConnected) {
         elements.ttsBannerText.textContent = `🟢 Terhubung ke Google Colab: ${cfg.colab_url}`;
       } else if (hasUrl) {
         elements.ttsBannerText.textContent = `🟡 URL tersimpan (${cfg.colab_url}), uji koneksi untuk memverifikasi GPU Colab.`;
@@ -2253,7 +2272,6 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     if (elements.inputColabUrl && cfg.colab_url) {
       elements.inputColabUrl.value = cfg.colab_url;
     }
-    const currentModel = cfg.model || (elements.ttsModelSelect ? elements.ttsModelSelect.value : 'kokoro');
     if (elements.ttsModelSelect) {
       elements.ttsModelSelect.value = currentModel;
     }
@@ -2419,7 +2437,9 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     elements.ttsProgressBox.hidden = false;
     elements.ttsSentenceProgressCard.hidden = false;
     elements.ttsResultCard.hidden = true;
-    elements.ttsProgressStatus.textContent = `Menghubungkan ke GPU Colab (Total: ${sentencesToProcess.length} kalimat)...`;
+    elements.ttsProgressStatus.textContent = model === 'capcut'
+      ? `Menghubungkan ke Mesin CapCut TTS (Total: ${sentencesToProcess.length} kalimat)...`
+      : `Menghubungkan ke GPU Colab (Total: ${sentencesToProcess.length} kalimat)...`;
     elements.ttsSentenceBarFill.style.width = '0%';
     elements.ttsSentenceStepLabel.textContent = `Memproses 0 dari ${sentencesToProcess.length} kalimat`;
     elements.ttsSentencePercentLabel.textContent = '0%';
@@ -6934,7 +6954,16 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
         populateTtsVoiceOptions(selectedModel);
 
         // Atur parameter default optimal untuk masing-masing model
-        if (selectedModel === 'dia') {
+        if (selectedModel === 'capcut') {
+          if (elements.ttsColabDotStatus) {
+            elements.ttsColabDotStatus.classList.add('online');
+            elements.ttsColabDotStatus.title = `CapCut TTS Aktif: Akun Gandi Setiawan (Siap Langsung)`;
+          }
+          if (elements.ttsColabStatusBanner) {
+            elements.ttsColabStatusBanner.classList.add('connected');
+            elements.ttsBannerText.textContent = `🟢 Terhubung ke CapCut Engine (Akun Gandi Setiawan) — Siap sintesis suara langsung tanpa Colab!`;
+          }
+        } else if (selectedModel === 'dia') {
           if (elements.ttsTempRange) { elements.ttsTempRange.value = 0.75; if (elements.ttsTempVal) elements.ttsTempVal.textContent = '0.75'; }
           if (elements.ttsCfgRange) { elements.ttsCfgRange.value = 2.5; if (elements.ttsCfgVal) elements.ttsCfgVal.textContent = '2.5'; }
         } else if (selectedModel === 'kokoro') {

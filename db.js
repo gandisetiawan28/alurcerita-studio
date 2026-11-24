@@ -1611,6 +1611,23 @@ const SettingsRepo = {
     console.log('🎙️ Berhasil inisialisasi karakter suara TTS default di SQLite.');
   }
 
+  // Seed CapCut Voices if not present
+  const capcutCount = db.prepare(`SELECT COUNT(*) as count FROM tts_voices WHERE model = 'capcut'`).get().count;
+  if (capcutCount === 0) {
+    TtsVoiceRepo.create({ model: 'capcut', voice_code: 'id_male_putra_uranus_bigtts', display_name: 'Putra (Pria Enerjik / Alur Cerita Populer)', gender: 'male', description: 'Standar emas narator alur cerita YouTube & TikTok Indonesia', is_default: 1 });
+    TtsVoiceRepo.create({ model: 'capcut', voice_code: 'id_female_icha_uranus_bigtts', display_name: 'Icha (Wanita Lembut / Narator Populer)', gender: 'female', description: 'Suara wanita ramah, ceria, dan artikulasi natural', is_default: 0 });
+    TtsVoiceRepo.create({ model: 'capcut', voice_code: 'id_male_darma', display_name: 'Darma (Pria Formal / Berwibawa)', gender: 'male', description: 'Nada tegas & dalam, cocok untuk aksi, perang, atau dokumenter', is_default: 0 });
+    TtsVoiceRepo.create({ model: 'capcut', voice_code: 'id_female_noor', display_name: 'Noor (Wanita Dewasa / Tenang & Elegan)', gender: 'female', description: 'Tenang, sejuk, artikulatif, cocok untuk drama & kisah inspiratif', is_default: 0 });
+    TtsVoiceRepo.create({ model: 'capcut', voice_code: 'id_male_adi', display_name: 'Adi (Pria Kasual / Santai)', gender: 'male', description: 'Gaya storytelling santai seperti teman mengobrol', is_default: 0 });
+    TtsVoiceRepo.create({ model: 'capcut', voice_code: 'ICL_id_male_deep_god_dsp', display_name: 'Deep God (Suara Bass Dewa / Horor Thriller)', gender: 'male', description: 'Karakter suara berat dewa/monster menggema untuk horor & villain', is_default: 0 });
+    TtsVoiceRepo.create({ model: 'capcut', voice_code: 'ICL_id_male_grandpa_sumarno', display_name: 'Kakek Sumarno (Karakter Orang Tua / Kakek)', gender: 'male', description: 'Suara khas orang tua/kakek untuk dongeng atau tokoh tetua', is_default: 0 });
+    TtsVoiceRepo.create({ model: 'capcut', voice_code: 'ICL_id_female_hantuperempuan', display_name: 'Hantu Perempuan (Karakter Mistis & Horor)', gender: 'female', description: 'Efek suara seram & bisikan mistis untuk adegan jumpscare', is_default: 0 });
+    TtsVoiceRepo.create({ model: 'capcut', voice_code: 'id_001', display_name: 'TikTok Legend (Suara Bot Wanita Klasik)', gender: 'female', description: 'Suara bot perempuan legendaris TikTok ("Mbak Google")', is_default: 0 });
+    TtsVoiceRepo.create({ model: 'capcut', voice_code: 'BV138_streaming', display_name: 'Storyteller Female (Universal English)', gender: 'female', description: 'Suara narator wanita storytelling bahasa Inggris/global', is_default: 0 });
+    TtsVoiceRepo.create({ model: 'capcut', voice_code: 'en_male_tech_blogger', display_name: 'Tech Blogger (Universal English)', gender: 'male', description: 'Suara pria energik khas presenter teknologi/konten global', is_default: 0 });
+    console.log('🎙️ Berhasil inisialisasi karakter suara CapCut TTS di SQLite.');
+  }
+
   // Seed Prompt Templates if empty
   const promptCount = db.prepare(`SELECT COUNT(*) as count FROM prompt_templates`).get().count;
   if (promptCount === 0) {

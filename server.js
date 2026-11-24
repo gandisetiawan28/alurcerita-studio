@@ -569,21 +569,50 @@ app.post('/api/tts/test-colab', async (req, res) => {
   }
 });
 
-// 4. Generate TTS via Google Colab
+// CapCut TTS Local Synthesis Helper (Uses user authenticated session)
+async function generateCapCutSpeech(text, voice = 'id_male_putra_uranus_bigtts', outputPath) {
+  return new Promise((resolve, reject) => {
+    const pythonScript = path.join(__dirname, 'services', 'capcut_tts.py');
+    const pythonExe = process.platform === 'win32' ? 'python' : 'python3';
+    const child = spawn(pythonExe, [pythonScript, '--stdin', '--voice', voice, '--output', outputPath]);
+
+    let stdoutData = '';
+    let stderrData = '';
+
+    child.stdout.on('data', (d) => { stdoutData += d.toString(); });
+    child.stderr.on('data', (d) => { stderrData += d.toString(); });
+
+    child.on('close', (code) => {
+      if (code !== 0) {
+        return reject(new Error(`CapCut TTS error (exit code ${code}): ${stderrData || stdoutData}`));
+      }
+      try {
+        const parsed = JSON.parse(stdoutData.trim());
+        if (parsed.success) {
+          resolve(parsed);
+        } else {
+          reject(new Error(parsed.error || 'Gagal menghasilkan audio CapCut'));
+        }
+      } catch (e) {
+        if (fs.existsSync(outputPath) && fs.statSync(outputPath).size > 0) {
+          resolve({ success: true, output_path: outputPath });
+        } else {
+          reject(new Error(`Gagal parsing response CapCut: ${stdoutData}`));
+        }
+      }
+    });
+
+    child.stdin.write(text);
+    child.stdin.end();
+  });
+}
+
+// 4. Generate TTS via Google Colab or Local CapCut Engine
 app.post('/api/tts/generate', async (req, res) => {
   try {
-    const { projectId, text, model = 'kokoro', voice = 'am_michael', speed = 1.0, temperature = 0.75, cfg_scale = 2.5, dialogue_mode = 'auto', tone_style = 'natural' } = req.body;
+    const { projectId, text, model = 'capcut', voice = 'id_male_putra_uranus_bigtts', speed = 1.0, temperature = 0.75, cfg_scale = 2.5, dialogue_mode = 'auto', tone_style = 'natural' } = req.body;
     if (!text || text.trim().length === 0) {
       return res.status(400).json({ success: false, error: 'Teks voiceover kosong.' });
-    }
-
-    const cfg = TtsRepo.getSettings();
-    const colabUrl = (req.body.colab_url || cfg.colab_url || '').trim().replace(/\/+$/, '');
-    if (!colabUrl || !colabUrl.startsWith('http')) {
-      return res.status(400).json({
-        success: false,
-        error: 'URL Google Colab belum diset. Silakan jalankan notebook Colab dan masukkan URL Gradio Live pada menu Voiceover TTS.'
-      });
     }
 
     // Clean text: strip visual cues like (Visual: ...) and markdown formatting
@@ -603,6 +632,49 @@ app.post('/api/tts/generate', async (req, res) => {
 
     if (!cleanSpokenText) {
       return res.status(400).json({ success: false, error: 'Tidak ada teks narasi yang bisa disuarakan setelah membersihkan tag visual.' });
+    }
+
+    // Route 1: CapCut TTS (Direct with Authenticated User Session, no Colab required)
+    if (model === 'capcut') {
+      console.log(`🎬 Mengirim request TTS ke CapCut (${voice} / mp3)...`);
+      const timestamp = Date.now();
+      const filename = `voice_${projectId || 'draft'}_capcut_${timestamp}.mp3`;
+      const filePath = path.join(publicAudioDir, filename);
+
+      await generateCapCutSpeech(cleanSpokenText, voice, filePath);
+
+      let durationSeconds = 0;
+      try {
+        const durStr = execSync(`ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${filePath}"`).toString().trim();
+        durationSeconds = parseFloat(durStr) || 0;
+      } catch (_) {}
+
+      if (projectId) {
+        TtsRepo.addAudio(projectId, filename, model, voice, Number(speed) || 1.0, durationSeconds);
+      }
+
+      const audioUrl = `/audio/${filename}`;
+      return res.json({
+        success: true,
+        data: {
+          filename,
+          audioUrl,
+          duration: durationSeconds,
+          model,
+          voice,
+          speed: Number(speed) || 1.0
+        }
+      });
+    }
+
+    // Route 2: Google Colab GPU (Kokoro, Dia-1.6B, Coqui XTTS)
+    const cfg = TtsRepo.getSettings();
+    const colabUrl = (req.body.colab_url || cfg.colab_url || '').trim().replace(/\/+$/, '');
+    if (!colabUrl || !colabUrl.startsWith('http')) {
+      return res.status(400).json({
+        success: false,
+        error: 'URL Google Colab belum diset. Silakan jalankan notebook Colab dan masukkan URL Gradio Live pada menu Voiceover TTS.'
+      });
     }
 
     console.log(`🎙️ Mengirim request TTS ke Google Colab (${model} / ${voice} / ${speed}x / mp3)...`);
@@ -710,7 +782,7 @@ app.post('/api/tts/generate-stream', async (req, res) => {
   };
 
   try {
-    let { projectId, sentences, text, voice = 'am_adam', speed = 1.1, model = 'kokoro', temperature = 0.75, cfg_scale = 2.5, dialogue_mode = 'auto', tone_style = 'natural' } = req.body;
+    let { projectId, sentences, text, voice = 'id_male_putra_uranus_bigtts', speed = 1.0, model = 'capcut', temperature = 0.75, cfg_scale = 2.5, dialogue_mode = 'auto', tone_style = 'natural' } = req.body;
     if ((!Array.isArray(sentences) || sentences.length === 0) && text) {
       sentences = splitIntoSentences(text);
     }
@@ -719,10 +791,11 @@ app.post('/api/tts/generate-stream', async (req, res) => {
       return res.end();
     }
 
+    const isCapcut = model === 'capcut';
     const cfg = TtsRepo.getSettings();
     const colabUrl = (req.body.colab_url || cfg?.colab_url || '').trim().replace(/\/+$/, '');
 
-    if (!colabUrl || !colabUrl.startsWith('http')) {
+    if (!isCapcut && (!colabUrl || !colabUrl.startsWith('http'))) {
       sendEvent({
         type: 'error',
         message: 'URL Google Colab belum diset. Pastikan Google Colab sudah dijalankan dan URL Cloudflare Tunnel sudah terhubung di menu Voiceover TTS.'
@@ -742,7 +815,7 @@ app.post('/api/tts/generate-stream', async (req, res) => {
     }
 
     sendEvent({ type: 'init', total: sentences.length });
-    console.log(`🚀 [SSE] Memulai sintesis ${sentences.length} kalimat via Colab: ${colabUrl}...`);
+    console.log(`🚀 [SSE] Memulai sintesis ${sentences.length} kalimat via ${isCapcut ? 'CapCut TTS Engine' : 'Colab: ' + colabUrl}...`);
 
     let aborted = false;
     let currentFetchController = null;
@@ -779,41 +852,48 @@ app.post('/api/tts/generate-stream', async (req, res) => {
       for (let attempt = 1; attempt <= 2; attempt++) {
         if (aborted) break;
         try {
-          const controller = new AbortController();
-          currentFetchController = controller;
-          // Timeout adaptif: Kokoro (35s), Dia-1.6B & Coqui XTTS (120s karena model 1.6B membutuhkan waktu komputasi)
-          const timeoutMs = (model === 'dia' || model === 'xtts') ? 120000 : 35000;
-          const timer = setTimeout(() => controller.abort(), timeoutMs);
+          if (isCapcut) {
+            await generateCapCutSpeech(sentence, voice, chunkFilePath);
+            chunkFiles.push(chunkFilePath);
+            success = true;
+            break;
+          } else {
+            const controller = new AbortController();
+            currentFetchController = controller;
+            // Timeout adaptif: Kokoro (35s), Dia-1.6B & Coqui XTTS (120s karena model 1.6B membutuhkan waktu komputasi)
+            const timeoutMs = (model === 'dia' || model === 'xtts') ? 120000 : 35000;
+            const timer = setTimeout(() => controller.abort(), timeoutMs);
 
-          const response = await fetch(`${colabUrl}/api/tts`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              text: sentence,
-              model,
-              voice,
-              speed: Number(speed),
-              format: 'mp3',
-              temperature: Number(temperature) || 0.75,
-              cfg_scale: Number(cfg_scale) || 2.5,
-              dialogue_mode: dialogue_mode || 'auto',
-              tone_style: tone_style || 'natural'
-            }),
-            signal: controller.signal
-          });
-          clearTimeout(timer);
-          currentFetchController = null;
+            const response = await fetch(`${colabUrl}/api/tts`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                text: sentence,
+                model,
+                voice,
+                speed: Number(speed),
+                format: 'mp3',
+                temperature: Number(temperature) || 0.75,
+                cfg_scale: Number(cfg_scale) || 2.5,
+                dialogue_mode: dialogue_mode || 'auto',
+                tone_style: tone_style || 'natural'
+              }),
+              signal: controller.signal
+            });
+            clearTimeout(timer);
+            currentFetchController = null;
 
-          if (!response.ok) {
-            const errBody = await response.text();
-            throw new Error(`HTTP ${response.status}: ${errBody}`);
+            if (!response.ok) {
+              const errBody = await response.text();
+              throw new Error(`HTTP ${response.status}: ${errBody}`);
+            }
+
+            const arrayBuf = await response.arrayBuffer();
+            fs.writeFileSync(chunkFilePath, Buffer.from(arrayBuf));
+            chunkFiles.push(chunkFilePath);
+            success = true;
+            break;
           }
-
-          const arrayBuf = await response.arrayBuffer();
-          fs.writeFileSync(chunkFilePath, Buffer.from(arrayBuf));
-          chunkFiles.push(chunkFilePath);
-          success = true;
-          break;
         } catch (err) {
           lastErr = err;
           if (attempt === 1 && !aborted) {
