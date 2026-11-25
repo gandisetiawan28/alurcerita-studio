@@ -526,6 +526,8 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     ttsVoiceSelect: document.getElementById('ttsVoiceSelect'),
     ttsSpeedRange: document.getElementById('ttsSpeedRange'),
     ttsSpeedVal: document.getElementById('ttsSpeedVal'),
+    ttsPauseRange: document.getElementById('ttsPauseRange'),
+    ttsPauseVal: document.getElementById('ttsPauseVal'),
     ttsAdvancedAccordion: document.getElementById('ttsAdvancedAccordion'),
     btnToggleAdvancedTts: document.getElementById('btnToggleAdvancedTts'),
     ttsAdvancedBody: document.getElementById('ttsAdvancedBody'),
@@ -2281,6 +2283,23 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
       elements.ttsSpeedRange.value = cfg.speed;
       if (elements.ttsSpeedVal) elements.ttsSpeedVal.textContent = `${cfg.speed}x`;
     }
+
+    const savedPause = localStorage.getItem('alurcerita_tts_pause');
+    if (elements.ttsPauseRange && savedPause) {
+      elements.ttsPauseRange.value = savedPause;
+      updateTtsPauseLabel(savedPause);
+    }
+  }
+
+  function updateTtsPauseLabel(val) {
+    if (!elements.ttsPauseVal) return;
+    const num = parseFloat(val) || 0.15;
+    let desc = 'Natural';
+    if (num <= 0.10) desc = 'Sangat Rapat';
+    else if (num <= 0.20) desc = 'Rapat & Natural';
+    else if (num <= 0.35) desc = 'Sedang';
+    else desc = 'Santai';
+    elements.ttsPauseVal.textContent = `${num.toFixed(2)}s (${desc})`;
   }
 
   async function handleSaveColabConfig(e) {
@@ -2483,6 +2502,7 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
           model,
           voice,
           speed,
+          sentence_pause: parseFloat(elements.ttsPauseRange ? elements.ttsPauseRange.value : 0.15) || 0.15,
           temperature: parseFloat(elements.ttsTempRange ? elements.ttsTempRange.value : 0.75) || 0.75,
           cfg_scale: parseFloat(elements.ttsCfgRange ? elements.ttsCfgRange.value : 2.5) || 2.5,
           dialogue_mode: elements.ttsDialogueModeSelect ? elements.ttsDialogueModeSelect.value : 'auto',
@@ -6922,6 +6942,10 @@ Gua pamit dulu, salam hangat, dan sampai jumpa di alur cerita selanjutnya!`;
     if (elements.ttsSourceText) elements.ttsSourceText.addEventListener('input', updateTtsTextMetrics);
     if (elements.ttsSpeedRange) elements.ttsSpeedRange.addEventListener('input', (e) => {
       if (elements.ttsSpeedVal) elements.ttsSpeedVal.textContent = `${e.target.value}x`;
+    });
+    if (elements.ttsPauseRange) elements.ttsPauseRange.addEventListener('input', (e) => {
+      updateTtsPauseLabel(e.target.value);
+      localStorage.setItem('alurcerita_tts_pause', e.target.value);
     });
     if (elements.btnTriggerTtsGenerate) elements.btnTriggerTtsGenerate.addEventListener('click', handleTriggerTtsGenerate);
     if (elements.btnStopTtsGenerate) elements.btnStopTtsGenerate.addEventListener('click', handleStopTtsGenerate);

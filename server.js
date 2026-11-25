@@ -644,6 +644,19 @@ app.post('/api/tts/generate', async (req, res) => {
 
       await generateCapCutSpeech(cleanSpokenText, voice, filePath);
 
+      // Trim leading & trailing silence from output file for tight pacing
+      const rawFilePath = filePath.replace(/\.mp3$/, '_raw.mp3');
+      try {
+        fs.renameSync(filePath, rawFilePath);
+        const trimFilter = 'silenceremove=start_periods=1:start_duration=0.02:start_threshold=-40dB,areverse,silenceremove=start_periods=1:start_duration=0.02:start_threshold=-40dB,areverse';
+        execSync(`ffmpeg -y -i "${rawFilePath}" -af "${trimFilter}" -c:a libmp3lame -b:a 192k "${filePath}"`, { stdio: 'ignore' });
+        try { fs.unlinkSync(rawFilePath); } catch (_) {}
+      } catch (trimErr) {
+        if (fs.existsSync(rawFilePath) && !fs.existsSync(filePath)) {
+          fs.renameSync(rawFilePath, filePath);
+        }
+      }
+
       let durationSeconds = 0;
       try {
         const durStr = execSync(`ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${filePath}"`).toString().trim();
@@ -783,7 +796,7 @@ app.post('/api/tts/generate-stream', async (req, res) => {
   };
 
   try {
-    let { projectId, sentences, text, voice = 'id_male_putra_uranus_bigtts', speed = 1.0, model = 'capcut', temperature = 0.75, cfg_scale = 2.5, dialogue_mode = 'auto', tone_style = 'natural' } = req.body;
+    let { projectId, sentences, text, voice = 'id_male_putra_uranus_bigtts', speed = 1.0, model = 'capcut', temperature = 0.75, cfg_scale = 2.5, dialogue_mode = 'auto', tone_style = 'natural', sentence_pause = 0.15 } = req.body;
     if ((!Array.isArray(sentences) || sentences.length === 0) && text) {
       sentences = splitIntoSentences(text);
     }
@@ -908,6 +921,22 @@ app.post('/api/tts/generate-stream', async (req, res) => {
         throw new Error(`Gagal pada kalimat #${i + 1} ("${sentence.slice(0, 30)}..."): ${lastErr?.message || 'Timeout'}`);
       }
 
+      // Trim leading & trailing dead air from generated chunk for natural, tight storytelling pacing
+      const rawChunkPath = chunkFilePath.replace(/\.mp3$/, '_raw.mp3');
+      try {
+        fs.renameSync(chunkFilePath, rawChunkPath);
+        const trimFilter = 'silenceremove=start_periods=1:start_duration=0.02:start_threshold=-40dB,areverse,silenceremove=start_periods=1:start_duration=0.02:start_threshold=-40dB,areverse';
+        execSync(`ffmpeg -y -i "${rawChunkPath}" -af "${trimFilter}" -c:a libmp3lame -b:a 192k "${chunkFilePath}"`, { stdio: 'ignore' });
+        if (fs.existsSync(rawChunkPath)) {
+          try { fs.unlinkSync(rawChunkPath); } catch (_) {}
+        }
+      } catch (trimErr) {
+        console.warn(`Trim warning on chunk ${i}, keeping original:`, trimErr.message);
+        if (fs.existsSync(rawChunkPath) && !fs.existsSync(chunkFilePath)) {
+          fs.renameSync(rawChunkPath, chunkFilePath);
+        }
+      }
+
       // Read chunk duration via ffprobe
       let chunkDuration = 0;
       try {
@@ -929,14 +958,22 @@ app.post('/api/tts/generate-stream', async (req, res) => {
       return res.end();
     }
 
-    // Step 2: Ensure 250ms silence mp3 exists for natural narrative pacing
-    const silenceFilePath = path.join(scratchDir, 'silence_250ms.mp3');
-    if (!fs.existsSync(silenceFilePath)) {
-      try {
-        execSync(`ffmpeg -y -f lavfi -i anullsrc=r=24000:cl=mono -t 0.25 -c:a libmp3lame -b:a 192k "${silenceFilePath}"`, { stdio: 'ignore' });
-      } catch (e) {
-        console.warn('Could not generate silence mp3, continuing without silence:', e.message);
+    // Step 2: Configure silence mp3 between sentences according to desired narrative pacing (default 150ms)
+    const pauseDuration = Math.max(0.02, Math.min(1.5, parseFloat(sentence_pause) || 0.15));
+    const pauseMs = Math.round(pauseDuration * 1000);
+    const silenceFileName = `silence_${pauseMs}ms.mp3`;
+    const silenceFilePath = path.join(scratchDir, silenceFileName);
+    let hasSilence = false;
+
+    if (pauseDuration >= 0.04) {
+      if (!fs.existsSync(silenceFilePath)) {
+        try {
+          execSync(`ffmpeg -y -f lavfi -i anullsrc=r=24000:cl=mono -t ${pauseDuration} -c:a libmp3lame -b:a 192k "${silenceFilePath}"`, { stdio: 'ignore' });
+        } catch (e) {
+          console.warn('Could not generate silence mp3, continuing without silence:', e.message);
+        }
       }
+      hasSilence = fs.existsSync(silenceFilePath);
     }
 
     // Step 3: Concat chunks into master file using ffmpeg
@@ -944,7 +981,6 @@ app.post('/api/tts/generate-stream', async (req, res) => {
     const masterFilePath = path.join(publicAudioDir, masterFileName);
     const listFilePath = path.join(chunkDir, 'list.txt');
 
-    const hasSilence = fs.existsSync(silenceFilePath);
     const normalizedSilencePath = silenceFilePath.replace(/\\/g, '/');
 
     let listContent = '';
